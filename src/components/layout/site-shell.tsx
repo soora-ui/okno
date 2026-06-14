@@ -2,12 +2,17 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { AuthenticatedRoutePrefetch } from "@/components/layout/authenticated-route-prefetch";
 import { AccountMenu } from "@/components/layout/account-menu";
+import { BrandLogo } from "@/components/layout/brand-logo";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
 import { ButtonLink } from "@/components/ui/button";
 import { appMode } from "@/lib/env";
 import { getAccountNotificationPanelData, getCurrentAuthProfile } from "@/lib/data";
 import { landingDemoPublicPageHref } from "@/lib/landing-demo";
-import { canManageWorkspace, isTeamWorkspaceKind } from "@/lib/workspace";
+import {
+  canManageWorkspace,
+  getDefaultAccountRoute,
+  isTeamWorkspaceKind,
+} from "@/lib/workspace";
 
 async function AccountNotificationsSlot({
   authProfile,
@@ -67,21 +72,25 @@ export async function SiteShell({
     publicPageHrefOverride ??
     (authProfile ? `/${authProfile.profile.username}` : landingDemoPublicPageHref);
   const publicPageLabel = publicPageLabelOverride ?? "Публичная страница";
-  const prefetchRoutes = authProfile
-    ? isWorkspaceAdmin
-      ? ["/schedule", "/settings", "/clients", "/team", "/dashboard"]
-      : ["/schedule", "/settings", "/clients", "/dashboard"]
-    : [];
+  const homeHref = authProfile
+    ? getDefaultAccountRoute({
+        accountRole: authProfile.profile.accountRole,
+        workspaceKind: authProfile.profile.workspaceKind,
+      })
+    : "/";
+  const prefetchRoutes = isWorkspaceAdmin
+    ? ["/settings", "/schedule", "/team", "/archive"]
+    : ["/settings", "/schedule", "/clients", "/archive"];
   const links = authProfile
     ? isWorkspaceAdmin
       ? [
-          { href: "/", label: "Главная" },
+          { href: homeHref, label: "Главная" },
           { href: "/pricing", label: "Тарифы" },
           { href: "/team", label: "Команда" },
           { href: "/dashboard", label: "Мой кабинет" },
         ]
       : [
-          { href: "/", label: "Главная" },
+          { href: homeHref, label: "Главная" },
           { href: "/pricing", label: "Тарифы" },
           { href: "/dashboard", label: "Кабинет" },
           { href: publicPageHref, label: publicPageLabel },
@@ -97,19 +106,15 @@ export async function SiteShell({
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--color-background)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(184,211,196,0.4),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(247,226,211,0.6),_transparent_30%)]" />
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-12 pt-4 sm:px-6 lg:px-8">
-        <header className="sticky top-4 z-20 mb-6 rounded-full border border-line bg-white/95 px-4 py-3">
+        <header className="print-static sticky top-4 z-20 mb-6 rounded-full border border-line bg-white/95 px-4 py-3">
           <div className="flex items-center justify-between gap-4">
-            <Link href="/" className="flex items-center gap-3 text-sm font-semibold text-ink">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-white">
-                o
-              </span>
-              okno
+            <BrandLogo href={homeHref}>
               {appMode === "demo" ? (
                 <span className="rounded-full border border-line bg-panel px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
                   demo
                 </span>
               ) : null}
-            </Link>
+            </BrandLogo>
             {!compact ? (
               <nav className="hidden items-center gap-5 md:flex">
                 {links.map((link) => (

@@ -27,83 +27,83 @@
 }
 
 .bg-ink {
-  background-color: var(--color-ink, #23241f);
+  background-color: var(--color-ink);
 }
 
 .bg-ink-soft {
-  background-color: var(--color-ink-soft, #434239);
+  background-color: var(--color-ink-soft);
 }
 
 .bg-panel {
-  background-color: var(--color-panel, #eee7dc);
+  background-color: var(--color-panel);
 }
 
 .bg-panel-strong {
-  background-color: var(--color-panel-strong, #e3d8c7);
+  background-color: var(--color-panel-strong);
 }
 
 .bg-accent {
-  background-color: var(--color-accent, #b8d3c4);
+  background-color: var(--color-accent);
 }
 
 .bg-accent-soft {
-  background-color: var(--color-accent-soft, #eef6f0);
+  background-color: var(--color-accent-soft);
 }
 
 .bg-success-soft {
-  background-color: var(--color-success-soft, #e6f3eb);
+  background-color: var(--color-success-soft);
 }
 
 .bg-warning-soft {
-  background-color: var(--color-warning-soft, #f5ecdb);
+  background-color: var(--color-warning-soft);
 }
 
 .text-ink {
-  color: var(--color-ink, #23241f);
+  color: var(--color-ink);
 }
 
 .text-ink-soft {
-  color: var(--color-ink-soft, #434239);
+  color: var(--color-ink-soft);
 }
 
 .text-muted {
-  color: var(--color-muted, #656055);
+  color: var(--color-muted);
 }
 
 .text-accent-deep {
-  color: var(--color-accent-deep, #4b6d5b);
+  color: var(--color-accent-deep);
 }
 
 .text-success {
-  color: var(--color-success, #3f7b5a);
+  color: var(--color-success);
 }
 
 .text-warning {
-  color: var(--color-warning, #8e6c2f);
+  color: var(--color-warning);
 }
 
 .border-line {
-  border-color: var(--color-line, #d3c5b3);
+  border-color: var(--color-line);
 }
 
 .border-ink {
-  border-color: var(--color-ink, #23241f);
+  border-color: var(--color-ink);
 }
 
 .border-ink-soft {
-  border-color: var(--color-ink-soft, #434239);
+  border-color: var(--color-ink-soft);
 }
 
 .border-accent {
-  border-color: var(--color-accent, #b8d3c4);
+  border-color: var(--color-accent);
 }
 
 .ring-accent {
-  --tw-ring-color: var(--color-accent, #b8d3c4);
+  --tw-ring-color: var(--color-accent);
 }
 
 .ring-line {
-  --tw-ring-color: var(--color-line, #d3c5b3);
+  --tw-ring-color: var(--color-line);
 }
 
 * {
@@ -203,4 +203,37 @@ input[type="number"] {
 
 .demo-tour-panel {
   animation: demo-tour-fade 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff;
+  }
+
+  .print-stack-cols {
+    display: block !important;
+  }
+
+  .print-stack-cols > * + * {
+    margin-top: 24px !important;
+  }
+
+  .print-grid-2 {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-no-shadow {
+    box-shadow: none !important;
+  }
+
+  .print-static {
+    position: static !important;
+  }
 }

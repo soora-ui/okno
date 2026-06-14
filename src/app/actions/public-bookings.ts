@@ -4,15 +4,23 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { DateTime } from "luxon";
 import { z } from "zod";
-import { decryptPhone, getCancellationDeadlineIso } from "@/lib/booking";
+import {
+  decryptPhone,
+  getBusyUntilIso,
+  getCancellationDeadlineIso,
+  isSameLocalSlot,
+} from "@/lib/booking";
 import { checkBookingConflict } from "@/lib/booking-conflicts";
 import { bookings as mockBookings, profile as mockProfile } from "@/lib/mock-data";
 import { getBookingCancellationData } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/env";
+import { writeAuditLog } from "@/lib/observability/audit";
+import { logError } from "@/lib/observability/logger";
 import {
   buildReminderNotificationEvents,
   cancelQueuedReminderEvents,
 } from "@/lib/notification-queue";
+import { isSupabaseBookingOverlapError } from "@/lib/supabase/auth-errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type PublicBookingActionState = {
@@ -113,6 +121,18 @@ export async function cancelBookingByTokenAction(
 
   await cancelQueuedReminderEvents(String(updatedBooking.id));
 
+  await writeAuditLog({
+    actorKind: "client",
+    profileId: cancellationData.profileId,
+    workspaceId: cancellationData.workspaceId,
+    eventType: "booking.cancelled_by_client",
+    targetType: "booking",
+    targetId: String(updatedBooking.id),
+    metadata: {
+      via: "protected_link",
+    },
+  });
+
   revalidatePath(`/${cancellationData.username}`);
   revalidatePath(`/${cancellationData.username}/book`);
   revalidatePath(`/${cancellationData.username}/confirm`);
@@ -161,13 +181,13 @@ export async function rescheduleBookingByTokenAction(
     };
   }
 
-  const currentSlot = DateTime.fromISO(bookingData.startsAtIso, { zone: "utc" }).setZone(
-    bookingData.timezone,
-  );
   if (
-    currentSlot.isValid &&
-    currentSlot.toISODate() === parsed.data.date &&
-    currentSlot.toFormat("HH:mm") === parsed.data.time
+    isSameLocalSlot({
+      startsAtIso: bookingData.startsAtIso,
+      timezone: bookingData.timezone,
+      date: parsed.data.date,
+      time: parsed.data.time,
+    })
   ) {
     return {
       success: false,
@@ -277,14 +297,13 @@ export async function rescheduleBookingByTokenAction(
     return { success: false, message: "Не получилось собрать новый слот." };
   }
 
-  const currentStart = DateTime.fromISO(String(bookingRow.starts_at), { zone: "utc" }).setZone(
-    String(profileRow.timezone ?? "Europe/Simferopol"),
-  );
-
   if (
-    currentStart.isValid &&
-    currentStart.toISODate() === parsed.data.date &&
-    currentStart.toFormat("HH:mm") === parsed.data.time
+    isSameLocalSlot({
+      startsAtIso: String(bookingRow.starts_at),
+      timezone: String(profileRow.timezone ?? "Europe/Simferopol"),
+      date: parsed.data.date,
+      time: parsed.data.time,
+    })
   ) {
     return {
       success: false,
@@ -307,7 +326,11 @@ export async function rescheduleBookingByTokenAction(
   });
 
   if (conflictError) {
-    console.error("okno: failed to check reschedule conflict", conflictError);
+    logError("Failed to check reschedule conflict", {
+      bookingId: String(bookingRow.id),
+      profileId: String(bookingRow.profile_id),
+      error: conflictError,
+    });
     return { success: false, message: "Не получилось проверить новое время." };
   }
 
@@ -323,6 +346,11 @@ export async function rescheduleBookingByTokenAction(
     .update({
       starts_at: nextStartIso,
       ends_at: nextEndIso,
+      busy_until:
+        getBusyUntilIso({
+          endsAtIso: nextEndIso,
+          bufferMinutes: Number(profileRow.buffer_minutes ?? 0),
+        }) ?? slotBusyEndIso,
       cancellation_token_expires_at:
         getCancellationDeadlineIso({
           startsAtIso: nextStartIso,
@@ -334,6 +362,10 @@ export async function rescheduleBookingByTokenAction(
     .eq("status", "confirmed");
 
   if (updateError) {
+    if (isSupabaseBookingOverlapError(updateError)) {
+      return { success: false, message: "Это время уже занято. Выбери другой слот." };
+    }
+
     return { success: false, message: "Не получилось перенести запись." };
   }
 
@@ -358,6 +390,19 @@ export async function rescheduleBookingByTokenAction(
   if (reminderRows.length > 0) {
     await admin.from("notification_events").insert(reminderRows);
   }
+
+  await writeAuditLog({
+    actorKind: "client",
+    profileId: String(bookingRow.profile_id),
+    workspaceId: bookingData.workspaceId,
+    eventType: "booking.rescheduled_by_client",
+    targetType: "booking",
+    targetId: String(bookingRow.id),
+    metadata: {
+      startsAtIso: nextStartIso,
+      via: "protected_link",
+    },
+  });
 
   revalidatePath(`/${String(profileRow.username)}`);
   revalidatePath(`/${String(profileRow.username)}/book`);

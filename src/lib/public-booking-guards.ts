@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { DateTime } from "luxon";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logError } from "@/lib/observability/logger";
 
 type AdminClient = SupabaseClient;
 
@@ -53,8 +54,7 @@ export function buildIdempotencyKey(input: {
   request: Request;
   requestHash: string;
 }) {
-  const headerKey = input.request.headers.get("Idempotency-Key")?.trim();
-  return headerKey || input.requestHash;
+  return input.requestHash;
 }
 
 export async function assertPublicBookingRateLimit(input: {
@@ -199,7 +199,7 @@ export async function completeBookingIdempotency(input: {
   bookingId: string;
   payload: unknown;
 }) {
-  await input.admin
+  const { error } = await input.admin
     .from("public_booking_idempotency")
     .update({
       status: "completed",
@@ -208,6 +208,14 @@ export async function completeBookingIdempotency(input: {
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.rowId);
+
+  if (error) {
+    logError("Failed to mark booking idempotency row as completed", {
+      rowId: input.rowId,
+      bookingId: input.bookingId,
+      error,
+    });
+  }
 }
 
 export async function failBookingIdempotency(input: {
@@ -215,7 +223,7 @@ export async function failBookingIdempotency(input: {
   rowId: string;
   payload: unknown;
 }) {
-  await input.admin
+  const { error } = await input.admin
     .from("public_booking_idempotency")
     .update({
       status: "failed",
@@ -223,4 +231,11 @@ export async function failBookingIdempotency(input: {
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.rowId);
+
+  if (error) {
+    logError("Failed to mark booking idempotency row as failed", {
+      rowId: input.rowId,
+      error,
+    });
+  }
 }

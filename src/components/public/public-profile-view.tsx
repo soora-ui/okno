@@ -1,9 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { DateTime } from "luxon";
+import { useState } from "react";
 import {
   ArrowRight,
   BadgeCheck,
@@ -14,304 +12,32 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import Image from "next/image";
+import {
+  DemoStoryChapter,
+  DemoStoryIntro,
+  DemoStoryOutro,
+} from "@/components/public/demo-story";
+import { BrandLogo } from "@/components/layout/brand-logo";
+import { PortfolioModal } from "@/components/public/portfolio-modal";
+import {
+  getClosestSlots,
+  publicDemoStorySteps,
+  publicInfoItems,
+  publicTrustItems,
+  type PublicProfileViewProps,
+} from "@/components/public/public-profile-shared";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { getBookingThemeStyle } from "@/lib/booking-theme-presets";
-import { formatCurrency, type BookingSlot, type Profile, type Service } from "@/lib/mock-data";
-
-type PublicProfileViewProps = {
-  profile: Profile;
-  services: Service[];
-  bookingSlotsByService: Record<string, BookingSlot[]>;
-  bookingHref: string;
-  eyebrowLabel: string;
-  showDemoSections?: boolean;
-  guidedDemo?: boolean;
-  guidedDemoCleanHref?: string;
-};
-
-type DemoStoryStep = {
-  id: string;
-  stepLabel: string;
-  eyebrow: string;
-  title: string;
-  description: string;
-  settings: string;
-  tone?: "light" | "accent" | "ink";
-};
-
-function capitalizeLabel(value: string) {
-  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
-}
-
-function formatSlotDate(date: string) {
-  return capitalizeLabel(
-    DateTime.fromISO(date, { zone: "utc" }).setLocale("ru").toFormat("ccc, d LLL"),
-  );
-}
-
-function getClosestSlots(
-  services: Service[],
-  bookingSlotsByService: Record<string, BookingSlot[]>,
-) {
-  const serviceMap = new Map(services.map((service) => [service.id, service]));
-
-  return Object.entries(bookingSlotsByService)
-    .flatMap(([serviceId, slots]) =>
-      slots.flatMap((slot) =>
-        slot.times.slice(0, 2).map((time) => ({
-          serviceId,
-          serviceTitle: serviceMap.get(serviceId)?.title ?? "Услуга",
-          date: slot.value,
-          dateLabel: formatSlotDate(slot.value),
-          time,
-          sortKey: `${slot.value}T${time}`,
-        })),
-      ),
-    )
-    .sort((left, right) => left.sortKey.localeCompare(right.sortKey))
-    .slice(0, 4);
-}
-
-function PortfolioModal({
-  fullName,
-  works,
-  isOpen,
-  onClose,
-}: {
-  fullName: string;
-  works: Profile["portfolioWorks"];
-  isOpen: boolean;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen || works.length === 0) {
-    return null;
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 px-3 py-5 sm:px-6 sm:py-8"
-      style={{ backgroundColor: "rgba(25,26,23,0.3)" }}
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Галерея работ ${fullName}`}
-        className="mx-auto flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] border border-line shadow-[0_40px_120px_rgba(22,24,20,0.18)]"
-        style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-5 sm:px-7">
-          <div className="space-y-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-muted">
-              Готовые работы
-            </p>
-            <h2 className="text-2xl font-semibold text-ink sm:text-3xl">{fullName}</h2>
-            <p className="text-sm leading-6 text-ink-soft">
-              Можно спокойно пролистать всю подборку, не уходя со страницы записи.
-            </p>
-          </div>
-          <Button variant="secondary" onClick={onClose} className="px-4">
-            Закрыть
-          </Button>
-        </div>
-
-        <div className="overflow-y-auto px-5 py-5 sm:px-7">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {works.map((work, index) => (
-              <article
-                key={work.id}
-                className="overflow-hidden rounded-[28px] border border-line"
-                style={{ backgroundColor: "var(--color-panel)" }}
-              >
-                <div className="relative aspect-[4/5] overflow-hidden">
-                  <Image
-                    src={work.imageUrl}
-                    alt={`${fullName}, работа ${index + 1}`}
-                    fill
-                    sizes="(max-width: 639px) 100vw, 50vw"
-                    className="object-cover"
-                  />
-                </div>
-                <div className="px-4 py-4">
-                  <p className="text-sm font-medium text-ink">Работа {index + 1}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DemoStoryIntro({
-  steps,
-}: {
-  steps: DemoStoryStep[];
-}) {
-  return (
-    <section className="mb-10 overflow-hidden rounded-[40px] border border-white/80 bg-white/78 shadow-[0_32px_120px_rgba(35,36,31,0.08)] backdrop-blur">
-      <div className="grid gap-8 px-6 py-7 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-8">
-        <div className="space-y-4">
-          <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
-            Scroll Story
-          </p>
-          <h2 className="max-w-3xl text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            Прокрути страницу так, как будто ты клиент, а пояснения будут идти прямо по ходу экрана
-          </h2>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          {steps.slice(0, 2).map((step) => (
-            <div
-              key={step.id}
-              className="rounded-[28px] border border-line bg-[rgba(250,248,244,0.8)] p-4"
-            >
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted">
-                {step.stepLabel}
-              </p>
-              <h3 className="mt-2 text-lg font-semibold text-ink">{step.eyebrow}</h3>
-              <p className="mt-2 text-sm leading-6 text-ink-soft">{step.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function DemoStoryChapter({
-  step,
-}: {
-  step: DemoStoryStep;
-}) {
-  const toneClasses =
-    step.tone === "ink"
-      ? {
-          shell: "border-transparent bg-[linear-gradient(145deg,#23241f_0%,#343730_100%)] text-white shadow-[0_30px_90px_rgba(35,36,31,0.18)]",
-          eyebrow: "text-white/60",
-          description: "text-white/75",
-          settings: "border-white/10 bg-white/8 text-white/75",
-          settingsLabel: "text-white/55",
-        }
-      : step.tone === "accent"
-        ? {
-            shell: "border-accent bg-[rgba(238,247,240,0.9)] text-ink shadow-[0_24px_80px_rgba(35,36,31,0.08)]",
-            eyebrow: "text-accent-deep",
-            description: "text-ink-soft",
-            settings: "border-white/70 bg-white/78 text-ink-soft",
-            settingsLabel: "text-muted",
-          }
-        : {
-            shell: "border-white/80 bg-white/74 text-ink shadow-[0_24px_80px_rgba(35,36,31,0.08)]",
-            eyebrow: "text-muted",
-            description: "text-ink-soft",
-            settings: "border-line bg-panel text-ink-soft",
-            settingsLabel: "text-muted",
-          };
-
-  return (
-    <section className="mt-12">
-      <div className="grid gap-6 xl:grid-cols-[200px_minmax(0,1fr)] xl:items-start">
-        <div className="space-y-3 xl:sticky xl:top-24">
-          <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
-            {step.stepLabel}
-          </p>
-          <h3 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-            {step.eyebrow}
-          </h3>
-        </div>
-
-        <div className={`rounded-[36px] border p-6 sm:p-8 ${toneClasses.shell}`}>
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                {step.title}
-              </h3>
-              <p className={`text-base leading-8 sm:text-lg ${toneClasses.description}`}>
-                {step.description}
-              </p>
-            </div>
-
-            <div className={`rounded-[28px] border p-5 ${toneClasses.settings}`}>
-              <p className={`text-[11px] uppercase tracking-[0.18em] ${toneClasses.settingsLabel}`}>
-                Что настраивает мастер
-              </p>
-              <p className="mt-3 text-sm leading-7">{step.settings}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function DemoStoryOutro({
-  cleanHref,
-}: {
-  cleanHref?: string;
-}) {
-  return (
-    <section className="mt-16 rounded-[40px] border border-white/80 bg-white/78 px-6 py-7 shadow-[0_24px_80px_rgba(35,36,31,0.08)] backdrop-blur sm:px-8 sm:py-8">
-      <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
-        <div className="space-y-3">
-          <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
-            Финал
-          </p>
-          <h3 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-            Дальше можно посмотреть тот же профиль уже без пояснений
-          </h3>
-          <p className="max-w-2xl text-base leading-7 text-ink-soft sm:text-lg">
-            Это тот же самый demo-профиль, только без story-блоков. Так проще оценить, как страница
-            выглядит сама по себе и насколько она готова к отправке клиенту.
-          </p>
-        </div>
-
-        {cleanHref ? (
-          <ButtonLink
-            href={cleanHref}
-            documentNavigation
-            variant="secondary"
-            className="justify-center gap-2"
-          >
-            Открыть чистый профиль
-            <ArrowRight size={16} />
-          </ButtonLink>
-        ) : null}
-      </div>
-    </section>
-  );
-}
+import { formatCurrency } from "@/lib/mock-data";
 
 export function PublicProfileView({
   profile,
   services,
   bookingSlotsByService,
   bookingHref,
+  homeHref = "/",
   eyebrowLabel,
   showDemoSections = true,
   guidedDemo = false,
@@ -325,97 +51,7 @@ export function PublicProfileView({
   const shortestDuration =
     services.length > 0 ? Math.min(...services.map((service) => service.durationMinutes)) : null;
 
-  const trustItems = [
-    {
-      icon: MessageCircleHeart,
-      label: "Подтверждение на экране и SMS после записи",
-    },
-    {
-      icon: ShieldCheck,
-      label: "Правила записи и отмены мастер настраивает сам",
-    },
-    {
-      icon: Sparkles,
-      label: "Локация, услуги и окно записи обновляются в кабинете",
-    },
-  ];
-
-  const infoItems = [
-    {
-      icon: CalendarClock,
-      title: "Как проходит запись",
-      text: "Сначала выбирается услуга и удобное время, затем остаётся только оставить имя и телефон для подтверждения.",
-    },
-    {
-      icon: BadgeCheck,
-      title: "Что получает клиент",
-      text: "Клиент видит актуальные слоты, подтверждает запись в пару шагов и сразу получает экран с деталями визита.",
-    },
-    {
-      icon: Clock3,
-      title: "Что настраивает мастер",
-      text: "В кабинете можно менять окно записи, шаг слотов, паузу между визитами, правила самостоятельной отмены и напоминания.",
-    },
-  ];
   const publicThemeStyle = getBookingThemeStyle(profile.bookingThemePresetId);
-
-  const demoStorySteps: DemoStoryStep[] = [
-    {
-      id: "hero",
-      stepLabel: "Шаг 1",
-      eyebrow: "Первая сцена",
-      title: "Клиент сразу попадает на личную витрину мастера",
-      description:
-        "С первого экрана видно имя мастера, нишу, район, аккуратный оффер и кнопки действия. Не нужно сначала разбираться в сервисе или искать, куда нажимать.",
-      settings:
-        "Имя, фото, описание, специализация и локация меняются в профиле мастера и сразу обновляют публичную страницу.",
-      tone: "light",
-    },
-    {
-      id: "slots",
-      stepLabel: "Шаг 2",
-      eyebrow: "Свободные окна",
-      title: "На первом экране сразу есть ответ на вопрос «когда можно записаться?»",
-      description:
-        "Ближайшие слоты выводятся рядом с витриной мастера, поэтому клиенту не нужно идти в переписку или ждать ответа, чтобы понять, есть ли свободное время.",
-      settings:
-        "Окно записи, шаг слотов и пауза между визитами задаются в настройках записи, поэтому расписание всегда подчиняется правилам мастера.",
-      tone: "accent",
-    },
-    {
-      id: "works",
-      stepLabel: "Шаг 3",
-      eyebrow: "Работы",
-      title: "Портфолио помогает почувствовать стиль мастера без лишних переходов",
-      description:
-        "Подборка работ встроена прямо в страницу записи. Клиент может быстро понять стиль, уровень и атмосферу, а при желании открыть всю галерею крупнее.",
-      settings:
-        "Мастер сам загружает фотографии и управляет порядком работ в кабинете, поэтому портфолио всегда остаётся актуальным.",
-      tone: "light",
-    },
-    {
-      id: "services",
-      stepLabel: "Шаг 4",
-      eyebrow: "Услуги",
-      title: "Каталог услуг коротко объясняет визит и не перегружает клиента деталями",
-      description:
-        "Каждая услуга сразу показывает длительность, цену и короткое описание. Этого достаточно, чтобы спокойно выбрать визит и не зависнуть в уточнениях.",
-      settings:
-        "Названия, описания, длительность, цена и порядок карточек полностью управляются в кабинете мастера.",
-      tone: "accent",
-    },
-    {
-      id: "rules",
-      stepLabel: "Шаг 5",
-      eyebrow: "Правила записи",
-      title: "Нижний блок снимает вопросы о локации, отмене и уведомлениях",
-      description:
-        "В финале страницы клиент понимает, как проходит запись, что будет после бронирования и какие правила действуют без дополнительных сообщений мастеру.",
-      settings:
-        "Самостоятельная отмена, напоминания клиенту и мастеру, а также остальные параметры записи задаются мастером в настройках.",
-      tone: "ink",
-    },
-  ];
 
   return (
     <main
@@ -443,12 +79,7 @@ export function PublicProfileView({
               borderColor: "var(--public-edge)",
             }}
           >
-            <Link href="/" className="flex items-center gap-3 text-sm font-semibold text-ink">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-white">
-                o
-              </span>
-              okno
-            </Link>
+            <BrandLogo href={homeHref} />
             <div className="hidden items-center gap-3 sm:flex">
               <span className="inline-flex items-center gap-2 rounded-full bg-panel px-4 py-2 text-sm text-ink-soft">
                 <MapPin size={16} />
@@ -466,12 +97,12 @@ export function PublicProfileView({
           </div>
         </header>
 
-        {guidedDemo ? <DemoStoryIntro steps={demoStorySteps} /> : null}
+        {guidedDemo ? <DemoStoryIntro steps={publicDemoStorySteps} /> : null}
 
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div
             data-demo-id="hero"
-            className="space-y-6 rounded-[36px] border p-6 shadow-[0_32px_120px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8 lg:p-10"
+            className="h-full space-y-6 rounded-[36px] border p-6 shadow-[0_32px_120px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8 lg:p-10"
             style={{
               backgroundColor: "var(--public-surface)",
               borderColor: "var(--public-edge)",
@@ -511,16 +142,25 @@ export function PublicProfileView({
             </div>
 
             <div className="flex flex-wrap gap-3">
-              {trustItems.map((item) => (
+              {publicTrustItems.map((item) => {
+                const icons = {
+                  MessageCircleHeart,
+                  ShieldCheck,
+                  Sparkles,
+                } as const;
+                const Icon = icons[item.icon];
+
+                return (
                 <div
                   key={item.label}
                   className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm text-ink-soft"
                   style={{ backgroundColor: "var(--ui-field-bg, #ffffff)" }}
                 >
-                  <item.icon size={16} className="text-accent-deep" />
+                  <Icon size={16} className="text-accent-deep" />
                   <span>{item.label}</span>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -580,7 +220,7 @@ export function PublicProfileView({
 
           <div
             data-demo-id="slots"
-            className="relative overflow-hidden rounded-[36px] border p-6 shadow-[0_32px_120px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8"
+            className="relative h-full overflow-hidden rounded-[36px] border p-6 shadow-[0_32px_120px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8"
             style={{
               backgroundColor: "var(--public-surface-strong)",
               borderColor: "var(--public-edge)",
@@ -600,7 +240,7 @@ export function PublicProfileView({
                   style={{ backgroundColor: "var(--public-surface-strong)" }}
                 >
                   <Sparkles size={16} className="text-accent-deep" />
-                  Спокойный формат без лишних экранов
+                  Путь к записи без перегруза
                 </div>
               ) : null}
 
@@ -672,7 +312,7 @@ export function PublicProfileView({
           </div>
         </section>
 
-        {guidedDemo ? <DemoStoryChapter step={demoStorySteps[2]} /> : null}
+        {guidedDemo ? <DemoStoryChapter step={publicDemoStorySteps[2]} /> : null}
 
         {showDemoSections ? (
           hasPortfolioWorks ? (
@@ -798,7 +438,7 @@ export function PublicProfileView({
           </section>
         )}
 
-        {guidedDemo ? <DemoStoryChapter step={demoStorySteps[3]} /> : null}
+        {guidedDemo ? <DemoStoryChapter step={publicDemoStorySteps[3]} /> : null}
 
         <section
           id="services"
@@ -876,7 +516,7 @@ export function PublicProfileView({
           </div>
         </section>
 
-        {guidedDemo ? <DemoStoryChapter step={demoStorySteps[4]} /> : null}
+        {guidedDemo ? <DemoStoryChapter step={publicDemoStorySteps[4]} /> : null}
 
         {showDemoSections ? (
           <section
@@ -891,18 +531,27 @@ export function PublicProfileView({
               Запись выглядит как личная витрина мастера, а не как форма из банка
             </h2>
             <div className="mt-8 space-y-4">
-              {infoItems.map((item) => (
+              {publicInfoItems.map((item) => {
+                const icons = {
+                  CalendarClock,
+                  BadgeCheck,
+                  Clock3,
+                } as const;
+                const Icon = icons[item.icon];
+
+                return (
                 <div
                   key={item.title}
                   className="rounded-[28px] border border-white/10 bg-white/6 p-5"
                 >
                   <div className="flex items-center gap-3">
-                    <item.icon size={20} className="text-[var(--color-accent)]" />
+                    <Icon size={20} className="text-[var(--color-accent)]" />
                     <h3 className="text-lg font-medium text-white">{item.title}</h3>
                   </div>
                   <p className="mt-3 text-sm leading-7 text-white/70">{item.text}</p>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -967,10 +616,9 @@ export function PublicProfileView({
 
         <footer className="mt-16 flex flex-col gap-4 border-t border-line pt-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>
-            Онлайн-запись к {profile.fullName}. Спокойная витрина мастера без лишнего
-            шума.
+            Онлайн-запись к {profile.fullName} с понятными услугами и быстрым выбором времени.
           </p>
-          <Link href="/" className="font-medium text-ink underline underline-offset-4">
+          <Link href={homeHref} className="font-medium text-ink underline underline-offset-4">
             Создано в okno
           </Link>
         </footer>

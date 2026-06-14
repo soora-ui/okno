@@ -5,11 +5,11 @@ import { env } from "@/lib/env";
 const PHONE_ENCRYPTION_VERSION = "enc1";
 
 function getPhoneSecret() {
-  const secret = env.phoneEncryptionSecret ?? env.supabaseServiceRoleKey;
+  const secret = env.phoneEncryptionSecret;
 
   if (!secret) {
     throw new Error(
-      "Нужен PHONE_ENCRYPTION_SECRET или SUPABASE_SERVICE_ROLE_KEY для защиты телефонов.",
+      "Нужен PHONE_ENCRYPTION_SECRET для защиты телефонов клиентов. Добавь его в .env.local.",
     );
   }
 
@@ -21,8 +21,17 @@ function getPhoneKey() {
 }
 
 export function phoneLast4(phone: string) {
-  const digits = phone.replace(/\D/g, "");
+  const digits = normalizePhoneDigits(phone);
   return digits.slice(-4);
+}
+
+export function normalizePhoneDigits(phone: string) {
+  return phone.replace(/\D/g, "");
+}
+
+export function isValidPhoneNumber(phone: string) {
+  const digits = normalizePhoneDigits(phone);
+  return digits.length >= 10 && digits.length <= 15;
 }
 
 export function encryptPhone(phone: string) {
@@ -48,7 +57,17 @@ export function decryptPhone(phoneEncrypted: string) {
   }
 
   if (!phoneEncrypted.startsWith(`${PHONE_ENCRYPTION_VERSION}:`)) {
-    return Buffer.from(phoneEncrypted, "base64").toString("utf8");
+    try {
+      const decoded = Buffer.from(phoneEncrypted, "base64").toString("utf8");
+      const normalizedInput = phoneEncrypted.replace(/=+$/u, "");
+      const normalizedDecoded = Buffer.from(decoded, "utf8")
+        .toString("base64")
+        .replace(/=+$/u, "");
+
+      return normalizedInput === normalizedDecoded ? decoded : phoneEncrypted;
+    } catch {
+      return phoneEncrypted;
+    }
   }
 
   const [, ivBase64Url, authTagBase64Url, encryptedBase64Url] =
@@ -83,12 +102,36 @@ export function toUtcIsoFromLocalSlot(input: {
   }).toUTC().toISO();
 }
 
+export function isSameLocalSlot(input: {
+  startsAtIso: string;
+  timezone: string;
+  date: string;
+  time: string;
+}) {
+  const current = DateTime.fromISO(input.startsAtIso, { zone: "utc" }).setZone(input.timezone);
+
+  return (
+    current.isValid &&
+    current.toISODate() === input.date &&
+    current.toFormat("HH:mm") === input.time
+  );
+}
+
 export function getCancellationDeadlineIso(input: {
   startsAtIso: string;
   cancellationNoticeHours: number;
 }) {
   return DateTime.fromISO(input.startsAtIso, { zone: "utc" })
     .minus({ hours: Math.max(0, input.cancellationNoticeHours) })
+    .toISO();
+}
+
+export function getBusyUntilIso(input: {
+  endsAtIso: string;
+  bufferMinutes: number;
+}) {
+  return DateTime.fromISO(input.endsAtIso, { zone: "utc" })
+    .plus({ minutes: Math.max(0, input.bufferMinutes) })
     .toISO();
 }
 

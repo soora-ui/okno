@@ -2,12 +2,17 @@ import { randomUUID } from "node:crypto";
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { isSupabaseConfigured } from "@/lib/env";
+import { writeAuditLog } from "@/lib/observability/audit";
+import { logError } from "@/lib/observability/logger";
 import {
   decryptPhone,
   encryptPhone,
+  getBusyUntilIso,
   getCancellationDeadlineIso,
   hashPhone,
   humanizeBookingDate,
+  isValidPhoneNumber,
+  normalizePhoneDigits,
   phoneLast4,
   toUtcIsoFromLocalSlot,
 } from "@/lib/booking";
@@ -25,17 +30,20 @@ import {
   completeBookingIdempotency,
   failBookingIdempotency,
 } from "@/lib/public-booking-guards";
-import { isSupabaseMissingColumnError } from "@/lib/supabase/auth-errors";
+import {
+  isSupabaseBookingOverlapError,
+  isSupabaseMissingColumnError,
+} from "@/lib/supabase/auth-errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { profile as mockProfile, services as mockServices } from "@/lib/mock-data";
 
 const bookingSchema = z.object({
-  username: z.string().min(1),
+  username: z.string().trim().regex(/^[a-z0-9][a-z0-9-]{1,30}$/),
   serviceId: z.string().min(1),
   date: z.string().min(1),
   time: z.string().min(1),
   name: z.string().min(2),
-  phone: z.string().min(6),
+  phone: z.string().refine(isValidPhoneNumber),
   note: z.string().optional().default(""),
 });
 
@@ -69,7 +77,7 @@ export async function POST(request: Request) {
   }
 
   const admin = createSupabaseAdminClient();
-  const normalizedPhone = parsed.data.phone.replace(/\D/g, "");
+  const normalizedPhone = normalizePhoneDigits(parsed.data.phone);
   const storedPhone = normalizedPhone || parsed.data.phone;
   const requestHash = buildBookingRequestHash({
     username: parsed.data.username,
@@ -230,7 +238,11 @@ export async function POST(request: Request) {
   });
 
   if (collisionError) {
-    console.error("okno: failed to check booking conflict", collisionError);
+    logError("Failed to check booking conflict", {
+      profileId: String(profileRow.id),
+      serviceId: String(serviceRow.id),
+      error: collisionError,
+    });
     return respondWithError(500, "Не получилось проверить свободное время.");
   }
 
@@ -344,6 +356,11 @@ export async function POST(request: Request) {
       status: "confirmed",
       starts_at: startsAt.toISOString(),
       ends_at: endsAt.toISOString(),
+      busy_until:
+        getBusyUntilIso({
+          endsAtIso: endsAt.toISOString(),
+          bufferMinutes,
+        }) ?? slotBusyEnd.toISOString(),
       source: "public_page",
       client_note: parsed.data.note,
       cancellation_token_expires_at:
@@ -356,6 +373,10 @@ export async function POST(request: Request) {
     .single();
 
   if (bookingError || !bookingRow) {
+    if (isSupabaseBookingOverlapError(bookingError)) {
+      return respondWithError(409, "Это время уже занято. Выбери другой слот.");
+    }
+
     return respondWithError(500, "Не получилось создать запись.");
   }
 
@@ -364,9 +385,11 @@ export async function POST(request: Request) {
     timezone: String(profileRow.timezone ?? "Europe/Simferopol"),
   });
 
-  const { data: notificationRows, error: notificationQueueError } = await admin
-    .from("notification_events")
-    .insert([
+  const telegramChatId = profileRow.telegram_chat_id
+    ? String(profileRow.telegram_chat_id)
+    : null;
+
+  const notificationEventsToInsert = [
     {
       profile_id: profileRow.id,
       booking_id: bookingRow.id,
@@ -380,20 +403,28 @@ export async function POST(request: Request) {
         startsAtLabel,
       },
     },
-    {
-      profile_id: profileRow.id,
-      booking_id: bookingRow.id,
-      type: "telegram_new_booking",
-      status: "queued",
-      target: profileRow.telegram_chat_id ?? "not_configured",
-      payload: {
-        chatId: profileRow.telegram_chat_id ? String(profileRow.telegram_chat_id) : null,
-        clientName: parsed.data.name,
-        serviceTitle: String(serviceRow.title),
-        startsAtLabel,
-      },
-    },
-  ])
+    ...(telegramChatId
+      ? [
+          {
+            profile_id: profileRow.id,
+            booking_id: bookingRow.id,
+            type: "telegram_new_booking",
+            status: "queued",
+            target: telegramChatId,
+            payload: {
+              chatId: telegramChatId,
+              clientName: parsed.data.name,
+              serviceTitle: String(serviceRow.title),
+              startsAtLabel,
+            },
+          },
+        ]
+      : []),
+  ];
+
+  const { data: notificationRows, error: notificationQueueError } = await admin
+    .from("notification_events")
+    .insert(notificationEventsToInsert)
     .select("id");
 
   const reminderRows = buildReminderNotificationEvents({
@@ -418,7 +449,10 @@ export async function POST(request: Request) {
       .insert(reminderRows);
 
     if (reminderInsertError) {
-      console.error("okno: failed to enqueue reminder jobs", reminderInsertError);
+      logError("Failed to enqueue reminder jobs", {
+        bookingId: String(bookingRow.id),
+        error: reminderInsertError,
+      });
     }
   }
 
@@ -437,13 +471,30 @@ export async function POST(request: Request) {
     });
   }
 
+  await writeAuditLog({
+    actorKind: "client",
+    profileId: String(profileRow.id),
+    workspaceId: String(profileRow.workspace_id ?? profileRow.id),
+    eventType: "booking.public.created",
+    targetType: "booking",
+    targetId: String(bookingRow.id),
+    metadata: {
+      serviceId: String(serviceRow.id),
+      startsAtIso: startsAt.toISOString(),
+      source: "public_page",
+    },
+  });
+
   if (!notificationQueueError) {
     const eventIds = (notificationRows ?? []).map((row) => String(row.id));
     after(async () => {
       await processNotificationQueue(eventIds);
     });
   } else {
-    console.error("okno: failed to enqueue notification jobs", notificationQueueError);
+    logError("Failed to enqueue notification jobs", {
+      bookingId: String(bookingRow.id),
+      error: notificationQueueError,
+    });
   }
 
   return NextResponse.json(responsePayload);

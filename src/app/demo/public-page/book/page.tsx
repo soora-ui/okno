@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Check, ChevronRight } from "lucide-react";
+import { BrandLogo } from "@/components/layout/brand-logo";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -90,12 +91,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-12 pt-4 sm:px-6 lg:px-8">
         <header className="sticky top-4 z-20 mb-6 rounded-full border border-line bg-white/95 px-4 py-3 shadow-[0_18px_50px_rgba(35,36,31,0.08)] backdrop-blur">
           <div className="flex items-center justify-between gap-4">
-            <Link href="/" className="flex items-center gap-3 text-sm font-semibold text-ink">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-white">
-                o
-              </span>
-              okno
-            </Link>
+            <BrandLogo />
 
             <Link
               href={landingDemoPublicPageHref}
