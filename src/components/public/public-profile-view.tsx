@@ -350,7 +350,7 @@ export function PublicProfileView({
                     key={work.id}
                     type="button"
                     onClick={() => setIsPortfolioOpen(true)}
-                    className="group overflow-hidden rounded-[32px] border border-line text-left shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
+                    className="card-hover group overflow-hidden rounded-[32px] border border-line text-left shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
                     style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
                   >
                     <div className="relative aspect-[4/5] overflow-hidden">
@@ -410,7 +410,7 @@ export function PublicProfileView({
                       key={work.id}
                       type="button"
                       onClick={() => setIsPortfolioOpen(true)}
-                      className="group overflow-hidden rounded-[32px] border border-line text-left shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
+                      className="card-hover group overflow-hidden rounded-[32px] border border-line text-left shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
                       style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
                     >
                       <div className="relative aspect-[4/5] overflow-hidden">
@@ -464,7 +464,7 @@ export function PublicProfileView({
             {services.map((service, index) => (
               <article
                 key={service.id}
-                className="group relative overflow-hidden rounded-[32px] border border-line p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
+                className="card-hover group relative overflow-hidden rounded-[32px] border border-line p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
                 style={{
                   backgroundColor:
                     index % 2 === 0

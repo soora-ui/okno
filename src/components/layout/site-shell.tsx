@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AuthenticatedRoutePrefetch } from "@/components/layout/authenticated-route-prefetch";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { PageTransition } from "@/components/layout/page-transition";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
 import { ButtonLink } from "@/components/ui/button";
 import { appMode } from "@/lib/env";
@@ -159,7 +160,9 @@ export async function SiteShell({
             </div>
           </div>
         </header>
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </div>
     </div>
   );
