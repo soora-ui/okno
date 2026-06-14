@@ -39,7 +39,7 @@ export function BookingThemeSettings({
     <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
       <form
         action={action}
-        className="space-y-4 rounded-[24px] border border-line bg-white p-5"
+        className="space-y-4 rounded-[24px] border border-line bg-surface p-5"
       >
         <input
           type="hidden"
@@ -64,7 +64,7 @@ export function BookingThemeSettings({
                 "cursor-pointer rounded-[22px] border p-4 transition",
                 selectedPresetId === preset.id
                   ? "border-ink bg-panel"
-                  : "border-line bg-white hover:bg-panel",
+                  : "border-line bg-surface hover:bg-panel",
               )}
             >
               <input

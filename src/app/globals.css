@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --font-manrope: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
   --font-geist-mono: "Geist Mono", "SFMono-Regular", "SF Mono", "Menlo", monospace;
   --color-background: #faf7f1;
@@ -17,6 +18,58 @@
   --color-success-soft: #e6f3eb;
   --color-warning: #8e6c2f;
   --color-warning-soft: #f5ecdb;
+
+  /* Elevated surfaces (cards, headers) and the colour that sits on top of an
+     ink-filled surface. Tokenised so dark mode can flip them in one place. */
+  --color-surface: #ffffff;
+  --color-surface-strong: #ffffff;
+  --color-ink-contrast: #ffffff;
+
+  /* Component tokens consumed inline by Card / Button / Input / Textarea.
+     Public booking pages override these per preset; here are the app defaults. */
+  --ui-card-bg: #ffffff;
+  --ui-field-bg: #ffffff;
+  --ui-placeholder: #8b8477;
+  --ui-primary-bg: var(--color-ink);
+  --ui-primary-text: #ffffff;
+  --ui-secondary-bg: #ffffff;
+  --ui-secondary-text: var(--color-ink);
+  --ui-secondary-border: var(--color-line);
+  --ui-ghost-text: var(--color-ink);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-background: #181712;
+    --color-panel: #211f19;
+    --color-panel-strong: #2a2820;
+    --color-line: #38352c;
+    --color-ink: #f2ede2;
+    --color-ink-soft: #cdc6b8;
+    --color-muted: #9a9384;
+    --color-accent: #b8d3c4;
+    --color-accent-soft: #20302a;
+    --color-accent-deep: #a7cdb9;
+    --color-success: #6cc295;
+    --color-success-soft: #1c2c23;
+    --color-warning: #d8ab63;
+    --color-warning-soft: #2c2417;
+
+    --color-surface: #201e18;
+    --color-surface-strong: #2a2821;
+    --color-ink-contrast: #181712;
+
+    --ui-card-bg: #201e18;
+    --ui-field-bg: #25231b;
+    --ui-placeholder: #8c8479;
+    --ui-primary-bg: #f2ede2;
+    --ui-primary-text: #181712;
+    --ui-secondary-bg: #2a2821;
+    --ui-secondary-text: #f2ede2;
+    --ui-secondary-border: #38352c;
+    --ui-ghost-text: #f2ede2;
+  }
 }
 
 @theme inline {
@@ -24,6 +77,18 @@
   --color-foreground: var(--color-ink);
   --font-sans: var(--font-manrope);
   --font-mono: var(--font-geist-mono);
+}
+
+.bg-surface {
+  background-color: var(--color-surface);
+}
+
+.bg-surface-strong {
+  background-color: var(--color-surface-strong);
+}
+
+.text-ink-contrast {
+  color: var(--color-ink-contrast);
 }
 
 .bg-ink {

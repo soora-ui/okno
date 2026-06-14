@@ -10,12 +10,12 @@ import {
   Sparkles,
   Wallet,
 } from "lucide-react";
-import { ManualBookingForm, CancelBookingButton } from "@/components/forms/booking-operations";
+import { BookingCard } from "@/components/dashboard/booking-card";
+import { ManualBookingForm } from "@/components/forms/booking-operations";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import type { Booking, Client, Service } from "@/lib/mock-data";
 import { getDashboardData } from "@/lib/data";
 import { canManageWorkspace, isTeamWorkspaceKind } from "@/lib/workspace";
 
@@ -67,20 +67,21 @@ export default async function DashboardPage() {
         : "#c96b5c";
   const now = DateTime.now().setZone(profile.timezone);
   const todayKey = now.toFormat("yyyy-MM-dd");
-  const todayBookings = bookings.filter(
-    (booking) =>
-      booking.status === "confirmed" &&
-      DateTime.fromISO(booking.startsAt, { zone: "utc" })
-        .setZone(profile.timezone)
-        .toFormat("yyyy-MM-dd") === todayKey,
-  );
-  const futureBookings = bookings.filter(
-    (booking) =>
-      booking.status === "confirmed" &&
-      DateTime.fromISO(booking.startsAt, { zone: "utc" })
-        .setZone(profile.timezone)
-        .toFormat("yyyy-MM-dd") !== todayKey,
-  );
+  const confirmedBookings = bookings
+    .filter((booking) => booking.status === "confirmed")
+    .map((booking) => ({
+      booking,
+      startsAt: DateTime.fromISO(booking.startsAt, { zone: "utc" }).setZone(
+        profile.timezone,
+      ),
+    }))
+    .sort((left, right) => left.startsAt.toMillis() - right.startsAt.toMillis());
+  const todayBookings = confirmedBookings
+    .filter(({ startsAt }) => startsAt.toFormat("yyyy-MM-dd") === todayKey)
+    .map(({ booking }) => booking);
+  const upcomingBookings = confirmedBookings
+    .filter(({ startsAt }) => startsAt > now && startsAt.toFormat("yyyy-MM-dd") !== todayKey)
+    .map(({ booking }) => booking);
   const weekStart = now.startOf("week");
   const weekEnd = weekStart.plus({ days: 7 });
   const monthStart = now.startOf("month");
@@ -129,7 +130,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:auto-rows-fr md:grid-cols-3">
             <Card className="space-y-2">
               <CalendarClock className="text-accent-deep" size={22} />
               <p className="text-sm text-muted">Записи сегодня</p>
@@ -159,9 +160,14 @@ export default async function DashboardPage() {
                   Сначала показываем визиты на сегодня, потом все остальные по датам.
                 </p>
               </div>
-              <ButtonLink href="/schedule" variant="secondary">
-                Открыть расписание
-              </ButtonLink>
+              <div className="flex flex-wrap gap-3">
+                <ButtonLink href="/archive" variant="secondary">
+                  Архив
+                </ButtonLink>
+                <ButtonLink href="/schedule" variant="secondary">
+                  Открыть расписание
+                </ButtonLink>
+              </div>
             </div>
             <div className="space-y-6">
               <div id="today-bookings" className="scroll-mt-28 space-y-3">
@@ -192,10 +198,10 @@ export default async function DashboardPage() {
               </div>
 
               <div id="future-bookings" className="scroll-mt-28 space-y-3">
-                <h3 className="text-lg font-semibold text-ink">Другие дни</h3>
-                {futureBookings.length > 0 ? (
+                <h3 className="text-lg font-semibold text-ink">Предстоящие дни</h3>
+                {upcomingBookings.length > 0 ? (
                   <div className="space-y-3">
-                    {futureBookings.map((booking) => (
+                    {upcomingBookings.map((booking) => (
                       <BookingCard
                         key={booking.id}
                         booking={booking}
@@ -208,10 +214,11 @@ export default async function DashboardPage() {
                   </div>
                 ) : (
                   <div className="rounded-[24px] border border-dashed border-line p-5 text-sm text-muted">
-                    Записей на другие дни пока нет.
+                    Предстоящих записей после сегодняшнего дня пока нет.
                   </div>
                 )}
               </div>
+
             </div>
           </Card>
 
@@ -242,7 +249,7 @@ export default async function DashboardPage() {
             className="space-y-4 border-transparent text-white"
             style={{
               background:
-                "linear-gradient(135deg, var(--color-ink) 0%, #35362f 100%)",
+                "linear-gradient(135deg, #23241f 0%, #35362f 100%)",
             }}
           >
             <div className="flex items-center gap-2">
@@ -380,61 +387,6 @@ function QuickAction({
         <ButtonLink href={href} variant="secondary">
           {ctaLabel}
         </ButtonLink>
-      </div>
-    </div>
-  );
-}
-
-function BookingCard({
-  booking,
-  clients,
-  services,
-  timezone,
-  showDate,
-}: {
-  booking: Booking;
-  clients: Client[];
-  services: Service[];
-  timezone: string;
-  showDate: boolean;
-}) {
-  const service = services.find((item) => item.id === booking.serviceId);
-  const client = clients.find((item) => item.id === booking.clientId);
-  const startsAt = DateTime.fromISO(booking.startsAt, { zone: "utc" }).setZone(
-    timezone,
-  );
-
-  return (
-    <div className="w-full max-w-full rounded-[24px] border border-line p-4">
-      <div className="grid w-full max-w-full gap-4 sm:grid-cols-[minmax(0,1fr)_15rem] sm:items-start">
-        <div className="min-w-0 space-y-1">
-          <p className="font-medium text-ink">{client?.name}</p>
-          <p className="text-sm text-ink-soft">
-            {service?.title} • {startsAt.toFormat("HH:mm")}
-          </p>
-          {showDate ? (
-            <p className="text-sm text-muted">
-              Дата визита: {startsAt.setLocale("ru").toFormat("d LLLL")}
-            </p>
-          ) : null}
-          {booking.clientNote ? (
-            <p
-              className="max-w-full overflow-hidden whitespace-pre-wrap text-sm leading-6 text-muted"
-              style={{
-                overflowWrap: "anywhere",
-                wordBreak: "break-word",
-              }}
-            >
-              Комментарий клиента: {booking.clientNote}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex w-full flex-col items-start gap-3 sm:items-end">
-          <Badge tone="success">Подтверждено</Badge>
-          <div className="w-full sm:w-[15rem]">
-            <CancelBookingButton bookingId={booking.id} />
-          </div>
-        </div>
       </div>
     </div>
   );

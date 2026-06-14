@@ -31,8 +31,8 @@ const BookingThemeSettings = dynamic(
   {
     loading: () => (
       <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <div className="h-[34rem] animate-pulse rounded-[24px] border border-line bg-white/80" />
-        <div className="h-[34rem] animate-pulse rounded-[24px] border border-line bg-white/80" />
+        <div className="h-[34rem] animate-pulse rounded-[24px] border border-line bg-panel" />
+        <div className="h-[34rem] animate-pulse rounded-[24px] border border-line bg-panel" />
       </div>
     ),
   },

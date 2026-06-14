@@ -22,7 +22,7 @@ export default function RegisterPage() {
           </Card>
 
           <Card className="space-y-4 bg-panel">
-            <div className="rounded-[24px] border border-line bg-white p-4">
+            <div className="rounded-[24px] border border-line bg-surface p-4">
               <div className="flex items-center gap-3">
                 <Link2 size={18} className="text-accent-deep" />
                 <p className="font-medium text-ink">okno.app/alina-nails</p>
@@ -37,7 +37,7 @@ export default function RegisterPage() {
                 { label: "Команда и роли", icon: Users2 },
                 { label: "Студия под контролем", icon: Building2 },
               ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3 rounded-[18px] bg-white px-4 py-3">
+                <div key={item.label} className="flex items-center gap-3 rounded-[18px] bg-surface px-4 py-3">
                   <item.icon size={18} className="shrink-0 text-success" />
                   <p className="text-sm text-ink-soft">{item.label}</p>
                 </div>

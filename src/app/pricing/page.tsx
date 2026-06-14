@@ -28,7 +28,7 @@ export default async function PricingPage() {
           className="border-transparent text-white"
           style={{
             background:
-              "linear-gradient(135deg, var(--color-ink) 0%, #35362f 100%)",
+              "linear-gradient(135deg, #23241f 0%, #35362f 100%)",
           }}
         >
           <p className="text-sm uppercase tracking-[0.24em] text-white/70">Пример лимита</p>

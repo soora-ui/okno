@@ -106,7 +106,7 @@ export async function SiteShell({
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--color-background)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(184,211,196,0.4),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(247,226,211,0.6),_transparent_30%)]" />
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-12 pt-4 sm:px-6 lg:px-8">
-        <header className="print-static sticky top-4 z-20 mb-6 rounded-full border border-line bg-white/95 px-4 py-3">
+        <header className="print-static sticky top-4 z-20 mb-6 rounded-full border border-line bg-surface px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             <BrandLogo href={homeHref}>
               {appMode === "demo" ? (

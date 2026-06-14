@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { resolveCityValue } from "@/lib/cities";
 import { getTeamDashboardData } from "@/lib/data";
 
 export default async function TeamPage() {
@@ -39,8 +40,8 @@ export default async function TeamPage() {
         </ButtonLink>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="space-y-2">
+      <div className="print-grid-2 grid gap-4 md:auto-rows-fr md:grid-cols-4">
+        <Card className="print-avoid-break print-no-shadow space-y-2">
           <Users2 className="text-accent-deep" size={22} />
           <p className="text-sm text-muted">Сотрудники</p>
           <p className="text-3xl font-semibold text-ink">{workspace.memberCount}</p>
@@ -48,7 +49,7 @@ export default async function TeamPage() {
             {workspace.activeMemberCount} активны, {workspace.disabledMemberCount} отключены.
           </p>
         </Card>
-        <Card className="space-y-2">
+        <Card className="print-avoid-break print-no-shadow space-y-2">
           <CalendarClock className="text-warning" size={22} />
           <p className="text-sm text-muted">Записи сегодня</p>
           <p className="text-3xl font-semibold text-ink">
@@ -58,7 +59,7 @@ export default async function TeamPage() {
             Всего впереди {workspace.upcomingBookingsCount} подтвержденных визитов.
           </p>
         </Card>
-        <Card className="space-y-2">
+        <Card className="print-avoid-break print-no-shadow space-y-2">
           <Wallet className="text-success" size={22} />
           <p className="text-sm text-muted">Клиентская база</p>
           <p className="text-3xl font-semibold text-ink">{workspace.clientCount}</p>
@@ -66,7 +67,7 @@ export default async function TeamPage() {
             Все клиенты распределены по личным кабинетам сотрудников.
           </p>
         </Card>
-        <Card className="space-y-2">
+        <Card className="print-avoid-break print-no-shadow space-y-2">
           <ShieldCheck className="text-ink" size={22} />
           <p className="text-sm text-muted">Формат</p>
           <p className="text-2xl font-semibold text-ink">{workspace.kindLabel}</p>
@@ -76,9 +77,9 @@ export default async function TeamPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="print-stack-cols grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-6">
-          <Card className="space-y-4">
+          <Card className="print-avoid-break print-no-shadow space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-semibold text-ink">Ближайшие записи команды</h2>
@@ -103,7 +104,7 @@ export default async function TeamPage() {
                           {booking.memberName} · {booking.startsAtLabel}
                         </p>
                       </div>
-                      <span className="rounded-full border border-line bg-white px-3 py-1 text-xs font-medium text-ink-soft">
+                      <span className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink-soft">
                         {booking.sourceLabel}
                       </span>
                     </div>
@@ -120,7 +121,7 @@ export default async function TeamPage() {
             )}
           </Card>
 
-          <Card className="space-y-4">
+          <Card className="print-avoid-break print-no-shadow space-y-4">
             <div>
               <h2 className="text-2xl font-semibold text-ink">Клиенты команды</h2>
               <p className="text-sm text-muted">
@@ -164,7 +165,7 @@ export default async function TeamPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="space-y-4">
+          <Card className="print-avoid-break print-no-shadow space-y-4">
             <div>
               <h2 className="text-2xl font-semibold text-ink">Настройки студии</h2>
               <p className="text-sm text-muted">
@@ -177,17 +178,22 @@ export default async function TeamPage() {
             />
           </Card>
 
-          <Card className="space-y-4">
+          <Card className="print-avoid-break print-no-shadow space-y-4">
             <div>
               <h2 className="text-2xl font-semibold text-ink">Новый сотрудник</h2>
               <p className="text-sm text-muted">
                 Добавь человека, задай ему базовые данные и выдай отдельный логин с паролем.
               </p>
             </div>
-            <CreateTeamMemberForm timezone={profile.timezone} />
+            <CreateTeamMemberForm
+              defaultCity={resolveCityValue({
+                locationText: profile.locationText,
+                timezone: profile.timezone,
+              })}
+            />
           </Card>
 
-          <Card className="space-y-4">
+          <Card className="print-avoid-break print-no-shadow space-y-4">
             <div>
               <h2 className="text-2xl font-semibold text-ink">Команда</h2>
               <p className="text-sm text-muted">

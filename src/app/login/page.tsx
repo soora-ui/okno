@@ -69,7 +69,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               </p>
             </div>
           </div>
-          <div className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-ink">
+          <div className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-line bg-surface px-5 py-3 text-sm font-medium text-ink">
             <MessageCircleMore size={16} className="mr-2" />
             Войти через Telegram
           </div>

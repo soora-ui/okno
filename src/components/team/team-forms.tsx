@@ -13,6 +13,10 @@ import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import {
+  cityOptions,
+  resolveCityValue,
+} from "@/lib/cities";
 import { workspaceKindValues, type WorkspaceKind } from "@/lib/workspace";
 
 const initialState: TeamActionState = {
@@ -67,7 +71,7 @@ export function WorkspaceSettingsForm({
   );
 }
 
-export function CreateTeamMemberForm({ timezone }: { timezone: string }) {
+export function CreateTeamMemberForm({ defaultCity }: { defaultCity: string }) {
   const [state, formAction] = useActionState(
     createTeamMemberAction,
     initialState,
@@ -118,11 +122,12 @@ export function CreateTeamMemberForm({ timezone }: { timezone: string }) {
           hint="Нужен для входа и личного кабинета сотрудника."
           required
         />
-        <Input
-          label="Часовой пояс"
-          name="timezone"
-          defaultValue={timezone}
-          required
+        <Select
+          label="Город"
+          name="city"
+          defaultValue={defaultCity}
+          options={cityOptions}
+          hint="Часовой пояс сотрудника определим автоматически."
         />
       </div>
 
@@ -167,12 +172,12 @@ export function TeamMemberCard({
             className={`rounded-full border px-3 py-1 text-xs font-medium ${
               member.accountStatus === "disabled"
                 ? "border-[#d8b1b1] bg-[#fff5f5] text-[#b14f4f]"
-                : "border-line bg-white text-ink-soft"
+                : "border-line bg-surface text-ink-soft"
             }`}
           >
             {member.statusLabel}
           </span>
-          <span className="rounded-full border border-line bg-white px-3 py-1 text-xs font-medium text-ink-soft">
+          <span className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink-soft">
             {member.accountRole === "admin" ? "Админка" : "Личный кабинет"}
           </span>
         </div>
@@ -235,7 +240,7 @@ export function TeamMemberCard({
       <FormMessage message={statusState.message} success={statusState.success} />
 
       {editOpen ? (
-        <form action={editAction} className="mt-5 space-y-4 rounded-[20px] border border-line bg-white p-4">
+        <form action={editAction} className="mt-5 space-y-4 rounded-[20px] border border-line bg-surface p-4">
           <input type="hidden" name="memberProfileId" value={member.id} />
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
@@ -263,11 +268,14 @@ export function TeamMemberCard({
               defaultValue={member.username}
               required
             />
-            <Input
-              label="Часовой пояс"
-              name="timezone"
-              defaultValue={member.timezone}
-              required
+            <Select
+              label="Город"
+              name="city"
+              defaultValue={resolveCityValue({
+                locationText: member.locationText,
+                timezone: member.timezone,
+              })}
+              options={cityOptions}
             />
             <Input
               label="Новый пароль"

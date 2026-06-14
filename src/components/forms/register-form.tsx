@@ -6,7 +6,12 @@ import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { initialAuthActionState } from "@/components/forms/auth-state";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  cityOptions,
+  defaultCityValue,
+} from "@/lib/cities";
 
 const accountModes = [
   {
@@ -64,7 +69,7 @@ export function RegisterForm() {
               className={`rounded-[24px] border px-4 py-4 text-left transition ${
                 accountMode === mode.value
                   ? "border-ink bg-panel shadow-sm"
-                  : "border-line bg-white hover:border-ink-soft"
+                  : "border-line bg-surface hover:border-ink-soft"
               }`}
             >
               <p className="font-medium text-ink">{mode.title}</p>
@@ -137,11 +142,12 @@ export function RegisterForm() {
             }
             required
           />
-          <Input
-            label="Часовой пояс"
-            name="timezone"
-            defaultValue="Europe/Simferopol"
-            required
+          <Select
+            label="Город"
+            name="city"
+            defaultValue={defaultCityValue}
+            options={cityOptions}
+            hint="Часовой пояс определим автоматически по выбранному городу."
           />
         </div>
       </Card>

@@ -1,11 +1,11 @@
-import Link from "next/link";
 import {
   ArrowRight,
+  BriefcaseBusiness,
   CalendarDays,
   CheckCircle2,
-  LockKeyhole,
   MessageSquareText,
   Sparkles,
+  Users2,
 } from "lucide-react";
 import { SiteShell } from "@/components/layout/site-shell";
 import { SectionTitle } from "@/components/sections/section-title";
@@ -22,8 +22,8 @@ import { pricingPlans } from "@/lib/mock-data";
 
 const valueProps = [
   "Мастер запускается за 3 шага и получает ссылку сразу",
+  "Можно создать кабинет мастера, студии, салона или барбершопа",
   "Клиент записывается без регистрации, капчи и лишних экранов",
-  "Телефон объясняем честно: только для подтверждения и связи",
 ];
 
 const comparisons = [
@@ -49,22 +49,21 @@ export default function HomePage() {
   return (
     <SiteShell
       hideGuestMenu
-      resolveAuth={false}
       publicPageHrefOverride={landingDemoPublicPageHref}
       publicPageLabelOverride="Демо-страница"
     >
       <div className="space-y-20 pb-10">
         <section className="grid gap-8 py-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
           <div className="space-y-8">
-            <Badge tone="accent">Для мастеров маникюра и бровей</Badge>
+            <Badge tone="accent">Для мастеров, студий, салонов и барбершопов</Badge>
             <div className="space-y-5">
               <h1 className="max-w-3xl text-5xl font-semibold tracking-tight text-ink sm:text-6xl">
-                Онлайн-запись, которая выглядит спокойно, красиво и по-человечески.
+                Онлайн-запись для мастера и команды без тяжёлой CRM.
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-ink-soft">
-                `okno` помогает маленьким мастерам перестать записывать вручную, не
-                проваливаясь в тяжелые CRM. Мастер получает порядок. Клиент получает
-                приятный путь к записи.
+                `okno` помогает частным мастерам, салонам и небольшим командам перестать
+                вести запись вручную. У мастера появляется порядок, у администратора общая
+                картина, у клиента понятный путь к записи.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -159,7 +158,7 @@ export default function HomePage() {
               {
                 icon: CalendarDays,
                 title: "1. Создать профиль",
-                text: "Имя, ниша, username и спокойный парольный вход без магических писем, в которых легко потеряться.",
+                text: "Можно открыть личный кабинет мастера или сразу зарегистрировать студию, салон, барбершоп и общую админку.",
               },
               {
                 icon: Sparkles,
@@ -169,7 +168,7 @@ export default function HomePage() {
               {
                 icon: MessageSquareText,
                 title: "3. Отправить ссылку клиенту",
-                text: "Клиент выбирает дату и время, оставляет телефон и получает SMS-подтверждение.",
+                text: "Клиент выбирает мастера, услугу, дату и время, а затем сразу попадает на экран подтверждения.",
               },
             ].map((item) => (
               <Card key={item.title}>
@@ -188,41 +187,43 @@ export default function HomePage() {
         <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
           <Card className="space-y-4">
             <div className="flex items-center gap-3">
-              <LockKeyhole size={20} className="text-accent-deep" />
+              <Users2 size={20} className="text-accent-deep" />
               <h3 className="text-xl font-semibold text-ink">
-                Про доверие и приватность
+                Для команды и бизнеса
               </h3>
             </div>
             <p className="text-sm leading-7 text-ink-soft">
-              `okno` не строится на сборе номеров “на будущее”. Телефон клиента
-              используется только для подтверждения записи и связи по визиту. Никаких
-              холодных рассылок, сложных капч и агрессивных тарифов.
+              Администратор видит сотрудников, общую загрузку и клиентов команды, а каждый
+              мастер продолжает работать в своем отдельном кабинете без лишней путаницы.
             </p>
-            <Link
-              href="/settings"
-              className="inline-flex text-sm font-medium text-ink underline underline-offset-4"
-            >
-              Посмотреть, как это объясняется внутри продукта
-            </Link>
+            <ButtonLink href="/register" variant="secondary" className="w-fit gap-2">
+              Создать компанию или салон
+              <ArrowRight size={16} />
+            </ButtonLink>
           </Card>
 
           <Card
             className="space-y-4 border-transparent text-white"
             style={{
               background:
-                "linear-gradient(135deg, var(--color-ink) 0%, #35362f 100%)",
+                "linear-gradient(135deg, #23241f 0%, #35362f 100%)",
             }}
           >
-            <p className="text-sm uppercase tracking-[0.24em] text-white/60">Сейчас у мастера</p>
+            <div className="flex items-center gap-2">
+              <BriefcaseBusiness size={18} />
+              <p className="text-sm uppercase tracking-[0.24em] text-white/60">Для владельца</p>
+            </div>
             <div className="space-y-2">
-              <h3 className="text-3xl font-semibold text-white">47 из 50 записей в этом месяце</h3>
+              <h3 className="text-3xl font-semibold text-white">
+                Одна ссылка для записи, отдельные кабинеты для команды
+              </h3>
               <p className="max-w-lg text-sm leading-7 text-white/70">
-                На бесплатном тарифе мастер видит остаток лимита заранее, чтобы переход
-                на Pro не был неожиданным и навязчивым.
+                Публичная страница компании может сначала вести к выбору мастера или услуги,
+                а уже потом к свободным окнам конкретного специалиста.
               </p>
             </div>
-            <ButtonLink href="/pricing" variant="secondary" className="w-fit bg-white text-ink">
-              Посмотреть тарифы
+            <ButtonLink href={landingDemoPublicPageHref} variant="secondary" className="w-fit bg-surface text-ink">
+              Посмотреть публичную страницу
             </ButtonLink>
           </Card>
         </section>

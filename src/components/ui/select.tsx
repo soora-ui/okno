@@ -18,7 +18,7 @@ export function Select({ label, hint, options, ...props }: SelectProps) {
       <select
         style={{
           borderColor: "var(--color-line, #d3c5b3)",
-          backgroundColor: "#ffffff",
+          backgroundColor: "var(--ui-field-bg, #ffffff)",
           color: "var(--color-ink, #23241f)",
         }}
         className="min-h-12 rounded-2xl border px-4 text-[15px] outline-none transition"

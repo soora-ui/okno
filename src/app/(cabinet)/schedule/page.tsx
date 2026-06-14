@@ -124,7 +124,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
                 className={cn(
                   "rounded-full px-4 py-2 text-sm transition",
                   item.id === view
-                    ? "bg-white text-ink shadow-sm"
+                    ? "bg-surface text-ink shadow-sm"
                     : "text-muted",
                 )}
               >

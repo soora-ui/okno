@@ -9,7 +9,7 @@ export function BrandLogo({
 }) {
   return (
     <Link href={href} className="flex items-center gap-3 text-sm font-semibold text-ink">
-      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-white">
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-ink-contrast">
         o
       </span>
       okno

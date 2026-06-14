@@ -90,7 +90,7 @@ function ClientDetailsModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Карточка клиента ${client.name}`}
-        className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] border border-line bg-white shadow-[0_40px_120px_rgba(22,24,20,0.18)]"
+        className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] border border-line bg-surface shadow-[0_40px_120px_rgba(22,24,20,0.18)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-5 sm:px-7">
@@ -129,7 +129,7 @@ function ClientDetailsModal({
                   client.history.map((visit) => (
                     <div
                       key={visit.id}
-                      className="rounded-[20px] border border-line bg-white px-4 py-3"
+                      className="rounded-[20px] border border-line bg-surface px-4 py-3"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
@@ -144,7 +144,7 @@ function ClientDetailsModal({
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-[20px] border border-dashed border-line bg-white px-4 py-4 text-sm leading-6 text-muted">
+                  <div className="rounded-[20px] border border-dashed border-line bg-surface px-4 py-4 text-sm leading-6 text-muted">
                     Здесь появятся прошедшие и будущие визиты, как только у клиента
                     накопится история записей.
                   </div>
@@ -227,7 +227,7 @@ export function ClientDirectory({
               key={client.id}
               type="button"
               onClick={() => setSelectedClientId(client.id)}
-              className="w-full rounded-[28px] border border-line bg-white p-5 text-left shadow-[0_18px_50px_rgba(31,33,29,0.05)] transition duration-300 hover:-translate-y-0.5"
+              className="w-full rounded-[28px] border border-line bg-surface p-5 text-left shadow-[0_18px_50px_rgba(31,33,29,0.05)] transition duration-300 hover:-translate-y-0.5"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-2">

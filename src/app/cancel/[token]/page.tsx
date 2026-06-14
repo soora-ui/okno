@@ -88,7 +88,7 @@ export default async function CancelBookingPage({
 
           {!isAlreadyCancelled && booking.canCancel ? (
             <div className="grid gap-6 text-left lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="space-y-4 rounded-[28px] border border-line bg-white p-5">
+              <div className="space-y-4 rounded-[28px] border border-line bg-surface p-5">
                 <div className="space-y-2">
                   <h2 className="text-xl font-semibold text-ink">Перенести запись</h2>
                   <p className="text-sm leading-6 text-ink-soft">
@@ -101,7 +101,7 @@ export default async function CancelBookingPage({
                 />
               </div>
 
-              <div className="space-y-4 rounded-[28px] border border-line bg-white p-5">
+              <div className="space-y-4 rounded-[28px] border border-line bg-surface p-5">
                 <div className="space-y-2">
                   <h2 className="text-xl font-semibold text-ink">Отменить запись</h2>
                   <p className="text-sm leading-6 text-ink-soft">

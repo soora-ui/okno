@@ -16,6 +16,10 @@ import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  cityOptions,
+  resolveCityValue,
+} from "@/lib/cities";
 import type { AvailabilityRule, Profile, Service } from "@/lib/mock-data";
 
 const ProfileMediaUploadSection = dynamic(
@@ -27,7 +31,7 @@ const ProfileMediaUploadSection = dynamic(
     loading: () => (
       <div className="space-y-6">
         <div className="h-80 animate-pulse rounded-[24px] bg-panel" />
-        <div className="h-96 animate-pulse rounded-[24px] border border-line bg-white/80" />
+        <div className="h-96 animate-pulse rounded-[24px] border border-line bg-panel" />
       </div>
     ),
   },
@@ -46,7 +50,7 @@ export function ProfileSettingsForm({ profile }: { profile: Profile }) {
       <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
         <ProfileMediaUploadSection profile={profile} />
 
-        <form action={action} className="space-y-4 rounded-[24px] border border-line bg-white p-5">
+        <form action={action} className="space-y-4 rounded-[24px] border border-line bg-surface p-5">
           <Input
             label="Имя мастера"
             name="fullName"
@@ -59,23 +63,15 @@ export function ProfileSettingsForm({ profile }: { profile: Profile }) {
             defaultValue={profile.specialty}
             required
           />
-          <Input
-            label="Локация"
-            name="locationText"
-            defaultValue={profile.locationText}
-            placeholder="Например, Симферополь, центр"
-          />
           <Select
-            label="Часовой пояс"
-            name="timezone"
-            defaultValue={profile.timezone}
-            options={[
-              { value: "Europe/Simferopol", label: "Москва (UTC+3)" },
-              { value: "Europe/Moscow", label: "Москва (UTC+3)" },
-              { value: "Asia/Yekaterinburg", label: "Екатеринбург (UTC+5)" },
-              { value: "Asia/Novosibirsk", label: "Новосибирск (UTC+7)" },
-            ]}
-            hint="Все записи и уведомления будут использовать этот часовой пояс."
+            label="Город"
+            name="city"
+            defaultValue={resolveCityValue({
+              locationText: profile.locationText,
+              timezone: profile.timezone,
+            })}
+            options={cityOptions}
+            hint="Часовой пояс записей и уведомлений определим автоматически."
           />
           <Textarea
             label="О себе"
@@ -226,7 +222,7 @@ export function AvailabilitySettingsForm({
               className={`rounded-[18px] border p-4 transition ${
                 enabled
                   ? "border-ink bg-panel"
-                  : "border-line bg-white"
+                  : "border-line bg-surface"
               }`}
             >
               <input
@@ -257,7 +253,7 @@ export function AvailabilitySettingsForm({
                   }`}
                 >
                   <span
-                    className={`absolute top-[3px] h-4 w-4 rounded-full bg-white transition ${
+                    className={`absolute top-[3px] h-4 w-4 rounded-full bg-surface transition ${
                       enabled ? "left-[23px]" : "left-[3px]"
                     }`}
                   />
@@ -270,14 +266,14 @@ export function AvailabilitySettingsForm({
                     name={`start_${day.value}`}
                     type="time"
                     defaultValue={rule?.startTime ?? "09:00"}
-                    className="min-h-10 rounded-xl border border-line bg-white px-3 text-sm text-ink outline-none"
+                    className="min-h-10 rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none"
                   />
                   <span className="text-xs text-muted">—</span>
                   <input
                     name={`end_${day.value}`}
                     type="time"
                     defaultValue={rule?.endTime ?? "18:00"}
-                    className="min-h-10 rounded-xl border border-line bg-white px-3 text-sm text-ink outline-none"
+                    className="min-h-10 rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none"
                   />
                 </div>
               </div>
@@ -327,7 +323,7 @@ function ServiceEditor({ service }: { service: Service }) {
   const [state, action] = useActionState(updateServiceAction, initialState);
 
   return (
-    <form action={action} className="space-y-4 rounded-[18px] border border-line bg-white p-4">
+    <form action={action} className="space-y-4 rounded-[18px] border border-line bg-surface p-4">
       <input type="hidden" name="serviceId" value={service.id} />
       <input type="hidden" name="sortOrder" value={String(service.sortOrder || 1)} />
       <div className="flex items-center justify-between gap-4">
@@ -414,7 +410,7 @@ function UnitInput({
   return (
     <label className="flex flex-col gap-2 text-sm">
       <span className="font-medium text-ink">{label}</span>
-      <div className="flex min-h-12 items-center rounded-2xl border border-line bg-white px-4">
+      <div className="flex min-h-12 items-center rounded-2xl border border-line bg-surface px-4">
         <input
           name={name}
           type="number"
@@ -456,7 +452,7 @@ function ParameterField({
         type="number"
         inputMode="numeric"
         defaultValue={defaultValue}
-        className="mt-2 min-h-10 w-full rounded-xl border border-line bg-white px-3 text-sm font-medium text-ink outline-none"
+        className="mt-2 min-h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-medium text-ink outline-none"
         required
       />
       <p className="mt-2 text-xs text-muted">{unit}</p>

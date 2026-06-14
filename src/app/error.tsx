@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { reportError } from "@/lib/observability/logger";
 
 export default function Error({
   error,
@@ -11,12 +12,12 @@ export default function Error({
   unstable_retry: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    reportError(error, { route: "app.root_error_boundary" });
   }, [error]);
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] px-4 py-10">
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 rounded-[32px] border border-[var(--color-line,#d7c7b2)] bg-white p-8 shadow-[0_30px_80px_rgba(35,36,31,0.08)]">
+      <div className="mx-auto flex max-w-3xl flex-col gap-4 rounded-[32px] border border-[var(--color-line,#d7c7b2)] bg-surface p-8 shadow-[0_30px_80px_rgba(35,36,31,0.08)]">
         <p className="text-sm uppercase tracking-[0.24em] text-[var(--color-muted,#76756d)]">
           Что-то пошло не так
         </p>

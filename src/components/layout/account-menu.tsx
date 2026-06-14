@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LogOut, Menu, Settings, CalendarDays, Users, LayoutDashboard, Globe, X } from "lucide-react";
+import { Archive, CalendarDays, Globe, LayoutDashboard, LogOut, Menu, Settings, Users, X } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
 import { ClientPortal } from "@/components/ui/client-portal";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,7 @@ export function AccountMenu({
       label: showTeamLink ? "Мой кабинет" : "Сегодня",
       icon: LayoutDashboard,
     },
+    { href: "/archive", label: "Архив", icon: Archive },
     { href: "/schedule", label: "Расписание", icon: CalendarDays },
     { href: "/clients", label: "Клиенты", icon: Users },
     { href: "/settings", label: "Настройки", icon: Settings },
@@ -56,8 +57,8 @@ export function AccountMenu({
         aria-label={open ? "Закрыть меню" : "Открыть меню"}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-white text-ink transition duration-300 hover:-translate-y-0.5 hover:bg-panel active:scale-95",
-          open && "border-ink-soft bg-white text-ink",
+          "inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface text-ink transition duration-300 hover:-translate-y-0.5 hover:bg-panel active:scale-95",
+          open && "border-ink-soft bg-surface text-ink",
         )}
       >
         <span className="relative flex h-5 w-5 items-center justify-center">
@@ -87,7 +88,7 @@ export function AccountMenu({
             onClick={() => setOpen(false)}
           />
 
-          <div className="fixed right-4 top-20 z-50 w-[min(92vw,360px)] rounded-[28px] border border-line bg-white p-4 shadow-[0_30px_80px_rgba(35,36,31,0.16)] transition duration-300">
+          <div className="fixed right-4 top-20 z-50 w-[min(92vw,360px)] rounded-[28px] border border-line bg-surface p-4 shadow-[0_30px_80px_rgba(35,36,31,0.16)] transition duration-300">
             {authenticated ? (
               <div className="space-y-2">
                 <div className="rounded-[22px] bg-panel p-4">
@@ -100,7 +101,7 @@ export function AccountMenu({
                         key={item.href}
                         href={item.href}
                         onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 rounded-[18px] px-3 py-3 text-sm font-medium text-ink transition hover:bg-white"
+                        className="flex items-center gap-3 rounded-[18px] px-3 py-3 text-sm font-medium text-ink transition hover:bg-surface"
                       >
                         <item.icon size={16} />
                         {item.label}
@@ -110,7 +111,7 @@ export function AccountMenu({
                       <Link
                         href={`/${username}`}
                         onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 rounded-[18px] px-3 py-3 text-sm font-medium text-ink transition hover:bg-white"
+                        className="flex items-center gap-3 rounded-[18px] px-3 py-3 text-sm font-medium text-ink transition hover:bg-surface"
                       >
                         <Globe size={16} />
                         Публичная страница
@@ -122,7 +123,7 @@ export function AccountMenu({
                 <form action={signOutAction}>
                   <button
                     type="submit"
-                    className="flex w-full items-center justify-between rounded-[22px] border border-line bg-white px-4 py-3 text-sm font-medium text-ink transition duration-300 hover:-translate-y-0.5 hover:bg-panel active:scale-[0.99]"
+                    className="flex w-full items-center justify-between rounded-[22px] border border-line bg-surface px-4 py-3 text-sm font-medium text-ink transition duration-300 hover:-translate-y-0.5 hover:bg-panel active:scale-[0.99]"
                   >
                     <span>Выйти из аккаунта</span>
                     <LogOut size={16} />
