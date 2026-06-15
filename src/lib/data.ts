@@ -14,23 +14,28 @@ import {
   services as mockServices,
 } from "@/lib/mock-data";
 import {
-  decryptPhone,
   humanizeBookingDate,
   isCancellationAllowed,
 } from "@/lib/booking";
+import { buildAccountNotificationItems } from "@/lib/account-notifications";
 import { normalizeBookingThemePresetId } from "@/lib/booking-theme-presets";
 import { ensureWorkRuntime, isDemoMode, isSupabaseConfigured } from "@/lib/env";
 import { getMockBookingConfirmation } from "@/lib/mock-booking-confirmations";
 import {
-  defaultAvatarUrl,
-  getStoredProfileMediaPath,
-  parsePortfolioWorks,
-  resolveProfileMediaUrl,
-} from "@/lib/profile-media";
+  mapAvailabilityRule,
+  mapBlockedSlot,
+  mapBooking,
+  mapClient,
+  mapNotificationEvent,
+  mapProfile,
+  mergeProfileMedia,
+  mapService,
+} from "@/lib/mappers/domain";
 import {
   getOwnerClientsRows,
   getOwnerDashboardRows,
   getOwnerNotificationRows,
+  getOwnerProfileMediaRow,
   getOwnerProfileRow,
   getOwnerScheduleRows,
   getOwnerSettingsRows,
@@ -46,23 +51,11 @@ import {
   getWorkspaceKindLabel,
   isAccountActive,
   isTeamWorkspaceKind,
-  normalizeAccountRole,
   normalizeAccountStatus,
-  normalizeWorkspaceKind,
   type AccountRole,
   type AccountStatus,
   type WorkspaceKind,
 } from "@/lib/workspace";
-
-export type AccountNotificationItem = {
-  id: string;
-  title: string;
-  description: string;
-  href: string;
-  tone: "neutral" | "success" | "accent" | "warning";
-  createdAt: string;
-  createdAtLabel: string;
-};
 
 export type TeamWorkspaceSummary = {
   id: string;
@@ -84,6 +77,7 @@ export type TeamMemberSummary = {
   specialty: string;
   username: string;
   email: string;
+  locationText: string;
   timezone: string;
   accountRole: AccountRole;
   roleLabel: string;
@@ -125,154 +119,26 @@ export type TeamDashboardData = {
   source: "supabase";
 };
 
-function mapProfile(row: Record<string, unknown>): Profile {
-  return {
-    id: String(row.id),
-    email: String(row.email),
-    passwordAuthId: String(row.password_auth_id),
-    fullName: String(row.full_name),
-    username: String(row.username),
-    specialty: String(row.specialty),
-    bio: String(row.bio ?? ""),
-    locationText: String(row.location_text ?? ""),
-    timezone: String(row.timezone ?? "Europe/Simferopol"),
-    telegramChatId: row.telegram_chat_id ? String(row.telegram_chat_id) : null,
-    avatarUrl:
-      resolveProfileMediaUrl(String(row.avatar_url ?? "")) || defaultAvatarUrl,
-    avatarPath: getStoredProfileMediaPath(String(row.avatar_url ?? "")),
-    portfolioWorks: parsePortfolioWorks(row.portfolio_works),
-    bookingThemePresetId: normalizeBookingThemePresetId(row.booking_theme_preset),
-    subscriptionTier: row.subscription_tier === "pro" ? "pro" : "free",
-    monthlyBookingLimit: Number(row.monthly_booking_limit ?? 50),
-    monthlyBookingsUsed: 0,
-    bookingWindowDays: Number(row.booking_window_days ?? 30),
-    slotIntervalMinutes: Number(row.slot_interval_minutes ?? 30),
-    bufferMinutes: Number(row.buffer_minutes ?? 15),
-    cancellationNoticeHours: Number(row.cancellation_notice_hours ?? 2),
-    clientReminderHours: Number(row.client_reminder_hours ?? 24),
-    masterReminderHours: Number(row.master_reminder_hours ?? 2),
-    joinedAt: String(row.created_at),
-    workspaceId: String(row.workspace_id ?? row.id),
-    workspaceName: String(row.workspace_name ?? row.full_name ?? "okno"),
-    workspaceKind: normalizeWorkspaceKind(row.workspace_kind),
-    accountRole: normalizeAccountRole(row.account_role),
-    accountStatus: normalizeAccountStatus(row.account_status),
-    createdByProfileId: row.created_by_profile_id
-      ? String(row.created_by_profile_id)
-      : null,
-  };
-}
+export type PublicTeamMember = {
+  profile: Profile;
+  services: ReturnType<typeof mapService>[];
+  bookingSlotsByService: Record<string, typeof bookingSlots>;
+};
 
-function mapService(row: Record<string, unknown>) {
-  return {
-    id: String(row.id),
-    profileId: String(row.profile_id),
-    title: String(row.title),
-    description: String(row.description ?? ""),
-    durationMinutes: Number(row.duration_minutes),
-    price: Number(row.price),
-    isActive: Boolean(row.is_active),
-    sortOrder: Number(row.sort_order ?? 0),
-  };
-}
-
-function mapClient(row: Record<string, unknown>) {
-  const phone = row.phone_encrypted ? decryptPhone(String(row.phone_encrypted)) : "";
-  const last4 = String(row.phone_last4 ?? "");
-  const masked = phone
-    ? `${phone.slice(0, Math.max(0, phone.length - 4))}${last4}`
-    : `***${last4}`;
-
-  return {
-    id: String(row.id),
-    profileId: String(row.profile_id),
-    name: String(row.name),
-    phoneMasked: masked,
-    notes: String(row.notes ?? ""),
-    createdAt: String(row.created_at),
-    lastBookingAt: String(row.last_booking_at ?? row.created_at),
-  };
-}
-
-function mapBooking(row: Record<string, unknown>) {
-  const source = (row.source === "manual" ? "manual" : "public_page") as
-    | "manual"
-    | "public_page";
-
-  return {
-    id: String(row.id),
-    profileId: String(row.profile_id),
-    clientId: String(row.client_id),
-    serviceId: String(row.service_id),
-    status: String(row.status) as
-      | "confirmed"
-      | "cancelled_by_client"
-      | "cancelled_by_master",
-    startsAt: String(row.starts_at),
-    endsAt: String(row.ends_at),
-    source,
-    clientNote: String(row.client_note ?? ""),
-    cancellationToken: String(row.cancellation_token ?? ""),
-    cancellationTokenExpiresAt: String(row.cancellation_token_expires_at ?? ""),
-    createdAt: String(row.created_at),
-    cancelledAt: row.cancelled_at ? String(row.cancelled_at) : null,
-  };
-}
-
-function mapAvailabilityRule(row: Record<string, unknown>) {
-  return {
-    id: String(row.id),
-    profileId: String(row.profile_id),
-    weekday: Number(row.weekday),
-    startTime: String(row.start_time),
-    endTime: String(row.end_time),
-    isActive: Boolean(row.is_active),
-  };
-}
-
-function mapBlockedSlot(row: Record<string, unknown>) {
-  return {
-    id: String(row.id),
-    profileId: String(row.profile_id),
-    startsAt: String(row.starts_at),
-    endsAt: String(row.ends_at),
-    reason: String(row.reason ?? ""),
-  };
-}
-
-function mapNotificationEvent(row: Record<string, unknown>) {
-  return {
-    id: String(row.id),
-    profileId: String(row.profile_id),
-    type:
-      row.type === "sms_confirmation"
-        ? "sms_confirmation"
-        : row.type === "sms_reminder_client"
-          ? "sms_reminder_client"
-          : row.type === "telegram_reminder_master"
-            ? "telegram_reminder_master"
-            : "telegram_new_booking",
-    status:
-      row.status === "sent"
-        ? "sent"
-        : row.status === "failed"
-          ? "failed"
-          : row.status === "processing"
-            ? "processing"
-            : row.status === "cancelled"
-              ? "cancelled"
-              : "queued",
-    target: String(row.target),
-    createdAt: String(row.created_at),
-  };
-}
-
-function formatNotificationMoment(createdAt: string, timezone: string) {
-  return DateTime.fromISO(createdAt, { zone: "utc" })
-    .setZone(timezone)
-    .setLocale("ru")
-    .toFormat("d LLLL, HH:mm");
-}
+export type PublicPageData =
+  | {
+      kind: "solo";
+      profile: Profile;
+      services: ReturnType<typeof mapService>[];
+      bookingSlotsByService: Record<string, typeof bookingSlots>;
+      source: "mock" | "supabase";
+    }
+  | {
+      kind: "team";
+      profile: Profile;
+      members: PublicTeamMember[];
+      source: "supabase";
+    };
 
 function formatTeamMoment(createdAt: string, timezone: string) {
   return DateTime.fromISO(createdAt, { zone: "utc" })
@@ -288,94 +154,100 @@ function formatTeamJoinDate(createdAt: string, timezone: string) {
     .toFormat("d LLLL yyyy");
 }
 
-function buildAccountNotificationItems(input: {
-  profile: Profile;
-  notificationEvents: Array<ReturnType<typeof mapNotificationEvent>>;
-  monthlyBookingsUsed: number;
-}) {
-  const { profile, notificationEvents, monthlyBookingsUsed } = input;
-  const remainingBookings = Math.max(
-    0,
-    profile.monthlyBookingLimit - monthlyBookingsUsed,
-  );
-  const stableSystemIso =
-    DateTime.now()
-      .setZone(profile.timezone)
-      .startOf("day")
-      .toUTC()
-      .toISO() ?? new Date().toISOString();
-
-  const eventItems: AccountNotificationItem[] = notificationEvents.map((event) => ({
-    id: `event-${event.id}`,
-    title:
-      event.type === "telegram_new_booking"
-        ? "Новая запись"
-        : event.type === "telegram_reminder_master"
-          ? "Напоминание мастеру"
-          : event.type === "sms_reminder_client"
-            ? "Напоминание клиенту"
-        : "Подтверждение отправлено",
-    description:
-      event.type === "telegram_new_booking"
-        ? "Появилась новая запись. Проверь кабинет и при необходимости свяжись с клиентом."
-        : event.type === "telegram_reminder_master"
-          ? "Напоминание о визите доставлено мастеру в Telegram."
-          : event.type === "sms_reminder_client"
-            ? `Напоминание о визите отправлено клиенту на ${event.target}.`
-        : `Подтверждение по записи отправлено на ${event.target}.`,
-    href:
-      event.type === "telegram_new_booking" || event.type === "telegram_reminder_master"
-        ? "/dashboard#today-bookings"
-        : "/clients",
-    tone:
-      event.type === "telegram_new_booking"
-        ? "accent"
-        : event.type === "telegram_reminder_master"
-          ? "success"
-          : "neutral",
-    createdAt: event.createdAt,
-    createdAtLabel: formatNotificationMoment(event.createdAt, profile.timezone),
-  }));
-
-  const systemItems: AccountNotificationItem[] = [];
-
-  if (!profile.telegramChatId) {
-    systemItems.push({
-      id: "system-telegram",
-      title: "Подключи Telegram",
-      description:
-        "Так ты быстрее увидишь новые записи и системные подсказки по кабинету.",
-      href: "/settings",
-      tone: "warning",
-      createdAt: stableSystemIso,
-      createdAtLabel: "Сегодня",
-    });
-  }
-
-  if (remainingBookings <= 10) {
-    systemItems.push({
-      id: "system-limit",
-      title:
-        remainingBookings > 0 ? "Лимит скоро закончится" : "Лимит закончился",
-      description:
-        remainingBookings > 0
-          ? `Осталось ${remainingBookings} записей в этом месяце. Можно заранее посмотреть переход на Pro.`
-          : "В этом месяце бесплатный лимит исчерпан. Самое время показать апгрейд без давления.",
-      href: "/pricing",
-      tone: remainingBookings > 0 ? "warning" : "accent",
-      createdAt: stableSystemIso,
-      createdAtLabel: "Сегодня",
-    });
-  }
-
-  return [...systemItems, ...eventItems].slice(0, 8);
+function asRecords(data: unknown[] | null) {
+  return (data ?? []) as Record<string, unknown>[];
 }
 
-export async function getPublicPageData(username: string) {
+const PUBLIC_PROFILE_BASE_COLUMNS = [
+  "id",
+  "email",
+  "password_auth_id",
+  "full_name",
+  "username",
+  "specialty",
+  "bio",
+  "location_text",
+  "timezone",
+  "telegram_chat_id",
+  "booking_theme_preset",
+  "booking_page_settings",
+  "subscription_tier",
+  "monthly_booking_limit",
+  "booking_window_days",
+  "slot_interval_minutes",
+  "buffer_minutes",
+  "cancellation_notice_hours",
+  "client_reminder_hours",
+  "master_reminder_hours",
+  "created_at",
+  "workspace_id",
+  "workspace_name",
+  "workspace_kind",
+  "account_role",
+  "account_status",
+  "created_by_profile_id",
+].join(",");
+
+const PUBLIC_PROFILE_WITH_MEDIA_COLUMNS = [
+  PUBLIC_PROFILE_BASE_COLUMNS,
+  "avatar_url",
+  "portfolio_works",
+].join(",");
+
+const PUBLIC_SERVICE_COLUMNS = [
+  "id",
+  "profile_id",
+  "title",
+  "description",
+  "duration_minutes",
+  "price",
+  "is_active",
+  "sort_order",
+].join(",");
+
+const PUBLIC_AVAILABILITY_RULE_COLUMNS = [
+  "id",
+  "profile_id",
+  "weekday",
+  "start_time",
+  "end_time",
+  "is_active",
+].join(",");
+
+const PUBLIC_BLOCKED_SLOT_COLUMNS = [
+  "id",
+  "profile_id",
+  "starts_at",
+  "ends_at",
+  "reason",
+].join(",");
+
+const PUBLIC_BOOKING_COLUMNS = [
+  "id",
+  "profile_id",
+  "client_id",
+  "service_id",
+  "status",
+  "starts_at",
+  "ends_at",
+  "source",
+  "client_note",
+  "cancellation_token",
+  "cancellation_token_expires_at",
+  "created_at",
+  "cancelled_at",
+].join(",");
+
+
+export const getPublicPageData = cache(async function getPublicPageData(
+  username: string,
+  includeMedia = true,
+): Promise<PublicPageData> {
   if (!isSupabaseConfigured) {
     ensureWorkRuntime("публичная страница мастера");
     if (username !== mockProfile.username) notFound();
     return {
+      kind: "solo",
       profile: mockProfile,
       services: mockServices,
       bookingSlotsByService: Object.fromEntries(
@@ -388,7 +260,7 @@ export async function getPublicPageData(username: string) {
   const admin = createSupabaseAdminClient();
   const { data: profileRow, error: profileError } = await admin
     .from("profiles")
-    .select("*")
+    .select(includeMedia ? PUBLIC_PROFILE_WITH_MEDIA_COLUMNS : PUBLIC_PROFILE_BASE_COLUMNS)
     .eq("username", username)
     .maybeSingle();
 
@@ -403,8 +275,109 @@ export async function getPublicPageData(username: string) {
   }
 
   if (!profileRow) notFound();
-  if (!isAccountActive(normalizeAccountStatus(profileRow.account_status))) {
+  const publicProfileRow = profileRow as unknown as Record<string, unknown>;
+  if (!isAccountActive(normalizeAccountStatus(publicProfileRow.account_status))) {
     notFound();
+  }
+
+  const mappedProfile = mapProfile(publicProfileRow);
+
+  if (
+    canManageWorkspace(mappedProfile.accountRole) &&
+    isTeamWorkspaceKind(mappedProfile.workspaceKind)
+  ) {
+    const teamRows = await getWorkspaceTeamRows({
+      workspaceId: mappedProfile.workspaceId,
+    });
+    const mappedMembers = teamRows.members
+      .map((row) => mapProfile(row))
+      .filter((member) => isAccountActive(member.accountStatus));
+    const memberIds = mappedMembers.map((member) => member.id);
+
+    if (memberIds.length === 0) {
+      return {
+        kind: "team",
+        profile: mappedProfile,
+        members: [],
+        source: "supabase",
+      };
+    }
+
+    const [availabilityResult, blockedResult] = await Promise.all([
+      admin
+        .from("availability_rules")
+        .select(PUBLIC_AVAILABILITY_RULE_COLUMNS)
+        .in("profile_id", memberIds)
+        .order("weekday"),
+      admin
+        .from("blocked_slots")
+        .select(PUBLIC_BLOCKED_SLOT_COLUMNS)
+        .in("profile_id", memberIds)
+        .order("starts_at"),
+    ]);
+
+    if (availabilityResult.error || blockedResult.error) {
+      if (
+        [availabilityResult.error, blockedResult.error].some((error) =>
+          isRetryableSupabaseNetworkError(error),
+        )
+      ) {
+        throw new Error(
+          "Нет связи с публичной страницей команды. Проверь Supabase и попробуй еще раз.",
+        );
+      }
+
+      throw new Error("Не получилось загрузить расписание команды.");
+    }
+
+    const services = teamRows.services
+      .map((row) => mapService(row))
+      .filter((service) => service.isActive);
+    const bookings = teamRows.bookings
+      .map((row) => mapBooking(row))
+      .filter((booking) => booking.status === "confirmed");
+    const availabilityRules = asRecords(availabilityResult.data).map((row) =>
+      mapAvailabilityRule(row),
+    );
+    const blockedSlotsByMember = asRecords(blockedResult.data).map((row) =>
+      mapBlockedSlot(row),
+    );
+
+    const members = mappedMembers
+      .map((member) => {
+        const memberServices = services
+          .filter((service) => service.profileId === member.id)
+          .sort((left, right) => left.sortOrder - right.sortOrder);
+
+        return {
+          profile: member,
+          services: memberServices,
+          bookingSlotsByService: Object.fromEntries(
+            memberServices.map((service) => [
+              service.id,
+              buildBookingSlotsForService({
+                profile: member,
+                service,
+                availabilityRules: availabilityRules.filter(
+                  (rule) => rule.profileId === member.id,
+                ),
+                blockedSlots: blockedSlotsByMember.filter(
+                  (slot) => slot.profileId === member.id,
+                ),
+                bookings: bookings.filter((booking) => booking.profileId === member.id),
+              }),
+            ]),
+          ),
+        };
+      })
+      .filter((member) => member.services.length > 0);
+
+    return {
+      kind: "team",
+      profile: mappedProfile,
+      members,
+      source: "supabase",
+    };
   }
 
   const [
@@ -415,20 +388,23 @@ export async function getPublicPageData(username: string) {
   ] = await Promise.all([
     admin
       .from("services")
-      .select("*")
-      .eq("profile_id", profileRow.id)
+      .select(PUBLIC_SERVICE_COLUMNS)
+      .eq("profile_id", publicProfileRow.id)
       .eq("is_active", true)
       .order("sort_order", { ascending: true }),
     admin
       .from("availability_rules")
-      .select("*")
-      .eq("profile_id", profileRow.id)
+      .select(PUBLIC_AVAILABILITY_RULE_COLUMNS)
+      .eq("profile_id", publicProfileRow.id)
       .order("weekday"),
-    admin.from("blocked_slots").select("*").eq("profile_id", profileRow.id),
+    admin
+      .from("blocked_slots")
+      .select(PUBLIC_BLOCKED_SLOT_COLUMNS)
+      .eq("profile_id", publicProfileRow.id),
     admin
       .from("bookings")
-      .select("*")
-      .eq("profile_id", profileRow.id)
+      .select(PUBLIC_BOOKING_COLUMNS)
+      .eq("profile_id", publicProfileRow.id)
       .eq("status", "confirmed")
       .order("starts_at"),
   ]);
@@ -455,15 +431,14 @@ export async function getPublicPageData(username: string) {
     throw new Error("Не получилось загрузить свободное время мастера.");
   }
 
-  const mappedProfile = mapProfile(profileRow);
-  const mappedServices = (serviceResult.data ?? []).map((row) => mapService(row));
-  const mappedAvailability = (availabilityResult.data ?? []).map((row) =>
+  const mappedServices = asRecords(serviceResult.data).map((row) => mapService(row));
+  const mappedAvailability = asRecords(availabilityResult.data).map((row) =>
     mapAvailabilityRule(row),
   );
-  const mappedBlockedSlots = (blockedResult.data ?? []).map((row) =>
+  const mappedBlockedSlots = asRecords(blockedResult.data).map((row) =>
     mapBlockedSlot(row),
   );
-  const mappedBookings = (bookingResult.data ?? []).map((row) => mapBooking(row));
+  const mappedBookings = asRecords(bookingResult.data).map((row) => mapBooking(row));
 
   const bookingSlotsByService = Object.fromEntries(
     mappedServices.map((service) => [
@@ -479,12 +454,13 @@ export async function getPublicPageData(username: string) {
   );
 
   return {
+    kind: "solo",
     profile: mappedProfile,
     services: mappedServices,
     bookingSlotsByService,
     source: "supabase" as const,
   };
-}
+});
 
 export const getCurrentAuthProfile = cache(async function getCurrentAuthProfile() {
   if (!isSupabaseConfigured) {
@@ -699,12 +675,17 @@ export async function getSettingsData() {
     };
   }
 
-  const settingsData = await getOwnerSettingsRows({
-    profileId: authProfile.profile.id,
-  });
+  const [settingsData, profileMediaRow] = await Promise.all([
+    getOwnerSettingsRows({
+      profileId: authProfile.profile.id,
+    }),
+    getOwnerProfileMediaRow({
+      profileId: authProfile.profile.id,
+    }),
+  ]);
 
   return {
-    profile: authProfile.profile,
+    profile: mergeProfileMedia(authProfile.profile, profileMediaRow),
     services: settingsData.services.map((row) => mapService(row)),
     availabilityRules: settingsData.availabilityRules.map((row) =>
       mapAvailabilityRule(row),
@@ -774,6 +755,7 @@ export async function getTeamDashboardData(): Promise<TeamDashboardData | null> 
         specialty: member.specialty,
         username: member.username,
         email: member.email,
+        locationText: member.locationText,
         timezone: member.timezone,
         accountRole: member.accountRole,
         roleLabel: getAccountRoleLabel(member.accountRole),
@@ -921,7 +903,7 @@ export async function getBookingConfirmationData(
 
   const { data: bookingRow, error: bookingError } = await admin
     .from("bookings")
-    .select("*")
+    .select("id, profile_id, client_id, service_id, starts_at, cancellation_token")
     .eq("id", bookingId)
     .eq("profile_id", profileRow.id)
     .maybeSingle();
@@ -1031,7 +1013,7 @@ export async function getBookingCancellationData(cancellationToken: string) {
   const admin = createSupabaseAdminClient();
   const { data: bookingRow, error: bookingError } = await admin
     .from("bookings")
-    .select("*")
+    .select(PUBLIC_BOOKING_COLUMNS)
     .eq("cancellation_token", cancellationToken)
     .maybeSingle();
 
@@ -1043,22 +1025,24 @@ export async function getBookingCancellationData(cancellationToken: string) {
     return null;
   }
 
+  const cancellationBookingRow = bookingRow as unknown as Record<string, unknown>;
+
   const [{ data: clientRow, error: clientError }, { data: serviceRow, error: serviceError }, { data: profileRow, error: profileError }] =
     await Promise.all([
       admin
         .from("clients")
         .select("name")
-        .eq("id", bookingRow.client_id)
+        .eq("id", cancellationBookingRow.client_id)
         .maybeSingle(),
       admin
         .from("services")
-        .select("*")
-        .eq("id", bookingRow.service_id)
+        .select(PUBLIC_SERVICE_COLUMNS)
+        .eq("id", cancellationBookingRow.service_id)
         .maybeSingle(),
       admin
         .from("profiles")
-        .select("id, username, full_name, timezone, email, password_auth_id, specialty, bio, location_text, telegram_chat_id, avatar_url, subscription_tier, monthly_booking_limit, created_at, booking_window_days, slot_interval_minutes, buffer_minutes, cancellation_notice_hours")
-        .eq("id", bookingRow.profile_id)
+        .select(PUBLIC_PROFILE_BASE_COLUMNS)
+        .eq("id", cancellationBookingRow.profile_id)
         .maybeSingle(),
     ]);
 
@@ -1070,8 +1054,12 @@ export async function getBookingCancellationData(cancellationToken: string) {
     return null;
   }
 
-  const timezone = String(profileRow.timezone ?? "Europe/Simferopol");
-  const status = String(bookingRow.status) as
+  const cancellationProfileRow = profileRow as unknown as Record<string, unknown>;
+  const cancellationServiceRow = serviceRow as unknown as Record<string, unknown>;
+  const cancellationClientRow = clientRow as unknown as Record<string, unknown>;
+
+  const timezone = String(cancellationProfileRow.timezone ?? "Europe/Simferopol");
+  const status = String(cancellationBookingRow.status) as
     | "confirmed"
     | "cancelled_by_client"
     | "cancelled_by_master";
@@ -1079,20 +1067,20 @@ export async function getBookingCancellationData(cancellationToken: string) {
   const [availabilityResult, blockedResult, bookingResult] = await Promise.all([
     admin
       .from("availability_rules")
-      .select("*")
-      .eq("profile_id", profileRow.id)
+      .select(PUBLIC_AVAILABILITY_RULE_COLUMNS)
+      .eq("profile_id", cancellationProfileRow.id)
       .order("weekday"),
     admin
       .from("blocked_slots")
-      .select("*")
-      .eq("profile_id", profileRow.id)
+      .select(PUBLIC_BLOCKED_SLOT_COLUMNS)
+      .eq("profile_id", cancellationProfileRow.id)
       .order("starts_at"),
     admin
       .from("bookings")
-      .select("*")
-      .eq("profile_id", profileRow.id)
+      .select(PUBLIC_BOOKING_COLUMNS)
+      .eq("profile_id", cancellationProfileRow.id)
       .eq("status", "confirmed")
-      .neq("id", bookingRow.id)
+      .neq("id", cancellationBookingRow.id)
       .order("starts_at"),
   ]);
 
@@ -1100,47 +1088,49 @@ export async function getBookingCancellationData(cancellationToken: string) {
     throw new Error("Не получилось загрузить свободное время для переноса записи.");
   }
 
-  const mappedProfile = mapProfile(profileRow);
-  const mappedService = mapService(serviceRow);
+  const mappedProfile = mapProfile(cancellationProfileRow);
+  const mappedService = mapService(cancellationServiceRow);
 
   return {
-    bookingId: String(bookingRow.id),
-    cancellationToken: String(bookingRow.cancellation_token),
-    clientName: String(clientRow.name),
-    serviceTitle: String(serviceRow.title),
-    serviceId: String(serviceRow.id),
-    serviceDurationMinutes: Number(serviceRow.duration_minutes),
-    masterName: String(profileRow.full_name),
+    bookingId: String(cancellationBookingRow.id),
+    cancellationToken: String(cancellationBookingRow.cancellation_token),
+    profileId: String(cancellationProfileRow.id),
+    workspaceId: String(cancellationProfileRow.workspace_id ?? cancellationProfileRow.id),
+    clientName: String(cancellationClientRow.name),
+    serviceTitle: String(cancellationServiceRow.title),
+    serviceId: String(cancellationServiceRow.id),
+    serviceDurationMinutes: Number(cancellationServiceRow.duration_minutes),
+    masterName: String(cancellationProfileRow.full_name),
     timezone,
     startsAtLabel: humanizeBookingDate({
-      startsAtIso: String(bookingRow.starts_at),
+      startsAtIso: String(cancellationBookingRow.starts_at),
       timezone,
     }),
-    startsAtIso: String(bookingRow.starts_at),
-    username: String(profileRow.username),
+    startsAtIso: String(cancellationBookingRow.starts_at),
+    username: String(cancellationProfileRow.username),
     status,
     canCancel: isCancellationAllowed({
-      startsAtIso: String(bookingRow.starts_at),
-      cancellationTokenExpiresAt: bookingRow.cancellation_token_expires_at
-        ? String(bookingRow.cancellation_token_expires_at)
+      startsAtIso: String(cancellationBookingRow.starts_at),
+      cancellationTokenExpiresAt: cancellationBookingRow.cancellation_token_expires_at
+        ? String(cancellationBookingRow.cancellation_token_expires_at)
         : null,
       timezone,
       status,
     }),
-    cancellationDeadlineLabel: bookingRow.cancellation_token_expires_at
+    cancellationDeadlineLabel: cancellationBookingRow.cancellation_token_expires_at
       ? humanizeBookingDate({
-          startsAtIso: String(bookingRow.cancellation_token_expires_at),
+          startsAtIso: String(cancellationBookingRow.cancellation_token_expires_at),
           timezone,
         })
       : null,
     bookingSlots: buildBookingSlotsForService({
       profile: mappedProfile,
       service: mappedService,
-      availabilityRules: (availabilityResult.data ?? []).map((row) =>
+      availabilityRules: asRecords(availabilityResult.data).map((row) =>
         mapAvailabilityRule(row),
       ),
-      blockedSlots: (blockedResult.data ?? []).map((row) => mapBlockedSlot(row)),
-      bookings: (bookingResult.data ?? []).map((row) => mapBooking(row)),
+      blockedSlots: asRecords(blockedResult.data).map((row) => mapBlockedSlot(row)),
+      bookings: asRecords(bookingResult.data).map((row) => mapBooking(row)),
     }),
   };
 }

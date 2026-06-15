@@ -7,11 +7,18 @@ import {
   createServiceAction,
   updateAvailabilityAction,
   updateAccessAction,
+  updateBookingPageSettingsAction,
   updateBookingPreferencesAction,
   updateProfileAction,
   updateServiceAction,
   type SettingsActionState,
 } from "@/app/actions/settings";
+import {
+  commentFieldModeLabels,
+  commentFieldModes,
+  headlineMaxLength,
+  subheadlineMaxLength,
+} from "@/lib/booking-page-settings";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -178,6 +185,49 @@ export function BookingPreferencesForm({ profile }: { profile: Profile }) {
           example="2 часа = напоминание за пару часов до клиента. 0 = отключить."
         />
       </div>
+      <FormMessage message={state.message} success={state.success} />
+      <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
+    </form>
+  );
+}
+
+const commentFieldModeOptions = commentFieldModes.map((mode) => ({
+  value: mode,
+  label: commentFieldModeLabels[mode],
+}));
+
+export function BookingPageSettingsForm({ profile }: { profile: Profile }) {
+  const [state, action] = useActionState(
+    updateBookingPageSettingsAction,
+    initialState,
+  );
+  const settings = profile.bookingPageSettings;
+
+  return (
+    <form action={action} className="space-y-4">
+      <Input
+        label="Заголовок на первом экране"
+        name="headline"
+        defaultValue={settings.headline}
+        maxLength={headlineMaxLength}
+        placeholder="Например: Аккуратный маникюр без спешки"
+        hint={`Короткий тезис под именем мастера. До ${headlineMaxLength} символов.`}
+      />
+      <Textarea
+        label="Подзаголовок"
+        name="subheadline"
+        defaultValue={settings.subheadline}
+        maxLength={subheadlineMaxLength}
+        placeholder="Например: Спокойный кабинет в центре, запись без переписок"
+        hint={`Пояснение на 1–2 строки. До ${subheadlineMaxLength} символов.`}
+      />
+      <Select
+        label="Поле комментария в записи"
+        name="commentFieldMode"
+        defaultValue={settings.commentFieldMode}
+        options={commentFieldModeOptions}
+        hint="Можно скрыть поле, оставить по желанию или сделать обязательным."
+      />
       <FormMessage message={state.message} success={state.success} />
       <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
     </form>

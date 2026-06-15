@@ -3,8 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { DateTime } from "luxon";
 import { z } from "zod";
+import {
+  getCityLabel,
+  resolveTimezoneForCity,
+} from "@/lib/cities";
 import { isSupabaseConfigured } from "@/lib/env";
+import { writeAuditLog } from "@/lib/observability/audit";
+import { logError } from "@/lib/observability/logger";
 import { bookingThemePresetIds } from "@/lib/booking-theme-presets";
+import {
+  bookingPageSettingsFormSchema,
+  headlineMaxLength,
+  subheadlineMaxLength,
+} from "@/lib/booking-page-settings";
 import { getCurrentAuthProfile } from "@/lib/data";
 import {
   buildPortfolioWorksFromPaths,
@@ -13,6 +24,8 @@ import {
   maxPortfolioWorks,
   profileMediaBucket,
 } from "@/lib/profile-media";
+import { mergeProfileMedia } from "@/lib/mappers/domain";
+import { getOwnerProfileMediaRow } from "@/lib/repositories/owner-repository";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseMissingColumnError } from "@/lib/supabase/auth-errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -25,8 +38,7 @@ export type SettingsActionState = {
 const profileSchema = z.object({
   fullName: z.string().trim().min(2),
   specialty: z.string().trim().min(2),
-  locationText: z.string().trim().default(""),
-  timezone: z.string().trim().min(3),
+  city: z.string().trim().min(2),
   bio: z.string().trim().default(""),
 });
 
@@ -65,10 +77,30 @@ async function requireProfile() {
   return authProfile?.profile ?? null;
 }
 
+async function requireProfileWithMedia() {
+  const profile = await requireProfile();
+
+  if (!profile) {
+    return null;
+  }
+
+  const mediaRow = await getOwnerProfileMediaRow({ profileId: profile.id });
+  return mergeProfileMedia(profile, mediaRow);
+}
+
 function revalidateProfilePaths(username: string) {
   revalidatePath("/settings");
   revalidatePath("/dashboard");
   revalidatePath(`/${username}`);
+}
+
+function getAuditProfileContext(profile: NonNullable<Awaited<ReturnType<typeof requireProfile>>>) {
+  return {
+    actorKind: "master" as const,
+    actorProfileId: profile.id,
+    profileId: profile.id,
+    workspaceId: profile.workspaceId,
+  };
 }
 
 async function removeProfileMediaObjects(paths: string[]) {
@@ -105,24 +137,39 @@ export async function updateProfileAction(
     };
   }
 
+  const timezone = resolveTimezoneForCity(parsed.data.city);
+  const locationText = getCityLabel(parsed.data.city);
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("profiles")
     .update({
       full_name: parsed.data.fullName,
       specialty: parsed.data.specialty,
-      location_text: parsed.data.locationText,
-      timezone: parsed.data.timezone,
+      location_text: locationText,
+      timezone,
       bio: parsed.data.bio,
     })
     .eq("id", profile.id);
 
   if (error) {
+    logError("Failed to update profile", { profileId: profile.id, error });
     return {
       success: false,
       message: `Не получилось обновить профиль.${error.message ? ` ${error.message}` : ""}`,
     };
   }
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "profile.updated",
+    targetType: "profile",
+    targetId: profile.id,
+    metadata: {
+      city: locationText,
+      timezone,
+      specialty: parsed.data.specialty,
+    },
+  });
 
   revalidateProfilePaths(profile.username);
 
@@ -137,7 +184,7 @@ export async function updateAvatarAction(input: { path: string }) {
     };
   }
 
-  const profile = await requireProfile();
+  const profile = await requireProfileWithMedia();
   if (!profile) {
     return { success: false, message: "Сессия истекла. Войди заново." };
   }
@@ -166,11 +213,19 @@ export async function updateAvatarAction(input: { path: string }) {
 
   if (error) {
     await removeProfileMediaObjects([input.path]);
+    logError("Failed to update avatar", { profileId: profile.id, error });
     return {
       success: false,
       message: `Не получилось обновить аватар.${error.message ? ` ${error.message}` : ""}`,
     };
   }
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "profile.avatar.updated",
+    targetType: "profile",
+    targetId: profile.id,
+  });
 
   revalidateProfilePaths(profile.username);
 
@@ -189,7 +244,7 @@ export async function updatePortfolioWorksAction(input: { paths: string[] }) {
     };
   }
 
-  const profile = await requireProfile();
+  const profile = await requireProfileWithMedia();
   if (!profile) {
     return { success: false, message: "Сессия истекла. Войди заново." };
   }
@@ -229,11 +284,22 @@ export async function updatePortfolioWorksAction(input: { paths: string[] }) {
 
   if (error) {
     await removeProfileMediaObjects(input.paths);
+    logError("Failed to update portfolio works", { profileId: profile.id, error });
     return {
       success: false,
       message: `Не получилось обновить готовые работы.${error.message ? ` ${error.message}` : ""}`,
     };
   }
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "profile.portfolio.updated",
+    targetType: "profile",
+    targetId: profile.id,
+    metadata: {
+      workCount: nextPortfolioWorks.length,
+    },
+  });
 
   revalidateProfilePaths(profile.username);
 
@@ -279,11 +345,20 @@ export async function updateBookingPreferencesAction(
     .eq("id", profile.id);
 
   if (error) {
+    logError("Failed to update booking preferences", { profileId: profile.id, error });
     return {
       success: false,
       message: "Не получилось обновить параметры записи.",
     };
   }
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "booking_preferences.updated",
+    targetType: "profile",
+    targetId: profile.id,
+    metadata: parsed.data,
+  });
 
   revalidatePath("/settings");
   return { success: true, message: "Параметры записи сохранены." };
@@ -329,6 +404,7 @@ export async function updateBookingThemePresetAction(
       };
     }
 
+    logError("Failed to update booking theme preset", { profileId: profile.id, error });
     return {
       success: false,
       message: `Не получилось сохранить оформление клиентских страниц.${error.message ? ` ${error.message}` : ""}`,
@@ -340,9 +416,98 @@ export async function updateBookingThemePresetAction(
   revalidatePath(`/${profile.username}/book`);
   revalidatePath(`/${profile.username}/confirm`);
 
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "booking_theme.updated",
+    targetType: "profile",
+    targetId: profile.id,
+    metadata: {
+      preset: parsed.data.bookingThemePreset,
+    },
+  });
+
   return {
     success: true,
     message: "Оформление клиентских страниц сохранено.",
+  };
+}
+
+export async function updateBookingPageSettingsAction(
+  _prevState: SettingsActionState,
+  formData: FormData,
+) {
+  if (!isSupabaseConfigured) {
+    return {
+      success: false,
+      message: "Для сохранения страницы записи нужно подключение к Supabase.",
+    };
+  }
+
+  const profile = await requireProfile();
+  if (!profile) {
+    return { success: false, message: "Сессия истекла. Войди заново." };
+  }
+
+  const parsed = bookingPageSettingsFormSchema.safeParse({
+    headline: formData.get("headline") ?? "",
+    subheadline: formData.get("subheadline") ?? "",
+    commentFieldMode: formData.get("commentFieldMode") ?? "optional",
+  });
+  if (!parsed.success) {
+    return {
+      success: false,
+      message: `Проверь поля: заголовок до ${headlineMaxLength}, подзаголовок до ${subheadlineMaxLength} символов.`,
+    };
+  }
+
+  const nextSettings = {
+    ...profile.bookingPageSettings,
+    headline: parsed.data.headline,
+    subheadline: parsed.data.subheadline,
+    commentFieldMode: parsed.data.commentFieldMode,
+  };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      booking_page_settings: nextSettings,
+    })
+    .eq("id", profile.id);
+
+  if (error) {
+    if (isSupabaseMissingColumnError(error, "booking_page_settings")) {
+      return {
+        success: false,
+        message:
+          "В базе еще нет поля настроек страницы записи. Прогони миграцию 202604250001_booking_page_settings.sql и попробуй еще раз.",
+      };
+    }
+
+    logError("Failed to update booking page settings", { profileId: profile.id, error });
+    return {
+      success: false,
+      message: `Не получилось сохранить страницу записи.${error.message ? ` ${error.message}` : ""}`,
+    };
+  }
+
+  revalidateProfilePaths(profile.username);
+  revalidatePath(`/${profile.username}/book`);
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "booking_page_settings.updated",
+    targetType: "profile",
+    targetId: profile.id,
+    metadata: {
+      commentFieldMode: parsed.data.commentFieldMode,
+      hasHeadline: parsed.data.headline.length > 0,
+    },
+  });
+
+  return {
+    success: true,
+    message: "Страница записи обновлена.",
   };
 }
 
@@ -411,6 +576,7 @@ export async function updateAccessAction(
 
   const { error: authError } = await supabase.auth.updateUser(updatePayload);
   if (authError) {
+    logError("Failed to update auth access", { profileId: profile.id, error: authError });
     return {
       success: false,
       message: "Не получилось обновить доступ к аккаунту.",
@@ -423,6 +589,7 @@ export async function updateAccessAction(
     .eq("id", profile.id);
 
   if (profileError) {
+    logError("Auth updated but profile email sync failed", { profileId: profile.id, error: profileError });
     return {
       success: false,
       message: "Данные входа обновились частично. Проверь email позже.",
@@ -430,6 +597,16 @@ export async function updateAccessAction(
   }
 
   revalidatePath("/settings");
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "account.access.updated",
+    targetType: "profile",
+    targetId: profile.id,
+    metadata: {
+      emailChanged,
+      passwordChanged,
+    },
+  });
   return { success: true, message: "Данные входа обновлены." };
 }
 
@@ -474,8 +651,20 @@ export async function createServiceAction(
   });
 
   if (error) {
+    logError("Failed to create service", { profileId: profile.id, error });
     return { success: false, message: "Не получилось создать услугу." };
   }
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "service.created",
+    targetType: "service",
+    metadata: {
+      title: parsed.data.title,
+      durationMinutes: parsed.data.durationMinutes,
+      price: parsed.data.price,
+    },
+  });
 
   revalidatePath("/settings");
   revalidatePath(`/${profile.username}`);
@@ -527,8 +716,20 @@ export async function updateServiceAction(
     .eq("profile_id", profile.id);
 
   if (error) {
+    logError("Failed to update service", { profileId: profile.id, serviceId, error });
     return { success: false, message: "Не получилось обновить услугу." };
   }
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "service.updated",
+    targetType: "service",
+    targetId: serviceId,
+    metadata: {
+      title: parsed.data.title,
+      isActive: nextActive,
+    },
+  });
 
   revalidatePath("/settings");
   revalidatePath(`/${profile.username}`);
@@ -582,6 +783,7 @@ export async function updateAvailabilityAction(
     .eq("profile_id", profile.id);
 
   if (deleteError) {
+    logError("Failed to replace availability rules", { profileId: profile.id, error: deleteError });
     return { success: false, message: "Не получилось обновить старый график." };
   }
 
@@ -591,9 +793,21 @@ export async function updateAvailabilityAction(
       .insert(rows);
 
     if (insertError) {
+      logError("Failed to insert availability rules", { profileId: profile.id, error: insertError });
       return { success: false, message: "Не получилось сохранить рабочие дни." };
     }
   }
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "availability.updated",
+    targetType: "availability",
+    targetId: profile.id,
+    metadata: {
+      activeDays: rows.map((row) => row.weekday),
+      activeCount: rows.length,
+    },
+  });
 
   revalidatePath("/settings");
   revalidatePath("/schedule");
@@ -655,6 +869,7 @@ export async function createBlockedSlotAction(
   });
 
   if (error) {
+    logError("Failed to create blocked slot", { profileId: profile.id, error });
     return {
       success: false,
       message: `Не получилось сохранить блокировку.${error.message ? ` ${error.message}` : ""}`,
@@ -665,6 +880,18 @@ export async function createBlockedSlotAction(
   revalidatePath("/dashboard");
   revalidatePath(`/${profile.username}`);
   revalidatePath(`/${profile.username}/book`);
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "blocked_slot.created",
+    targetType: "blocked_slot",
+    targetId: `${parsed.data.date}:${parsed.data.startTime}-${parsed.data.endTime}`,
+    metadata: {
+      date: parsed.data.date,
+      startTime: parsed.data.startTime,
+      endTime: parsed.data.endTime,
+    },
+  });
 
   return {
     success: true,
@@ -693,6 +920,13 @@ export async function deleteBlockedSlotAction(formData: FormData) {
     .delete()
     .eq("id", blockedSlotId)
     .eq("profile_id", profile.id);
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "blocked_slot.deleted",
+    targetType: "blocked_slot",
+    targetId: blockedSlotId,
+  });
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");

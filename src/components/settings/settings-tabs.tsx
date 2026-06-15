@@ -6,6 +6,7 @@ import {
   BellRing,
   CalendarRange,
   Globe2,
+  LayoutTemplate,
   Palette,
   ShieldCheck,
   SlidersHorizontal,
@@ -17,6 +18,7 @@ import { Card } from "@/components/ui/card";
 import {
   AccessSettingsForm,
   AvailabilitySettingsForm,
+  BookingPageSettingsForm,
   BookingPreferencesForm,
   ProfileSettingsForm,
   ServicesSettingsForm,
@@ -143,6 +145,20 @@ export function SettingsTabs({
               </h2>
             </div>
             <BookingPreferencesForm profile={profile} />
+          </Card>
+
+          <Card className="space-y-4">
+            <div className="flex items-center gap-3">
+              <LayoutTemplate size={18} className="text-accent-deep" />
+              <h2 className="text-xl font-semibold text-ink">
+                Витрина страницы записи
+              </h2>
+            </div>
+            <p className="text-sm leading-6 text-ink-soft">
+              Заголовок и подзаголовок помогают клиенту быстрее понять, к кому он
+              записывается. Поле комментария можно подстроить под свой процесс.
+            </p>
+            <BookingPageSettingsForm profile={profile} />
           </Card>
 
           <Card className="space-y-4">

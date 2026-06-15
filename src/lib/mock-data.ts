@@ -1,5 +1,9 @@
 import type { PortfolioWork } from "@/lib/profile-media";
 import {
+  defaultBookingPageSettings,
+  type BookingPageSettings,
+} from "@/lib/booking-page-settings";
+import {
   defaultBookingThemePresetId,
   type BookingThemePresetId,
 } from "@/lib/booking-theme-presets";
@@ -22,6 +26,7 @@ export type Profile = {
   avatarPath: string | null;
   portfolioWorks: PortfolioWork[];
   bookingThemePresetId: BookingThemePresetId;
+  bookingPageSettings: BookingPageSettings;
   subscriptionTier: SubscriptionTier;
   monthlyBookingLimit: number;
   monthlyBookingsUsed: number;
@@ -126,7 +131,7 @@ export const profile: Profile = {
   username: "alina-nails",
   specialty: "Маникюр и брови",
   bio: "Спокойный кабинет у метро, мягкий сервис и аккуратные записи без спешки.",
-  locationText: "Симферополь, район центра",
+  locationText: "Симферополь",
   timezone: "Europe/Simferopol",
   telegramChatId: "@okno_master_bot",
   avatarUrl: "/demo/avatar.svg",
@@ -154,6 +159,7 @@ export const profile: Profile = {
     },
   ],
   bookingThemePresetId: defaultBookingThemePresetId,
+  bookingPageSettings: defaultBookingPageSettings,
   subscriptionTier: "free",
   monthlyBookingLimit: 50,
   monthlyBookingsUsed: 47,

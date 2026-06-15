@@ -7,6 +7,105 @@ import {
 
 type Row = Record<string, unknown>;
 
+const PROFILE_COLUMNS = [
+  "id",
+  "email",
+  "password_auth_id",
+  "full_name",
+  "username",
+  "specialty",
+  "bio",
+  "location_text",
+  "timezone",
+  "telegram_chat_id",
+  "booking_theme_preset",
+  "booking_page_settings",
+  "subscription_tier",
+  "monthly_booking_limit",
+  "booking_window_days",
+  "slot_interval_minutes",
+  "buffer_minutes",
+  "cancellation_notice_hours",
+  "client_reminder_hours",
+  "master_reminder_hours",
+  "created_at",
+  "workspace_id",
+  "workspace_name",
+  "workspace_kind",
+  "account_role",
+  "account_status",
+  "created_by_profile_id",
+].join(",");
+
+const PROFILE_MEDIA_COLUMNS = [
+  "avatar_url",
+  "portfolio_works",
+].join(",");
+
+const SERVICE_COLUMNS = [
+  "id",
+  "profile_id",
+  "title",
+  "description",
+  "duration_minutes",
+  "price",
+  "is_active",
+  "sort_order",
+].join(",");
+
+const BOOKING_COLUMNS = [
+  "id",
+  "profile_id",
+  "client_id",
+  "service_id",
+  "status",
+  "starts_at",
+  "ends_at",
+  "source",
+  "client_note",
+  "cancellation_token",
+  "cancellation_token_expires_at",
+  "created_at",
+  "cancelled_at",
+].join(",");
+
+const CLIENT_COLUMNS = [
+  "id",
+  "profile_id",
+  "name",
+  "phone_encrypted",
+  "phone_last4",
+  "notes",
+  "created_at",
+  "last_booking_at",
+].join(",");
+
+const AVAILABILITY_RULE_COLUMNS = [
+  "id",
+  "profile_id",
+  "weekday",
+  "start_time",
+  "end_time",
+  "is_active",
+].join(",");
+
+const BLOCKED_SLOT_COLUMNS = [
+  "id",
+  "profile_id",
+  "starts_at",
+  "ends_at",
+  "reason",
+].join(",");
+
+const NOTIFICATION_EVENT_COLUMNS = [
+  "id",
+  "profile_id",
+  "type",
+  "status",
+  "target",
+  "created_at",
+].join(",");
+
 function buildMonthRange(timezone: string) {
   const monthStart = DateTime.now().setZone(timezone).startOf("month");
   const monthEnd = monthStart.plus({ months: 1 });
@@ -15,6 +114,10 @@ function buildMonthRange(timezone: string) {
     monthStartUtc: monthStart.toUTC().toISO() ?? new Date().toISOString(),
     monthEndUtc: monthEnd.toUTC().toISO() ?? new Date().toISOString(),
   };
+}
+
+function asRows(data: unknown[] | null) {
+  return (data ?? []) as Row[];
 }
 
 export async function getOwnerProfileRow() {
@@ -48,7 +151,7 @@ export async function getOwnerProfileRow() {
 
   const { data: profileRow, error: profileError } = await supabase
     .from("profiles")
-    .select("*")
+    .select(PROFILE_COLUMNS)
     .eq("password_auth_id", user.id)
     .maybeSingle();
 
@@ -62,7 +165,32 @@ export async function getOwnerProfileRow() {
     throw new Error("Не получилось загрузить профиль мастера.");
   }
 
-  return (profileRow ?? null) as Row | null;
+  if (!profileRow) {
+    return null;
+  }
+
+  return profileRow as unknown as Row;
+}
+
+export async function getOwnerProfileMediaRow(input: { profileId: string }) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(PROFILE_MEDIA_COLUMNS)
+    .eq("id", input.profileId)
+    .maybeSingle();
+
+  if (error) {
+    if (isRetryableSupabaseNetworkError(error)) {
+      throw new Error(
+        "Нет связи с медиа профиля. Проверь подключение к Supabase и попробуй еще раз.",
+      );
+    }
+
+    throw new Error("Не получилось загрузить медиа профиля.");
+  }
+
+  return data as unknown as Row | null;
 }
 
 export async function getOwnerDashboardRows(input: {
@@ -76,18 +204,18 @@ export async function getOwnerDashboardRows(input: {
     await Promise.all([
       supabase
         .from("services")
-        .select("*")
+        .select(SERVICE_COLUMNS)
         .eq("profile_id", input.profileId)
         .order("sort_order"),
       supabase
         .from("bookings")
-        .select("*")
+        .select(BOOKING_COLUMNS)
         .eq("profile_id", input.profileId)
         .eq("status", "confirmed")
         .order("starts_at"),
       supabase
         .from("clients")
-        .select("*")
+        .select(CLIENT_COLUMNS)
         .eq("profile_id", input.profileId)
         .order("last_booking_at", { ascending: false }),
       supabase
@@ -123,9 +251,9 @@ export async function getOwnerDashboardRows(input: {
   }
 
   return {
-    services: (serviceResult.data ?? []) as Row[],
-    bookings: (bookingResult.data ?? []) as Row[],
-    clients: (clientResult.data ?? []) as Row[],
+    services: asRows(serviceResult.data),
+    bookings: asRows(bookingResult.data),
+    clients: asRows(clientResult.data),
     monthlyBookingsUsed: monthlyBookingsUsedResult.count ?? 0,
   };
 }
@@ -136,18 +264,18 @@ export async function getOwnerScheduleRows(input: { profileId: string }) {
   const [bookingResult, availabilityResult, blockedResult] = await Promise.all([
     supabase
       .from("bookings")
-      .select("*")
+      .select(BOOKING_COLUMNS)
       .eq("profile_id", input.profileId)
       .eq("status", "confirmed")
       .order("starts_at"),
     supabase
       .from("availability_rules")
-      .select("*")
+      .select(AVAILABILITY_RULE_COLUMNS)
       .eq("profile_id", input.profileId)
       .order("weekday"),
     supabase
       .from("blocked_slots")
-      .select("*")
+      .select(BLOCKED_SLOT_COLUMNS)
       .eq("profile_id", input.profileId)
       .order("starts_at"),
   ]);
@@ -169,9 +297,9 @@ export async function getOwnerScheduleRows(input: { profileId: string }) {
   }
 
   return {
-    bookings: (bookingResult.data ?? []) as Row[],
-    availabilityRules: (availabilityResult.data ?? []) as Row[],
-    blockedSlots: (blockedResult.data ?? []) as Row[],
+    bookings: asRows(bookingResult.data),
+    availabilityRules: asRows(availabilityResult.data),
+    blockedSlots: asRows(blockedResult.data),
   };
 }
 
@@ -181,17 +309,17 @@ export async function getOwnerClientsRows(input: { profileId: string }) {
   const [serviceResult, bookingResult, clientResult] = await Promise.all([
     supabase
       .from("services")
-      .select("*")
+      .select(SERVICE_COLUMNS)
       .eq("profile_id", input.profileId)
       .order("sort_order"),
     supabase
       .from("bookings")
-      .select("*")
+      .select(BOOKING_COLUMNS)
       .eq("profile_id", input.profileId)
       .order("starts_at"),
     supabase
       .from("clients")
-      .select("*")
+      .select(CLIENT_COLUMNS)
       .eq("profile_id", input.profileId)
       .order("last_booking_at", { ascending: false }),
   ]);
@@ -211,9 +339,9 @@ export async function getOwnerClientsRows(input: { profileId: string }) {
   }
 
   return {
-    services: (serviceResult.data ?? []) as Row[],
-    bookings: (bookingResult.data ?? []) as Row[],
-    clients: (clientResult.data ?? []) as Row[],
+    services: asRows(serviceResult.data),
+    bookings: asRows(bookingResult.data),
+    clients: asRows(clientResult.data),
   };
 }
 
@@ -223,12 +351,12 @@ export async function getOwnerSettingsRows(input: { profileId: string }) {
   const [serviceResult, availabilityResult] = await Promise.all([
     supabase
       .from("services")
-      .select("*")
+      .select(SERVICE_COLUMNS)
       .eq("profile_id", input.profileId)
       .order("sort_order"),
     supabase
       .from("availability_rules")
-      .select("*")
+      .select(AVAILABILITY_RULE_COLUMNS)
       .eq("profile_id", input.profileId)
       .order("weekday"),
   ]);
@@ -248,8 +376,8 @@ export async function getOwnerSettingsRows(input: { profileId: string }) {
   }
 
   return {
-    services: (serviceResult.data ?? []) as Row[],
-    availabilityRules: (availabilityResult.data ?? []) as Row[],
+    services: asRows(serviceResult.data),
+    availabilityRules: asRows(availabilityResult.data),
   };
 }
 
@@ -263,7 +391,7 @@ export async function getOwnerNotificationRows(input: {
   const [notificationResult, monthlyBookingsUsedResult] = await Promise.all([
     supabase
       .from("notification_events")
-      .select("*")
+      .select(NOTIFICATION_EVENT_COLUMNS)
       .eq("profile_id", input.profileId)
       .order("created_at", { ascending: false })
       .limit(8),
@@ -291,7 +419,7 @@ export async function getOwnerNotificationRows(input: {
   }
 
   return {
-    notificationEvents: (notificationResult.data ?? []) as Row[],
+    notificationEvents: asRows(notificationResult.data),
     monthlyBookingsUsed: monthlyBookingsUsedResult.count ?? 0,
   };
 }

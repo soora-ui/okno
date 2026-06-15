@@ -1,5 +1,6 @@
 import type { BookingSlot, Profile, Service } from "@/lib/mock-data";
 import { defaultBookingThemePresetId } from "@/lib/booking-theme-presets";
+import { defaultBookingPageSettings } from "@/lib/booking-page-settings";
 
 export const landingDemoPublicPageHref = "/demo/public-page";
 export const landingDemoBookHref = "/demo/public-page/book";
@@ -12,7 +13,7 @@ export const landingDemoProfile: Profile = {
   username: "landing-demo",
   specialty: "Маникюр и брови",
   bio: "Спокойный кабинет у метро, мягкий сервис и аккуратные записи без спешки.",
-  locationText: "Симферополь, район центра",
+  locationText: "Симферополь",
   timezone: "Europe/Simferopol",
   telegramChatId: null,
   avatarUrl: "/demo/avatar.svg",
@@ -35,6 +36,11 @@ export const landingDemoProfile: Profile = {
     },
   ],
   bookingThemePresetId: defaultBookingThemePresetId,
+  bookingPageSettings: {
+    ...defaultBookingPageSettings,
+    headline: "Аккуратный маникюр без спешки и потока",
+    subheadline: "Спокойный кабинет у метро, запись без переписок и долгого ожидания",
+  },
   subscriptionTier: "free",
   monthlyBookingLimit: 50,
   monthlyBookingsUsed: 32,

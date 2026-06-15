@@ -1,7 +1,7 @@
 "use client";
 
 import { DateTime } from "luxon";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,11 @@ import {
   getBookingThemeStyle,
   type BookingThemePresetId,
 } from "@/lib/booking-theme-presets";
+import { isValidPhoneNumber } from "@/lib/booking";
+import {
+  defaultBookingPageSettings,
+  type CommentFieldMode,
+} from "@/lib/booking-page-settings";
 import { cn } from "@/lib/utils";
 import type { BookingSlot, Service } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/mock-data";
@@ -22,7 +27,9 @@ type BookingFlowProps = {
   services: Service[];
   bookingSlotsByService: Record<string, BookingSlot[]>;
   themePresetId?: BookingThemePresetId;
+  commentFieldMode?: CommentFieldMode;
   mode?: "live" | "demo";
+  initialServiceId?: string;
 };
 
 const steps = ["Услуга", "Дата и время", "Контакты"];
@@ -32,12 +39,18 @@ export function BookingFlow({
   services,
   bookingSlotsByService,
   themePresetId = defaultBookingThemePresetId,
+  commentFieldMode = defaultBookingPageSettings.commentFieldMode,
   mode = "live",
+  initialServiceId,
 }: BookingFlowProps) {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
-  const initialSlots = bookingSlotsByService[services[0]?.id ?? ""] ?? [];
+  const resolvedInitialServiceId =
+    initialServiceId && services.some((service) => service.id === initialServiceId)
+      ? initialServiceId
+      : services[0]?.id ?? "";
+  const [serviceId, setServiceId] = useState(resolvedInitialServiceId);
+  const initialSlots = bookingSlotsByService[resolvedInitialServiceId] ?? [];
   const [dateValue, setDateValue] = useState(initialSlots[0]?.value ?? "");
   const [time, setTime] = useState(initialSlots[0]?.times[0] ?? "");
   const [name, setName] = useState("");
@@ -45,6 +58,7 @@ export function BookingFlow({
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const isPhoneValid = useMemo(() => isValidPhoneNumber(phone), [phone]);
 
   const selectedService = useMemo(
     () => services.find((service) => service.id === serviceId),
@@ -54,10 +68,27 @@ export function BookingFlow({
     () => bookingSlotsByService[serviceId] ?? [],
     [bookingSlotsByService, serviceId],
   );
-  const selectedDate = bookingSlots.find((slot) => slot.value === dateValue);
-  const selectedDateLabel = dateValue
-    ? DateTime.fromISO(dateValue).setLocale("ru").toFormat("d LLLL")
-    : "";
+  const selectedDate = useMemo(
+    () => bookingSlots.find((slot) => slot.value === dateValue),
+    [bookingSlots, dateValue],
+  );
+  const selectedDateLabel = useMemo(
+    () =>
+      dateValue
+        ? DateTime.fromISO(dateValue).setLocale("ru").toFormat("d LLLL")
+        : "",
+    [dateValue],
+  );
+  const selectedDateTimes = useMemo(
+    () => selectedDate?.times ?? [],
+    [selectedDate],
+  );
+
+  useEffect(() => {
+    if (!services.some((service) => service.id === serviceId)) {
+      setServiceId(resolvedInitialServiceId);
+    }
+  }, [resolvedInitialServiceId, serviceId, services]);
 
   useEffect(() => {
     const firstDay = bookingSlots[0];
@@ -79,11 +110,23 @@ export function BookingFlow({
     }
   }, [bookingSlots, dateValue, time, selectedDate]);
 
-  const nextStep = () => setStep((current) => Math.min(current + 1, steps.length - 1));
-  const prevStep = () => setStep((current) => Math.max(current - 1, 0));
+  const nextStep = useCallback(
+    () => setStep((current) => Math.min(current + 1, steps.length - 1)),
+    [],
+  );
+  const prevStep = useCallback(
+    () => setStep((current) => Math.max(current - 1, 0)),
+    [],
+  );
 
-  const submit = async () => {
+  const submit = useCallback(async () => {
     setError("");
+
+    if (commentFieldMode === "required" && note.trim().length === 0) {
+      setError("Мастер просит оставить комментарий к записи.");
+      return;
+    }
+
     setPending(true);
 
     try {
@@ -133,7 +176,20 @@ export function BookingFlow({
     } finally {
       setPending(false);
     }
-  };
+  }, [
+    commentFieldMode,
+    dateValue,
+    mode,
+    name,
+    note,
+    phone,
+    router,
+    selectedDateLabel,
+    selectedService?.title,
+    serviceId,
+    time,
+    username,
+  ]);
 
   return (
     <div style={getBookingThemeStyle(themePresetId)}>
@@ -291,10 +347,10 @@ export function BookingFlow({
               <h2 className="text-lg font-semibold uppercase tracking-[0.08em] text-ink">
                 Свободное время
               </h2>
-              {selectedDate && selectedDate.times.length > 0 ? (
+              {selectedDateTimes.length > 0 ? (
                 <>
                   <div className="flex gap-3 overflow-x-auto pb-3 no-scrollbar snap-x snap-mandatory sm:hidden">
-                    {selectedDate.times.map((slotTime) => (
+                    {selectedDateTimes.map((slotTime) => (
                       <button
                         key={slotTime}
                         type="button"
@@ -312,7 +368,7 @@ export function BookingFlow({
                   </div>
 
                   <div className="hidden grid-cols-2 gap-x-6 gap-y-4 sm:grid sm:grid-cols-3">
-                    {selectedDate.times.map((slotTime) => (
+                    {selectedDateTimes.map((slotTime) => (
                       <button
                         key={slotTime}
                         type="button"
@@ -351,15 +407,29 @@ export function BookingFlow({
               placeholder="+7 978 000-00-00"
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              pattern="^\\+?[0-9\\s()\\-]{10,20}$"
               hint="Нужен только для подтверждения записи и связи по визиту. Никакого спама."
             />
-            <Textarea
-              label="Комментарий к записи"
-              placeholder="Например: аллергия на гель, опоздаю на 10 минут, хочу нюд без дизайна"
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              hint="Поле необязательное, но мастеру правда полезно."
-            />
+            {commentFieldMode !== "hidden" ? (
+              <Textarea
+                label={
+                  commentFieldMode === "required"
+                    ? "Комментарий к записи*"
+                    : "Комментарий к записи"
+                }
+                placeholder="Например: аллергия на гель, опоздаю на 10 минут, хочу нюд без дизайна"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                hint={
+                  commentFieldMode === "required"
+                    ? "Мастер просит обязательно оставить комментарий."
+                    : "Поле необязательное, но мастеру правда полезно."
+                }
+              />
+            ) : null}
           </div>
         ) : null}
 
@@ -407,7 +477,7 @@ export function BookingFlow({
           ) : (
             <Button
               onClick={submit}
-              disabled={!name || !phone || pending}
+              disabled={!name || !isPhoneValid || pending}
               className="min-w-56 gap-2 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {pending

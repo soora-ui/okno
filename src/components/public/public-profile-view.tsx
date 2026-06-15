@@ -136,6 +136,16 @@ export function PublicProfileView({
                   </span>
                 </div>
               </div>
+              {profile.bookingPageSettings.headline ? (
+                <p className="max-w-2xl text-xl font-medium leading-snug text-ink sm:text-2xl">
+                  {profile.bookingPageSettings.headline}
+                </p>
+              ) : null}
+              {profile.bookingPageSettings.subheadline ? (
+                <p className="max-w-2xl text-base leading-7 text-muted">
+                  {profile.bookingPageSettings.subheadline}
+                </p>
+              ) : null}
               <p className="max-w-2xl text-base leading-8 text-ink-soft sm:text-lg">
                 {profile.bio}
               </p>
