@@ -35,8 +35,8 @@ export default function Error({
             onClick={() => unstable_retry()}
             className="inline-flex min-h-12 items-center justify-center rounded-full px-6 text-sm font-medium transition-transform hover:-translate-y-0.5"
             style={{
-              backgroundColor: "var(--color-ink, #23241f)",
-              color: "#fff",
+              backgroundColor: "var(--ui-primary-bg, var(--color-ink, #23241f))",
+              color: "var(--ui-primary-text, #ffffff)",
             }}
           >
             Попробовать снова

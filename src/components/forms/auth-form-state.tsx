@@ -19,8 +19,8 @@ export function SubmitButton({
     <button
       type="submit"
       style={{
-        backgroundColor: "var(--color-ink, #23241f)",
-        color: "#ffffff",
+        backgroundColor: "var(--ui-primary-bg, var(--color-ink, #23241f))",
+        color: "var(--ui-primary-text, #ffffff)",
       }}
       className={`inline-flex min-h-11 items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${className ?? ""}`}
       disabled={pending || disabled}
