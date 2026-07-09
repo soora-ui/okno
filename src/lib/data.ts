@@ -931,6 +931,8 @@ export async function getBookingConfirmationData(
     }
 
     return {
+      bookingId: booking.id,
+      profileId: mockProfile.id,
       clientName: booking.clientName,
       serviceTitle: booking.serviceTitle,
       startsAtLabel: humanizeBookingDate({
@@ -1001,6 +1003,8 @@ export async function getBookingConfirmationData(
   }
 
   return {
+    bookingId: String(bookingRow.id),
+    profileId: String(bookingRow.profile_id),
     clientName: String(clientRow.name),
     serviceTitle: String(serviceRow.title),
     startsAtLabel: humanizeBookingDate({
