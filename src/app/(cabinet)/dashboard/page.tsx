@@ -112,6 +112,16 @@ export default async function DashboardPage() {
     );
     return startsAt >= monthStart && startsAt < monthEnd;
   }).length;
+  // Модуль 1 (рейтинг надёжности клиентов): визиты без отметки не попадают
+  // в client_reliability, поэтому напоминаем мастеру их разметить — иначе
+  // рейтинг остаётся пустым из-за забывчивости (ТЗ 1.3.А).
+  const unmarkedPastVisitsCount = bookings.filter((booking) => {
+    if (booking.status !== "confirmed" || booking.visitStatus !== "pending") return false;
+    const startsAt = DateTime.fromISO(booking.startsAt, { zone: "utc" }).setZone(
+      profile.timezone,
+    );
+    return startsAt < now;
+  }).length;
 
   return (
     <div className="space-y-6 py-4">
@@ -127,6 +137,28 @@ export default async function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {unmarkedPastVisitsCount > 0 ? (
+        <Card className="flex flex-wrap items-center justify-between gap-4 bg-panel">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-ink">
+              У вас {unmarkedPastVisitsCount}{" "}
+              {unmarkedPastVisitsCount === 1
+                ? "визит"
+                : unmarkedPastVisitsCount >= 2 && unmarkedPastVisitsCount <= 4
+                  ? "визита"
+                  : "визитов"}{" "}
+              без отметки
+            </p>
+            <p className="text-sm leading-6 text-ink-soft">
+              Отметь, состоялись ли прошедшие визиты — это влияет на рейтинг надёжности клиентов.
+            </p>
+          </div>
+          <ButtonLink href="/archive" variant="secondary">
+            Отметить в архиве
+          </ButtonLink>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-6">

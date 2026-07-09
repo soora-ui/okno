@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import {
   cancelBookingByMasterAction,
   createManualBookingAction,
+  setVisitStatusAction,
   updateClientNotesAction,
   type BookingOperationActionState,
 } from "@/app/actions/bookings";
@@ -13,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { Profile, Service } from "@/lib/mock-data";
+import type { VisitStatus } from "@/lib/client-reliability";
+import { suggestCancelVisitStatus } from "@/lib/client-reliability";
 
 const initialState: BookingOperationActionState = {
   success: false,
@@ -144,5 +147,80 @@ export function ClientNotesForm({
         pendingLabel="Сохраняю..."
       />
     </form>
+  );
+}
+
+// Отметка статуса прошедшего визита — Модуль 1 (рейтинг надёжности клиентов)
+// из okno-tz-rating-prepayment.md, ТЗ 1.3.А. Система лишь подсказывает
+// "поздно/заранее" по факту времени; финальное решение остаётся за мастером.
+function VisitStatusButton({
+  bookingId,
+  visitStatus,
+  label,
+}: {
+  bookingId: string;
+  visitStatus: VisitStatus;
+  label: string;
+}) {
+  const [, action, isPending] = useActionState(setVisitStatusAction, initialState);
+
+  return (
+    <form action={action}>
+      <input type="hidden" name="bookingId" value={bookingId} />
+      <input type="hidden" name="visitStatus" value={visitStatus} />
+      <button
+        type="submit"
+        disabled={isPending}
+        className="w-full rounded-xl border border-line px-3 py-2 text-xs font-medium text-ink transition hover:bg-panel disabled:opacity-60"
+      >
+        {label}
+      </button>
+    </form>
+  );
+}
+
+export function VisitStatusForm({
+  bookingId,
+  startsAtIso,
+  timezone,
+  lateCancelThresholdHours,
+}: {
+  bookingId: string;
+  startsAtIso: string;
+  timezone: string;
+  lateCancelThresholdHours: number;
+}) {
+  const suggestedCancelStatus = suggestCancelVisitStatus({
+    startsAtIso,
+    cancelledAtIso: new Date().toISOString(),
+    timezone,
+    lateCancelThresholdHours,
+  });
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs uppercase tracking-[0.16em] text-muted">
+        Отметь, что было с визитом
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <VisitStatusButton bookingId={bookingId} visitStatus="completed" label="Пришёл" />
+        <VisitStatusButton bookingId={bookingId} visitStatus="no_show" label="Не пришёл" />
+        <VisitStatusButton
+          bookingId={bookingId}
+          visitStatus="cancelled_ok"
+          label="Отменил заранее"
+        />
+        <VisitStatusButton
+          bookingId={bookingId}
+          visitStatus="cancelled_late"
+          label="Отменил поздно"
+        />
+      </div>
+      <p className="text-xs text-muted">
+        Подсказка по времени отмены: «
+        {suggestedCancelStatus === "cancelled_late" ? "отменил поздно" : "отменил заранее"}
+        » — финальный выбор за тобой.
+      </p>
+    </div>
   );
 }

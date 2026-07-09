@@ -32,6 +32,7 @@ import {
   manualPlaceholder,
   type ServiceManualSummary,
 } from "@/lib/service-manuals";
+import { prepaymentTypeLabels } from "@/lib/prepayment";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -441,6 +442,7 @@ export function ServicesSettingsForm({
           <UnitInput label="Длительность" unit="мин" name="durationMinutes" placeholder="60" />
           <UnitInput label="Цена" unit="₽" name="price" placeholder="1500" />
         </div>
+        <PrepaymentFields />
         <input type="hidden" name="sortOrder" value={String(services.length + 1)} />
         <FormMessage message={createState.message} success={createState.success} />
         <SubmitButton idleLabel="Добавить" pendingLabel="Добавляю..." />
@@ -524,6 +526,10 @@ function ServiceEditor({
               defaultValue={String(service.price)}
             />
           </div>
+          <PrepaymentFields
+            defaultType={service.prepaymentType}
+            defaultValue={service.prepaymentValue}
+          />
           <FormMessage message={state.message} success={state.success} />
           <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
         </>
@@ -646,6 +652,50 @@ function ServiceManualEditorForm({
         <FormMessage message={state.message} success={state.success} />
       )}
     </form>
+  );
+}
+
+const prepaymentTypeOptions = (
+  ["none", "fixed", "percent"] as const
+).map((value) => ({ value, label: prepaymentTypeLabels[value] }));
+
+// Настройка предоплаты на услуге — Модуль 2 (okno-tz-rating-prepayment.md,
+// ТЗ 2.2). Переключатель "выключена / фикс. сумма / процент" + поле
+// значения. Валидация диапазонов (fixed <= цены, percent 1-100) — на
+// сервере в updateServiceAction/createServiceAction, см. validatePrepaymentSetting.
+function PrepaymentFields({
+  defaultType = "none",
+  defaultValue = 0,
+}: {
+  defaultType?: "none" | "fixed" | "percent";
+  defaultValue?: number;
+}) {
+  const [prepaymentType, setPrepaymentType] = useState(defaultType);
+
+  return (
+    <div className="space-y-3 rounded-[18px] border border-dashed border-line p-3">
+      <Select
+        label="Предоплата"
+        name="prepaymentType"
+        value={prepaymentType}
+        onChange={(event) =>
+          setPrepaymentType(event.currentTarget.value as "none" | "fixed" | "percent")
+        }
+        options={prepaymentTypeOptions}
+        hint="Клиент платит предоплату при записи на эту услугу через ЮKassa."
+      />
+      {prepaymentType !== "none" ? (
+        <UnitInput
+          label={prepaymentType === "percent" ? "Значение предоплаты" : "Сумма предоплаты"}
+          unit={prepaymentType === "percent" ? "%" : "₽"}
+          name="prepaymentValue"
+          defaultValue={defaultValue > 0 ? String(defaultValue) : ""}
+          placeholder={prepaymentType === "percent" ? "50" : "500"}
+        />
+      ) : (
+        <input type="hidden" name="prepaymentValue" value="0" />
+      )}
+    </div>
   );
 }
 

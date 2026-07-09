@@ -5,7 +5,7 @@ export function Badge({
   tone = "neutral",
 }: {
   children: React.ReactNode;
-  tone?: "neutral" | "success" | "accent" | "warning";
+  tone?: "neutral" | "success" | "accent" | "warning" | "danger";
 }) {
   const tones = {
     neutral: {
@@ -23,6 +23,10 @@ export function Badge({
     warning: {
       backgroundColor: "var(--color-warning-soft, #f5ecdb)",
       color: "var(--color-warning, #8e6c2f)",
+    },
+    danger: {
+      backgroundColor: "var(--color-danger-soft, #fff5f5)",
+      color: "var(--color-danger, #b14f4f)",
     },
   };
 

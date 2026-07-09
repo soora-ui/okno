@@ -52,6 +52,7 @@ export const landingDemoProfile: Profile = {
   cancellationNoticeHours: 2,
   clientReminderHours: 24,
   masterReminderHours: 2,
+  lateCancelThresholdHours: 24,
   joinedAt: "2026-03-01T10:00:00.000Z",
   workspaceId: "landing-demo-workspace",
   workspaceName: "Алина Мороз",
@@ -71,6 +72,8 @@ export const landingDemoServices: Service[] = [
     price: 2400,
     isActive: true,
     sortOrder: 1,
+    prepaymentType: "none",
+    prepaymentValue: 0,
   },
   {
     id: "landing-svc-2",
@@ -81,6 +84,8 @@ export const landingDemoServices: Service[] = [
     price: 1300,
     isActive: true,
     sortOrder: 2,
+    prepaymentType: "none",
+    prepaymentValue: 0,
   },
   {
     id: "landing-svc-3",
@@ -91,6 +96,8 @@ export const landingDemoServices: Service[] = [
     price: 800,
     isActive: true,
     sortOrder: 3,
+    prepaymentType: "none",
+    prepaymentValue: 0,
   },
 ];
 

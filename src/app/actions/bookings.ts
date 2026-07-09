@@ -15,6 +15,7 @@ import {
   phoneLast4,
 } from "@/lib/booking";
 import { checkBookingConflict } from "@/lib/booking-conflicts";
+import type { VisitStatus } from "@/lib/client-reliability";
 import { getCurrentAuthProfile } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/env";
 import { writeAuditLog } from "@/lib/observability/audit";
@@ -62,6 +63,18 @@ const bookingIdSchema = z.object({
 const clientNotesSchema = z.object({
   clientId: entityIdSchema,
   notes: z.string().trim().default(""),
+});
+
+const visitStatusValues = [
+  "completed",
+  "no_show",
+  "cancelled_late",
+  "cancelled_ok",
+] as const satisfies readonly VisitStatus[];
+
+const visitStatusSchema = z.object({
+  bookingId: entityIdSchema,
+  visitStatus: z.enum(visitStatusValues),
 });
 
 async function requireProfile() {
@@ -239,6 +252,9 @@ export async function createManualBookingAction(
         }) ?? startsAtIso,
       createdAt: new Date().toISOString(),
       cancelledAt: null,
+      visitStatus: "pending",
+      visitStatusSetAt: null,
+      prepaymentRequired: false,
     });
 
     revalidateBookingPaths(profile.username);
@@ -594,4 +610,97 @@ export async function updateClientNotesAction(
   revalidatePath("/dashboard");
 
   return { success: true, message: "Заметка сохранена." };
+}
+
+const visitStatusMessages: Record<(typeof visitStatusValues)[number], string> = {
+  completed: "Отмечено: клиент пришёл.",
+  no_show: "Отмечено: клиент не пришёл.",
+  cancelled_late: "Отмечено: клиент отменил визит поздно.",
+  cancelled_ok: "Отмечено: клиент отменил визит заранее.",
+};
+
+// Рейтинг надёжности клиента (Модуль 1 из okno-tz-rating-prepayment.md)
+// фиксируется мастером вручную постфактум — эта отметка не меняет
+// bookings.status (тот описывает жизненный цикл записи), а пишет отдельное
+// поле visit_status, по которому считается client_reliability view.
+export async function setVisitStatusAction(
+  _prevState: BookingOperationActionState,
+  formData: FormData,
+) {
+  const profile = await requireProfile();
+
+  if (!profile) {
+    return { success: false, message: "Сессия истекла. Войди заново." };
+  }
+
+  const parsed = visitStatusSchema.safeParse(Object.fromEntries(formData));
+
+  if (!parsed.success) {
+    return { success: false, message: "Не удалось определить визит или статус." };
+  }
+
+  const visitStatusSetAt = new Date().toISOString();
+
+  if (!isSupabaseConfigured) {
+    const booking = mockBookings.find(
+      (item) => item.id === parsed.data.bookingId && item.profileId === profile.id,
+    );
+
+    if (!booking) {
+      return { success: false, message: "Запись не найдена." };
+    }
+
+    booking.visitStatus = parsed.data.visitStatus;
+    booking.visitStatusSetAt = visitStatusSetAt;
+    revalidateBookingPaths(profile.username);
+    revalidatePath("/archive");
+
+    return { success: true, message: visitStatusMessages[parsed.data.visitStatus] };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: updatedBooking, error } = await supabase
+    .from("bookings")
+    .update({
+      visit_status: parsed.data.visitStatus,
+      visit_status_set_at: visitStatusSetAt,
+    })
+    .eq("id", parsed.data.bookingId)
+    .eq("profile_id", profile.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    if (isSupabaseMissingColumnError(error, "visit_status")) {
+      return {
+        success: false,
+        message:
+          "В базе еще нет поля отметки визита. Прогони миграцию 202607090001_client_reliability.sql и попробуй еще раз.",
+      };
+    }
+
+    logError("Failed to set visit status", {
+      profileId: profile.id,
+      bookingId: parsed.data.bookingId,
+      error,
+    });
+    return { success: false, message: "Не получилось отметить визит." };
+  }
+
+  if (!updatedBooking) {
+    return { success: false, message: "Запись не найдена." };
+  }
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "booking.visit_status.set",
+    targetType: "booking",
+    targetId: parsed.data.bookingId,
+    metadata: { visitStatus: parsed.data.visitStatus },
+  });
+
+  revalidateBookingPaths(profile.username);
+  revalidatePath("/archive");
+
+  return { success: true, message: visitStatusMessages[parsed.data.visitStatus] };
 }

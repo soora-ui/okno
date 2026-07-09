@@ -6,6 +6,7 @@ import { ClientNotesForm } from "@/components/forms/booking-operations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { ReliabilityBadge } from "@/lib/client-reliability";
 
 export type ClientDirectoryHistoryItem = {
   id: string;
@@ -31,7 +32,24 @@ export type ClientDirectoryItem = {
   }>;
   history: ClientDirectoryHistoryItem[];
   searchText: string;
+  reliability: ReliabilityBadge;
 };
+
+const reliabilityBadgeTone: Record<NonNullable<ReliabilityBadge["tone"]>, "success" | "warning" | "danger"> = {
+  success: "success",
+  warning: "warning",
+  danger: "danger",
+};
+
+function ReliabilityBadgeChip({ reliability }: { reliability: ReliabilityBadge }) {
+  return (
+    <span title={reliability.detailLabel}>
+      <Badge tone={reliability.tone ? reliabilityBadgeTone[reliability.tone] : "neutral"}>
+        {reliability.label}
+      </Badge>
+    </span>
+  );
+}
 
 function StatCard({
   label,
@@ -98,8 +116,10 @@ function ClientDetailsModal({
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-2xl font-semibold text-ink sm:text-3xl">{client.name}</h2>
               <Badge tone="accent">{client.totalVisitsLabel}</Badge>
+              <ReliabilityBadgeChip reliability={client.reliability} />
             </div>
             <p className="text-sm text-ink-soft">{client.phoneMasked}</p>
+            <p className="text-xs text-muted">{client.reliability.detailLabel}</p>
           </div>
           <Button variant="secondary" onClick={onClose} className="px-4">
             Закрыть
@@ -234,6 +254,7 @@ export function ClientDirectory({
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-2xl font-semibold text-ink">{client.name}</h2>
                     <Badge tone="accent">{client.totalVisitsLabel}</Badge>
+                    <ReliabilityBadgeChip reliability={client.reliability} />
                   </div>
                   <p className="text-sm text-ink-soft">{client.phoneMasked}</p>
                 </div>

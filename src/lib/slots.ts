@@ -35,7 +35,13 @@ export function buildBookingSlotsForService(input: {
   } = input;
 
   const now = DateTime.now().setZone(profile.timezone);
-  const futureBookings = bookings.filter((booking) => booking.status === "confirmed");
+  // pending_payment — слот резервирован под предоплату (Модуль 2,
+  // okno-tz-rating-prepayment.md, ТЗ 2.3): пока клиент не оплатил или не
+  // истекли 15 минут резервации, слот не должен казаться свободным другим
+  // клиентам, иначе получаем двойную запись на один и тот же слот.
+  const futureBookings = bookings.filter(
+    (booking) => booking.status === "confirmed" || booking.status === "pending_payment",
+  );
   const visibleDays: BookingSlot[] = [];
 
   for (

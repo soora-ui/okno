@@ -73,6 +73,7 @@ export default async function ArchivePage() {
                 timezone={profile.timezone}
                 showDate
                 archived
+                lateCancelThresholdHours={profile.lateCancelThresholdHours}
               />
             ))}
           </div>

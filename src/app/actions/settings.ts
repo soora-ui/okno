@@ -17,6 +17,7 @@ import {
   subheadlineMaxLength,
 } from "@/lib/booking-page-settings";
 import { getCurrentAuthProfile } from "@/lib/data";
+import { validatePrepaymentSetting } from "@/lib/prepayment";
 import {
   buildPortfolioWorksFromPaths,
   extractPortfolioStoragePaths,
@@ -632,6 +633,8 @@ const serviceSchema = z.object({
   durationMinutes: z.coerce.number().min(5).max(480),
   price: z.coerce.number().min(0),
   sortOrder: z.coerce.number().min(0).default(0),
+  prepaymentType: z.enum(["none", "fixed", "percent"]).default("none"),
+  prepaymentValue: z.coerce.number().min(0).default(0),
 });
 
 export async function createServiceAction(
@@ -655,6 +658,15 @@ export async function createServiceAction(
     return { success: false, message: "Проверь поля новой услуги." };
   }
 
+  const prepaymentCheck = validatePrepaymentSetting({
+    prepaymentType: parsed.data.prepaymentType,
+    prepaymentValue: parsed.data.prepaymentValue,
+    servicePrice: parsed.data.price,
+  });
+  if (!prepaymentCheck.ok) {
+    return { success: false, message: prepaymentCheck.message };
+  }
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("services").insert({
     profile_id: profile.id,
@@ -664,9 +676,19 @@ export async function createServiceAction(
     price: parsed.data.price,
     sort_order: parsed.data.sortOrder,
     is_active: true,
+    prepayment_type: parsed.data.prepaymentType,
+    prepayment_value: parsed.data.prepaymentValue,
   });
 
   if (error) {
+    if (isSupabaseMissingColumnError(error, "prepayment_type")) {
+      return {
+        success: false,
+        message:
+          "В базе еще нет полей предоплаты. Прогони миграцию 202607090002_service_prepayment.sql и попробуй еще раз.",
+      };
+    }
+
     logError("Failed to create service", { profileId: profile.id, error });
     return { success: false, message: "Не получилось создать услугу." };
   }
@@ -679,6 +701,7 @@ export async function createServiceAction(
       title: parsed.data.title,
       durationMinutes: parsed.data.durationMinutes,
       price: parsed.data.price,
+      prepaymentType: parsed.data.prepaymentType,
     },
   });
 
@@ -709,6 +732,15 @@ export async function updateServiceAction(
     return { success: false, message: "Проверь поля услуги." };
   }
 
+  const prepaymentCheck = validatePrepaymentSetting({
+    prepaymentType: parsed.data.prepaymentType,
+    prepaymentValue: parsed.data.prepaymentValue,
+    servicePrice: parsed.data.price,
+  });
+  if (!prepaymentCheck.ok) {
+    return { success: false, message: prepaymentCheck.message };
+  }
+
   const visibilityAction = String(formData.get("visibilityAction") ?? "");
   const nextActive =
     visibilityAction === "hide"
@@ -727,11 +759,21 @@ export async function updateServiceAction(
       price: parsed.data.price,
       sort_order: parsed.data.sortOrder,
       is_active: nextActive,
+      prepayment_type: parsed.data.prepaymentType,
+      prepayment_value: parsed.data.prepaymentValue,
     })
     .eq("id", serviceId)
     .eq("profile_id", profile.id);
 
   if (error) {
+    if (isSupabaseMissingColumnError(error, "prepayment_type")) {
+      return {
+        success: false,
+        message:
+          "В базе еще нет полей предоплаты. Прогони миграцию 202607090002_service_prepayment.sql и попробуй еще раз.",
+      };
+    }
+
     logError("Failed to update service", { profileId: profile.id, serviceId, error });
     return { success: false, message: "Не получилось обновить услугу." };
   }
@@ -744,6 +786,7 @@ export async function updateServiceAction(
     metadata: {
       title: parsed.data.title,
       isActive: nextActive,
+      prepaymentType: parsed.data.prepaymentType,
     },
   });
 
