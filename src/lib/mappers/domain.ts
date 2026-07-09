@@ -174,6 +174,34 @@ export function mapBlockedSlot(row: Record<string, unknown>) {
   };
 }
 
+export function mapGiftCertificate(row: Record<string, unknown>) {
+  const status = String(row.status ?? "pending");
+
+  return {
+    id: String(row.id),
+    profileId: String(row.profile_id),
+    code: String(row.code),
+    amount: Number(row.amount),
+    serviceId: row.service_id ? String(row.service_id) : null,
+    status: (["pending", "paid", "active", "redeemed", "expired", "canceled"].includes(status)
+      ? status
+      : "pending") as
+      | "pending"
+      | "paid"
+      | "active"
+      | "redeemed"
+      | "expired"
+      | "canceled",
+    purchaserContact: String(row.purchaser_contact ?? ""),
+    provider: String(row.provider ?? "yookassa"),
+    providerPaymentId: row.provider_payment_id ? String(row.provider_payment_id) : null,
+    redeemedAt: row.redeemed_at ? String(row.redeemed_at) : null,
+    redeemedBookingId: row.redeemed_booking_id ? String(row.redeemed_booking_id) : null,
+    expiresAt: row.expires_at ? String(row.expires_at) : null,
+    createdAt: String(row.created_at ?? ""),
+  };
+}
+
 export type MappedNotificationEvent = {
   id: string;
   profileId: string;
@@ -181,7 +209,8 @@ export type MappedNotificationEvent = {
     | "sms_confirmation"
     | "sms_reminder_client"
     | "telegram_reminder_master"
-    | "telegram_new_booking";
+    | "telegram_new_booking"
+    | "sms_certificate_code";
   status: "sent" | "failed" | "processing" | "cancelled" | "queued";
   target: string;
   createdAt: string;
@@ -198,7 +227,9 @@ export function mapNotificationEvent(row: Record<string, unknown>): MappedNotifi
           ? "sms_reminder_client"
           : row.type === "telegram_reminder_master"
             ? "telegram_reminder_master"
-            : "telegram_new_booking",
+            : row.type === "sms_certificate_code"
+              ? "sms_certificate_code"
+              : "telegram_new_booking",
     status:
       row.status === "sent"
         ? "sent"

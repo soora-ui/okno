@@ -19,6 +19,11 @@ import {
 import { saveMockBookingConfirmation } from "@/lib/mock-booking-confirmations";
 import { checkBookingConflict } from "@/lib/booking-conflicts";
 import {
+  isCertificateApplicableToService,
+  isCertificateRedeemable,
+  normalizeCertificateCodeInput,
+} from "@/lib/gift-certificates";
+import {
   buildReminderNotificationEvents,
   processNotificationQueue,
 } from "@/lib/notification-queue";
@@ -52,6 +57,7 @@ const bookingSchema = z.object({
   phone: z.string().refine(isValidPhoneNumber),
   note: z.string().optional().default(""),
   phoneVerificationToken: z.string().optional().default(""),
+  certificateCode: z.string().optional().default(""),
 });
 
 export async function POST(request: Request) {
@@ -238,6 +244,56 @@ export async function POST(request: Request) {
     return respondWithError(404, "Услуга не найдена.");
   }
 
+  let certificateRow: { id: string; amount: number } | null = null;
+
+  if (parsed.data.certificateCode.trim()) {
+    const normalizedCode = normalizeCertificateCodeInput(parsed.data.certificateCode);
+    const { data: certificateLookup, error: certificateError } = await admin
+      .from("gift_certificates")
+      .select("id, status, amount, service_id, expires_at")
+      .eq("profile_id", profileRow.id)
+      .eq("code", normalizedCode)
+      .maybeSingle();
+
+    if (certificateError) {
+      return respondWithError(500, "Не получилось проверить сертификат.");
+    }
+
+    if (!certificateLookup) {
+      return respondWithError(404, "Сертификат с таким кодом не найден.");
+    }
+
+    if (
+      !isCertificateRedeemable({
+        status: certificateLookup.status,
+        expiresAt: certificateLookup.expires_at,
+      })
+    ) {
+      return respondWithError(
+        409,
+        certificateLookup.status === "redeemed"
+          ? "Этот сертификат уже использован."
+          : "Этот сертификат сейчас недействителен.",
+      );
+    }
+
+    if (
+      !isCertificateApplicableToService({
+        certificateServiceId: certificateLookup.service_id
+          ? String(certificateLookup.service_id)
+          : null,
+        requestedServiceId: String(serviceRow.id),
+      })
+    ) {
+      return respondWithError(409, "Этот сертификат не подходит для выбранной услуги.");
+    }
+
+    certificateRow = {
+      id: String(certificateLookup.id),
+      amount: Number(certificateLookup.amount),
+    };
+  }
+
   // Free-tier cap: a master without active PRO can accept only 1 booking total.
   // Existing bookings are left untouched — once a free master already has one
   // confirmed booking, any further public booking (i.e. a new client) is
@@ -401,6 +457,28 @@ export async function POST(request: Request) {
     clientRow = insertedClient;
   }
 
+  // Атомарно "бронируем" сертификат перед вставкой записи: conditional update
+  // на status = 'active' не даст двум параллельным запросам погасить один и
+  // тот же сертификат дважды. Если запись потом не создастся — возвращаем
+  // сертификат обратно в active.
+  if (certificateRow) {
+    const { data: claimedCertificate, error: claimError } = await admin
+      .from("gift_certificates")
+      .update({ status: "redeemed", updated_at: new Date().toISOString() })
+      .eq("id", certificateRow.id)
+      .eq("status", "active")
+      .select("id")
+      .maybeSingle();
+
+    if (claimError) {
+      return respondWithError(500, "Не получилось применить сертификат.");
+    }
+
+    if (!claimedCertificate) {
+      return respondWithError(409, "Этот сертификат уже использован.");
+    }
+  }
+
   const { data: bookingRow, error: bookingError } = await admin
     .from("bookings")
     .insert({
@@ -427,11 +505,28 @@ export async function POST(request: Request) {
     .single();
 
   if (bookingError || !bookingRow) {
+    if (certificateRow) {
+      await admin
+        .from("gift_certificates")
+        .update({ status: "active", updated_at: new Date().toISOString() })
+        .eq("id", certificateRow.id);
+    }
+
     if (isSupabaseBookingOverlapError(bookingError)) {
       return respondWithError(409, "Это время уже занято. Выбери другой слот.");
     }
 
     return respondWithError(500, "Не получилось создать запись.");
+  }
+
+  if (certificateRow) {
+    await admin
+      .from("gift_certificates")
+      .update({
+        redeemed_at: new Date().toISOString(),
+        redeemed_booking_id: bookingRow.id,
+      })
+      .eq("id", certificateRow.id);
   }
 
   const startsAtLabel = humanizeBookingDate({
@@ -538,6 +633,21 @@ export async function POST(request: Request) {
       source: "public_page",
     },
   });
+
+  if (certificateRow) {
+    await writeAuditLog({
+      actorKind: "client",
+      profileId: String(profileRow.id),
+      workspaceId: String(profileRow.workspace_id ?? profileRow.id),
+      eventType: "gift_certificate.redeemed",
+      targetType: "gift_certificate",
+      targetId: certificateRow.id,
+      metadata: {
+        bookingId: String(bookingRow.id),
+        amount: certificateRow.amount,
+      },
+    });
+  }
 
   if (!notificationQueueError) {
     const eventIds = (notificationRows ?? []).map((row) => String(row.id));

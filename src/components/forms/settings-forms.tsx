@@ -9,6 +9,7 @@ import {
   updateAccessAction,
   updateBookingPageSettingsAction,
   updateBookingPreferencesAction,
+  updateGiftCertificateSettingsAction,
   updateProfileAction,
   updateServiceAction,
   type SettingsActionState,
@@ -23,7 +24,11 @@ import {
 import {
   commentFieldModeLabels,
   commentFieldModes,
+  defaultGiftCertificateDenominations,
+  giftCertificateMaxAmount,
+  giftCertificateMinAmount,
   headlineMaxLength,
+  maxGiftCertificateDenominations,
   subheadlineMaxLength,
 } from "@/lib/booking-page-settings";
 import {
@@ -247,6 +252,44 @@ export function BookingPageSettingsForm({ profile }: { profile: Profile }) {
         defaultValue={settings.commentFieldMode}
         options={commentFieldModeOptions}
         hint="Можно скрыть поле, оставить по желанию или сделать обязательным."
+      />
+      <FormMessage message={state.message} success={state.success} />
+      <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
+    </form>
+  );
+}
+
+export function GiftCertificateSettingsForm({ profile }: { profile: Profile }) {
+  const [state, action] = useActionState(
+    updateGiftCertificateSettingsAction,
+    initialState,
+  );
+  const settings = profile.bookingPageSettings;
+  const [enabled, setEnabled] = useState(settings.giftCertificatesEnabled);
+  const [denominationsText, setDenominationsText] = useState(
+    settings.giftCertificateDenominations.join(", "),
+  );
+
+  return (
+    <form action={action} className="space-y-4">
+      <label className="flex items-center gap-3 text-sm font-medium text-ink">
+        <input
+          type="checkbox"
+          name="giftCertificatesEnabled"
+          value="on"
+          defaultChecked={enabled}
+          onChange={(event) => setEnabled(event.target.checked)}
+          className="h-5 w-5 rounded border-line"
+        />
+        Продавать подарочные сертификаты на публичной странице
+      </label>
+      <Input
+        label="Номиналы, руб."
+        name="denominations"
+        value={denominationsText}
+        onChange={(event) => setDenominationsText(event.target.value)}
+        placeholder={`Например: ${defaultGiftCertificateDenominations.join(", ")}`}
+        hint={`Через запятую, от ${giftCertificateMinAmount} до ${giftCertificateMaxAmount} руб., максимум ${maxGiftCertificateDenominations} значений.`}
       />
       <FormMessage message={state.message} success={state.success} />
       <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />

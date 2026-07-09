@@ -13,7 +13,9 @@ import { logError } from "@/lib/observability/logger";
 import { bookingThemePresetIds } from "@/lib/booking-theme-presets";
 import {
   bookingPageSettingsFormSchema,
+  giftCertificateSettingsFormSchema,
   headlineMaxLength,
+  maxGiftCertificateDenominations,
   subheadlineMaxLength,
 } from "@/lib/booking-page-settings";
 import { getCurrentAuthProfile } from "@/lib/data";
@@ -524,6 +526,94 @@ export async function updateBookingPageSettingsAction(
   return {
     success: true,
     message: "Страница записи обновлена.",
+  };
+}
+
+// Вкл/выкл продажу подарочных сертификатов и номиналы. Живет в том же JSONB
+// (booking_page_settings), поэтому отдельной миграции колонки не требуется —
+// только миграция таблицы gift_certificates (202607090001).
+export async function updateGiftCertificateSettingsAction(
+  _prevState: SettingsActionState,
+  formData: FormData,
+) {
+  if (!isSupabaseConfigured) {
+    return {
+      success: false,
+      message: "Для настройки сертификатов нужно подключение к Supabase.",
+    };
+  }
+
+  const profile = await requireProfile();
+  if (!profile) {
+    return { success: false, message: "Сессия истекла. Войди заново." };
+  }
+
+  const denominationsRaw = formData
+    .get("denominations")
+    ?.toString()
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean) ?? [];
+
+  const parsed = giftCertificateSettingsFormSchema.safeParse({
+    giftCertificatesEnabled: formData.get("giftCertificatesEnabled") ?? "off",
+    denominations: denominationsRaw,
+  });
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      message: `Проверь номиналы: от 1 до ${maxGiftCertificateDenominations} значений, каждое в разумных пределах.`,
+    };
+  }
+
+  const nextSettings = {
+    ...profile.bookingPageSettings,
+    giftCertificatesEnabled: parsed.data.giftCertificatesEnabled,
+    giftCertificateDenominations: Array.from(new Set(parsed.data.denominations)).sort(
+      (a, b) => a - b,
+    ),
+  };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ booking_page_settings: nextSettings })
+    .eq("id", profile.id);
+
+  if (error) {
+    if (isSupabaseMissingColumnError(error, "booking_page_settings")) {
+      return {
+        success: false,
+        message:
+          "В базе еще нет поля настроек страницы записи. Прогони миграцию 202604250001_booking_page_settings.sql и попробуй еще раз.",
+      };
+    }
+
+    logError("Failed to update gift certificate settings", { profileId: profile.id, error });
+    return {
+      success: false,
+      message: `Не получилось сохранить настройки сертификатов.${error.message ? ` ${error.message}` : ""}`,
+    };
+  }
+
+  revalidateProfilePaths(profile.username);
+  revalidatePath(`/${profile.username}/book`);
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "gift_certificate_settings.updated",
+    targetType: "profile",
+    targetId: profile.id,
+    metadata: {
+      enabled: parsed.data.giftCertificatesEnabled,
+      denominations: nextSettings.giftCertificateDenominations,
+    },
+  });
+
+  return {
+    success: true,
+    message: "Настройки сертификатов сохранены.",
   };
 }
 

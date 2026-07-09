@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { GiftCertificateWidget } from "@/components/public/gift-certificate-widget";
 import { PublicProfileView } from "@/components/public/public-profile-view";
 import { TeamPublicProfileView } from "@/components/public/team-public-profile-view";
 import { getCurrentAuthProfile, getPublicPageData } from "@/lib/data";
@@ -30,14 +31,26 @@ export default async function PublicProfilePage({ params }: Props) {
   }
 
   return (
-    <PublicProfileView
-      profile={data.profile}
-      services={data.services}
-      bookingSlotsByService={data.bookingSlotsByService}
-      bookingHref={`/${username}/book`}
-      homeHref={homeHref}
-      eyebrowLabel={`Онлайн-запись @${username}`}
-      showDemoSections={false}
-    />
+    <>
+      <PublicProfileView
+        profile={data.profile}
+        services={data.services}
+        bookingSlotsByService={data.bookingSlotsByService}
+        bookingHref={`/${username}/book`}
+        homeHref={homeHref}
+        eyebrowLabel={`Онлайн-запись @${username}`}
+        showDemoSections={false}
+      />
+      {data.profile.bookingPageSettings.giftCertificatesEnabled ? (
+        <div className="mx-auto max-w-2xl px-4 pb-16 sm:px-6 lg:px-8">
+          <GiftCertificateWidget
+            username={username}
+            masterName={data.profile.fullName}
+            denominations={data.profile.bookingPageSettings.giftCertificateDenominations}
+            services={data.services}
+          />
+        </div>
+      ) : null}
+    </>
   );
 }

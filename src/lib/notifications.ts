@@ -35,6 +35,25 @@ export async function sendPhoneVerificationSms(input: {
   return { ok: result.ok, skipped: false as const };
 }
 
+export async function sendGiftCertificateCodeSms(input: {
+  phone: string;
+  masterName: string;
+  amount: number;
+  code: string;
+  expiresAtLabel: string;
+}) {
+  if (!isSmsConfigured) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const result = await sendSms({
+    phone: input.phone,
+    message: `okno: сертификат на ${input.amount} руб. к ${input.masterName}. Код: ${input.code}. Действует до ${input.expiresAtLabel}.`,
+  });
+
+  return { ok: result.ok, skipped: false as const };
+}
+
 export async function sendMasterTelegramNotification(input: {
   chatId: string | null;
   clientName: string;
