@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { SiteShell } from "@/components/layout/site-shell";
+import { TipForm } from "@/components/booking/tip-form";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getBookingThemeStyle } from "@/lib/booking-theme-presets";
@@ -57,6 +58,7 @@ export default async function ConfirmPage({
               <p className="font-medium text-ink">{booking.serviceTitle}</p>
               <p className="mt-2 text-sm text-ink-soft">{booking.startsAtLabel}</p>
             </div>
+            <TipForm bookingId={booking.bookingId} />
             <div className="flex flex-wrap justify-center gap-3">
               {cancelToken ? (
                 <ButtonLink href={`/cancel/${cancelToken}`} variant="secondary">
