@@ -39,10 +39,12 @@ import {
   getOwnerNotificationRows,
   getOwnerProfileMediaRow,
   getOwnerProfileRow,
+  getOwnerReferralRows,
   getOwnerScheduleRows,
   getOwnerServiceManualRows,
   getOwnerSettingsRows,
 } from "@/lib/repositories/owner-repository";
+import type { ReferralInviteSummary } from "@/lib/referral";
 import { getWorkspaceTeamRows } from "@/lib/repositories/team-repository";
 import { buildBookingSlotsForService } from "@/lib/slots";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -703,6 +705,19 @@ function buildServiceManualSummaries(
   return summaries;
 }
 
+function mapReferralInvites(
+  rows: Record<string, unknown>[],
+): ReferralInviteSummary[] {
+  return rows.map((row) => ({
+    id: String(row.id),
+    referredProfileId: String(row.referred_profile_id),
+    referredName: String(row.referred_full_name ?? ""),
+    status: row.status === "applied" ? "applied" : "pending",
+    createdAt: String(row.created_at),
+    appliedAt: row.applied_at ? String(row.applied_at) : null,
+  }));
+}
+
 export async function getSettingsData() {
   const authProfile = await getCurrentAuthProfile();
 
@@ -713,6 +728,7 @@ export async function getSettingsData() {
         services: mockServices,
         availabilityRules,
         serviceManuals: {} as Record<string, ServiceManualSummary>,
+        referralInvites: [] as ReferralInviteSummary[],
         source: "mock" as const,
       };
     }
@@ -726,21 +742,26 @@ export async function getSettingsData() {
       services: mockServices,
       availabilityRules,
       serviceManuals: {} as Record<string, ServiceManualSummary>,
+      referralInvites: [] as ReferralInviteSummary[],
       source: "mock" as const,
     };
   }
 
-  const [settingsData, profileMediaRow, serviceManualRows] = await Promise.all([
-    getOwnerSettingsRows({
-      profileId: authProfile.profile.id,
-    }),
-    getOwnerProfileMediaRow({
-      profileId: authProfile.profile.id,
-    }),
-    getOwnerServiceManualRows({
-      profileId: authProfile.profile.id,
-    }),
-  ]);
+  const [settingsData, profileMediaRow, serviceManualRows, referralRows] =
+    await Promise.all([
+      getOwnerSettingsRows({
+        profileId: authProfile.profile.id,
+      }),
+      getOwnerProfileMediaRow({
+        profileId: authProfile.profile.id,
+      }),
+      getOwnerServiceManualRows({
+        profileId: authProfile.profile.id,
+      }),
+      getOwnerReferralRows({
+        profileId: authProfile.profile.id,
+      }),
+    ]);
 
   return {
     profile: mergeProfileMedia(authProfile.profile, profileMediaRow),
@@ -752,6 +773,7 @@ export async function getSettingsData() {
       serviceManualRows,
       authProfile.profile.timezone,
     ),
+    referralInvites: mapReferralInvites(referralRows),
     source: "supabase" as const,
   };
 }

@@ -55,6 +55,8 @@ export function mapProfile(row: Record<string, unknown>): Profile {
     createdByProfileId: row.created_by_profile_id
       ? String(row.created_by_profile_id)
       : null,
+    referralCode: row.referral_code ? String(row.referral_code) : null,
+    referredBy: row.referred_by ? String(row.referred_by) : null,
   };
 }
 

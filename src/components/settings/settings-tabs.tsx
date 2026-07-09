@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   BellRing,
   CalendarRange,
+  Gift,
   Globe2,
   LayoutTemplate,
   Palette,
@@ -15,9 +16,10 @@ import {
   Wrench,
 } from "lucide-react";
 import type { AvailabilityRule, Profile, Service } from "@/lib/mock-data";
+import type { ReferralInviteSummary } from "@/lib/referral";
 import type { ServiceManualSummary } from "@/lib/service-manuals";
 import { hasActivePro } from "@/lib/subscription";
-import { formatPublicProfileLink } from "@/lib/site";
+import { formatPublicProfileLink, publicLinkHost } from "@/lib/site";
 import { Card } from "@/components/ui/card";
 import {
   AccessSettingsForm,
@@ -28,6 +30,7 @@ import {
   ServicesSettingsForm,
   SubscriptionSettingsForm,
 } from "@/components/forms/settings-forms";
+import { ReferralSettings } from "@/components/settings/referral-settings";
 import { ButtonLink } from "@/components/ui/button";
 
 const BookingThemeSettings = dynamic(
@@ -58,11 +61,13 @@ export function SettingsTabs({
   services,
   availabilityRules,
   serviceManuals = {},
+  referralInvites = [],
 }: {
   profile: Profile;
   services: Service[];
   availabilityRules: AvailabilityRule[];
   serviceManuals?: Record<string, ServiceManualSummary>;
+  referralInvites?: ReferralInviteSummary[];
 }) {
   const [activeTab, setActiveTab] =
     useState<(typeof tabs)[number]["id"]>("profile");
@@ -210,6 +215,24 @@ export function SettingsTabs({
               <h2 className="text-xl font-semibold text-ink">Подписка</h2>
             </div>
             <SubscriptionSettingsForm profile={profile} />
+          </Card>
+
+          <Card className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Gift size={18} className="text-accent-deep" />
+              <h2 className="text-xl font-semibold text-ink">
+                Реферальная программа
+              </h2>
+            </div>
+            <ReferralSettings
+              referralCode={profile.referralCode}
+              referralLink={
+                profile.referralCode
+                  ? `${publicLinkHost}/register?ref=${profile.referralCode}`
+                  : null
+              }
+              invites={referralInvites}
+            />
           </Card>
 
           <Card className="space-y-4">

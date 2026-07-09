@@ -4,8 +4,16 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { RegisterForm } from "@/components/forms/register-form";
 import { publicLinkHost } from "@/lib/site";
+import { normalizeReferralCode } from "@/lib/referral";
 
-export default function RegisterPage() {
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}) {
+  const query = await searchParams;
+  const referralCode = normalizeReferralCode(query.ref);
+
   return (
     <SiteShell compact resolveAuth={false}>
       <div className="mx-auto flex max-w-3xl justify-center py-10">
@@ -19,7 +27,7 @@ export default function RegisterPage() {
                 Можно стартовать как один мастер или сразу открыть рабочее пространство для команды.
               </p>
             </div>
-            <RegisterForm />
+            <RegisterForm referralCode={referralCode} />
           </Card>
 
           <Card className="space-y-4 bg-panel">

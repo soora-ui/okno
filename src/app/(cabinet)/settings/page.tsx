@@ -17,7 +17,8 @@ export default async function SettingsPage({
     redirect("/login");
   }
 
-  const { availabilityRules, profile, services, serviceManuals } = data;
+  const { availabilityRules, profile, services, serviceManuals, referralInvites } =
+    data;
   const showWorkspaceAdminLink =
     canManageWorkspace(profile.accountRole) &&
     isTeamWorkspaceKind(profile.workspaceKind);
@@ -61,6 +62,7 @@ export default async function SettingsPage({
         services={services}
         availabilityRules={availabilityRules}
         serviceManuals={serviceManuals}
+        referralInvites={referralInvites}
       />
     </div>
   );

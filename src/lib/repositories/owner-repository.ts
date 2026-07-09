@@ -39,6 +39,8 @@ const PROFILE_COLUMNS = [
   "account_role",
   "account_status",
   "created_by_profile_id",
+  "referral_code",
+  "referred_by",
 ].join(",");
 
 const PROFILE_MEDIA_COLUMNS = [
@@ -119,6 +121,15 @@ const NOTIFICATION_EVENT_COLUMNS = [
   "type",
   "status",
   "target",
+  "created_at",
+].join(",");
+
+const REFERRAL_REWARD_COLUMNS = [
+  "id",
+  "referrer_profile_id",
+  "referred_profile_id",
+  "status",
+  "applied_at",
   "created_at",
 ].join(",");
 
@@ -482,4 +493,51 @@ export async function getOwnerNotificationRows(input: {
     notificationEvents: asRows(notificationResult.data),
     monthlyBookingsUsed: monthlyBookingsUsedResult.count ?? 0,
   };
+}
+
+// Приглашённые мастером рефералы и статус их бонуса. Фича опциональная: пока
+// миграция 202607090001_referral_program.sql не прогнана, отдаём пустой
+// список, чтобы не ронять страницу настроек.
+export async function getOwnerReferralRows(input: { profileId: string }) {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: rewardRows, error: rewardsError } = await supabase
+    .from("referral_rewards")
+    .select(REFERRAL_REWARD_COLUMNS)
+    .eq("referrer_profile_id", input.profileId)
+    .order("created_at", { ascending: false });
+
+  if (rewardsError) {
+    if (isSupabaseMissingTableError(rewardsError, "referral_rewards")) {
+      return [];
+    }
+
+    if (isRetryableSupabaseNetworkError(rewardsError)) {
+      throw new Error(
+        "Нет связи с кабинетом. Проверь подключение к Supabase и попробуй еще раз.",
+      );
+    }
+
+    return [];
+  }
+
+  const rewards = asRows(rewardRows);
+  if (rewards.length === 0) {
+    return [];
+  }
+
+  const referredProfileIds = rewards.map((reward) => String(reward.referred_profile_id));
+  const { data: referredProfiles } = await supabase
+    .from("profiles")
+    .select("id,full_name")
+    .in("id", referredProfileIds);
+
+  const nameById = new Map(
+    asRows(referredProfiles).map((row) => [String(row.id), String(row.full_name ?? "")]),
+  );
+
+  return rewards.map((reward) => ({
+    ...reward,
+    referred_full_name: nameById.get(String(reward.referred_profile_id)) ?? "",
+  }));
 }

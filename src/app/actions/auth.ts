@@ -9,9 +9,14 @@ import {
   resolveTimezoneForCity,
 } from "@/lib/cities";
 import { isSupabaseConfigured } from "@/lib/env";
+import { logError } from "@/lib/observability/logger";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { isSupabaseMissingColumnError } from "@/lib/supabase/auth-errors";
+import {
+  isSupabaseMissingColumnError,
+  isSupabaseMissingTableError,
+} from "@/lib/supabase/auth-errors";
+import { generateReferralCode, normalizeReferralCode } from "@/lib/referral";
 import {
   isAccountActive,
   normalizeAccountRole,
@@ -20,6 +25,59 @@ import {
   getDefaultAccountRoute,
   workspaceKindValues,
 } from "@/lib/workspace";
+
+type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
+
+// Генерируем код и проверяем уникальность в базе. Коллизии у 7-символьного
+// кода из 32-буквенного алфавита практически невозможны, но перепроверка
+// дешёвая, а сюрпризов от гонки регистраций не будет.
+async function generateUniqueReferralCode(
+  admin: SupabaseAdminClient,
+): Promise<string | null> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const candidate = generateReferralCode();
+    const { data, error } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("referral_code", candidate)
+      .maybeSingle();
+
+    if (error) {
+      if (isSupabaseMissingColumnError(error, "referral_code")) {
+        return null;
+      }
+      continue;
+    }
+
+    if (!data) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+// Ищем пригласившего по коду из ?ref=CODE. Если код не найден или таблица ещё
+// не смигрирована — просто регистрируем без реферала, не блокируя регистрацию.
+async function resolveReferrerProfileId(
+  admin: SupabaseAdminClient,
+  referralCodeRaw: string | undefined,
+): Promise<string | null> {
+  const referralCode = normalizeReferralCode(referralCodeRaw);
+  if (!referralCode) return null;
+
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("referral_code", referralCode)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return String(data.id);
+}
 
 export type RegisterFormValues = {
   accountMode: string;
@@ -57,6 +115,7 @@ const registerSchema = z.object({
   serviceDurationMinutes: z.coerce.number().optional().default(60),
   city: z.string().trim().min(2),
   serviceDescription: z.string().trim().optional().default(""),
+  referralCode: z.string().trim().optional().default(""),
 });
 
 const loginSchema = z.object({
@@ -161,6 +220,11 @@ export async function registerMasterAction(
   const accountRole = isSoloAccount ? "solo" : "admin";
   const timezone = resolveTimezoneForCity(parsed.data.city);
   const locationText = getCityLabel(parsed.data.city);
+  const referralCode = await generateUniqueReferralCode(admin);
+  const referredByProfileId = await resolveReferrerProfileId(
+    admin,
+    parsed.data.referralCode,
+  );
   const profileInsert = {
     email: parsed.data.email,
     password_auth_id: data.user.id,
@@ -176,6 +240,8 @@ export async function registerMasterAction(
     account_role: accountRole,
     account_status: "active",
     created_by_profile_id: null,
+    referral_code: referralCode,
+    referred_by: referredByProfileId,
   };
 
   let { error: profileError } = await admin.from("profiles").insert(profileInsert);
@@ -185,6 +251,23 @@ export async function registerMasterAction(
     void _accountStatus;
 
     const retryResult = await admin.from("profiles").insert(legacyInsert);
+    profileError = retryResult.error;
+  }
+
+  if (
+    profileError &&
+    (isSupabaseMissingColumnError(profileError, "referral_code") ||
+      isSupabaseMissingColumnError(profileError, "referred_by"))
+  ) {
+    const {
+      referral_code: _referralCode,
+      referred_by: _referredBy,
+      ...withoutReferral
+    } = profileInsert;
+    void _referralCode;
+    void _referredBy;
+
+    const retryResult = await admin.from("profiles").insert(withoutReferral);
     profileError = retryResult.error;
   }
 
@@ -213,6 +296,31 @@ export async function registerMasterAction(
       sort_order: 1,
       is_active: true,
     });
+  }
+
+  // Заводим pending-запись о реферале сразу при регистрации — бонус
+  // применится позже, вебхуком ЮKassa, при первой успешной оплате PRO.
+  // Ошибку не считаем фатальной для регистрации: в худшем случае просто не
+  // будет строчки в истории приглашений у пригласившего.
+  if (profileRow && referredByProfileId) {
+    const { error: referralInsertError } = await admin
+      .from("referral_rewards")
+      .insert({
+        referrer_profile_id: referredByProfileId,
+        referred_profile_id: profileRow.id,
+        status: "pending",
+      });
+
+    if (
+      referralInsertError &&
+      !isSupabaseMissingTableError(referralInsertError, "referral_rewards")
+    ) {
+      logError("Failed to record referral reward on registration", {
+        referrerProfileId: referredByProfileId,
+        referredProfileId: profileRow.id,
+        error: referralInsertError,
+      });
+    }
   }
 
   revalidatePath("/");

@@ -59,6 +59,8 @@ export const landingDemoProfile: Profile = {
   accountRole: "solo",
   accountStatus: "active",
   createdByProfileId: null,
+  referralCode: "DEMO7X1",
+  referredBy: null,
 };
 
 export const landingDemoServices: Service[] = [

@@ -6,6 +6,7 @@ import { writeAuditLog } from "@/lib/observability/audit";
 import { getYooKassaPayment } from "@/lib/payments/yookassa";
 import { isYooKassaIp } from "@/lib/payments/yookassa-ips";
 import { getClientIp } from "@/lib/public-booking-guards";
+import { applyReferralRewardForFirstPayment } from "@/lib/referral-rewards";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 // Вебхук ЮKassa. Тело уведомления не является доверенным источником: статус
@@ -79,6 +80,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, status: "already_succeeded" });
     }
 
+    // Нужно узнать до обновления текущей записи: это первая успешная оплата
+    // подписки у мастера? Реферальный бонус пригласившему начисляется только
+    // за первую оплату приглашённого.
+    const { count: priorSucceededCount } = await supabase
+      .from("subscription_payments")
+      .select("id", { count: "exact", head: true })
+      .eq("profile_id", paymentRow.profile_id)
+      .eq("status", "succeeded");
+    const isFirstSuccessfulPayment = (priorSucceededCount ?? 0) === 0;
+
     const periodDays = Number(paymentRow.period_days ?? 30);
     const subscriptionUntil = DateTime.now()
       .plus({ days: periodDays })
@@ -115,6 +126,15 @@ export async function POST(request: Request) {
       targetId: paymentRow.id,
       metadata: { until: subscriptionUntil },
     });
+
+    // Реферальная программа: за первую оплату PRO приглашённым мастером
+    // пригласивший получает +30 дней PRO. Не влияет на ответ вебхука ЮKassa —
+    // ошибки здесь не должны приводить к повторной отправке уведомления.
+    if (isFirstSuccessfulPayment) {
+      await applyReferralRewardForFirstPayment(supabase, {
+        referredProfileId: paymentRow.profile_id,
+      });
+    }
 
     return NextResponse.json({ ok: true, status: "succeeded" });
   } catch (error) {

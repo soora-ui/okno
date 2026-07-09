@@ -40,7 +40,11 @@ const accountModes = [
 
 type AccountMode = (typeof accountModes)[number]["value"];
 
-export function RegisterForm() {
+export function RegisterForm({
+  referralCode = null,
+}: {
+  referralCode?: string | null;
+}) {
   const [state, formAction] = useActionState(
     registerMasterAction,
     initialAuthActionState,
@@ -73,6 +77,9 @@ export function RegisterForm() {
   return (
     <form action={formAction} className="space-y-6">
       <input type="hidden" name="accountMode" value={accountMode} />
+      {referralCode ? (
+        <input type="hidden" name="referralCode" value={referralCode} />
+      ) : null}
 
       <Card className="space-y-5">
         <div>
