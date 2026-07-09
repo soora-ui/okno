@@ -39,6 +39,7 @@ const profileSchema = z.object({
   fullName: z.string().trim().min(2),
   specialty: z.string().trim().min(2),
   city: z.string().trim().min(2),
+  address: z.string().trim().max(200).default(""),
   bio: z.string().trim().default(""),
 });
 
@@ -140,16 +141,31 @@ export async function updateProfileAction(
   const timezone = resolveTimezoneForCity(parsed.data.city);
   const locationText = getCityLabel(parsed.data.city);
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
+  const profileUpdate = {
+    full_name: parsed.data.fullName,
+    specialty: parsed.data.specialty,
+    location_text: locationText,
+    timezone,
+    address: parsed.data.address,
+    bio: parsed.data.bio,
+  };
+
+  let { error } = await supabase
     .from("profiles")
-    .update({
-      full_name: parsed.data.fullName,
-      specialty: parsed.data.specialty,
-      location_text: locationText,
-      timezone,
-      bio: parsed.data.bio,
-    })
+    .update(profileUpdate)
     .eq("id", profile.id);
+
+  // Колонки address ещё может не быть (миграция не прогнана) — сохраняем
+  // остальные поля профиля, чтобы форма не падала целиком.
+  if (error && isSupabaseMissingColumnError(error, "address")) {
+    const { address: _address, ...legacyUpdate } = profileUpdate;
+    void _address;
+    const retry = await supabase
+      .from("profiles")
+      .update(legacyUpdate)
+      .eq("id", profile.id);
+    error = retry.error;
+  }
 
   if (error) {
     logError("Failed to update profile", { profileId: profile.id, error });

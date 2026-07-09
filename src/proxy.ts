@@ -1,51 +1,90 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { appMode, isSupabaseConfigured } from "@/lib/env";
+import { updateSession } from "@/lib/supabase/proxy";
 
-const protectedMatchers = ["/dashboard", "/schedule", "/clients", "/settings", "/team"];
+const protectedMatchers = [
+  "/dashboard",
+  "/schedule",
+  "/clients",
+  "/settings",
+  "/team",
+  "/archive",
+  "/admin",
+];
+
+// Any real route segment (static pages and usernames alike) is lowercase
+// alnum/hyphen. Bots probing for exploit paths (wp-config.php.save, .env,
+// xmlrpc.php...) land on the single-segment [username] route, hit Supabase,
+// and occasionally surface as real errors under load. Reject the malformed
+// ones here, before they reach rendering or the database.
+const SINGLE_SEGMENT_PATH = /^\/[^/]+$/;
+const VALID_SEGMENT_PATH = /^\/[a-z0-9-]+$/;
 
 function buildLoginRedirect(
   request: NextRequest,
   reason: "auth" | "setup" | "disabled",
+  sourceResponse?: NextResponse,
 ) {
   const loginUrl = new URL("/login", request.url);
   loginUrl.searchParams.set("reason", reason);
   loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
-  return NextResponse.redirect(loginUrl);
+  const response = NextResponse.redirect(loginUrl);
+
+  if (sourceResponse) {
+    sourceResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie.name, cookie.value, cookie);
+    });
+  }
+
+  return response;
 }
 
 export async function proxy(request: NextRequest) {
-  if (!protectedMatchers.some((path) => request.nextUrl.pathname.startsWith(path))) {
-    return NextResponse.next();
+  const { pathname } = request.nextUrl;
+
+  if (SINGLE_SEGMENT_PATH.test(pathname) && !VALID_SEGMENT_PATH.test(pathname)) {
+    return new NextResponse(null, { status: 404 });
   }
+
+  const isProtectedRoute = protectedMatchers.some((path) => pathname.startsWith(path));
+
+  // Next strips its internal RSC/prefetch headers before Proxy runs, but the
+  // browser's Sec-Fetch-Dest survives: "document" is a real top-level
+  // navigation, "empty" is a fetch() — i.e. an RSC soft-navigation or prefetch.
+  // WebKit/Safari aborts a fetch() that carries custom headers when it hits an
+  // HTTP redirect ("access control checks" CORS error), which breaks client
+  // navigation. So for RSC fetches we answer 204 instead of redirecting; the
+  // App Router then falls back to a full document navigation that receives the
+  // real 307 — no Safari error, auth still enforced.
+  const isRscFetch = request.headers.get("sec-fetch-dest") === "empty";
+  const denyAccess = (reason: "auth" | "setup", sourceResponse?: NextResponse) =>
+    isRscFetch
+      ? new NextResponse(null, { status: 204 })
+      : buildLoginRedirect(request, reason, sourceResponse);
 
   if (appMode === "demo") {
     return NextResponse.next();
   }
 
+  if (!isProtectedRoute && !isSupabaseConfigured) {
+    return NextResponse.next();
+  }
+
   if (!isSupabaseConfigured) {
-    return buildLoginRedirect(request, "setup");
+    return denyAccess("setup");
   }
 
-  const hasSessionCookie = request.cookies
-    .getAll()
-    .some(
-      (cookie) =>
-        cookie.name.startsWith("sb-") && cookie.name.includes("-auth-token"),
-    );
+  const { response, user } = await updateSession(request);
 
-  if (!hasSessionCookie) {
-    return buildLoginRedirect(request, "auth");
+  if (isProtectedRoute && !user) {
+    return denyAccess("auth", response);
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/schedule/:path*",
-    "/clients/:path*",
-    "/settings/:path*",
-    "/team/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -117,7 +117,7 @@ function ClientDetailsModal({
           </div>
 
           <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-            <section className="rounded-[24px] border border-line bg-[rgba(250,248,244,0.88)] p-4">
+            <section className="rounded-[24px] border border-line bg-panel p-4">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-base font-semibold text-ink">История визитов</h3>
                 <span className="text-xs uppercase tracking-[0.16em] text-muted">
@@ -152,7 +152,7 @@ function ClientDetailsModal({
               </div>
             </section>
 
-            <section className="rounded-[24px] border border-line bg-[rgba(250,248,244,0.88)] p-4">
+            <section className="rounded-[24px] border border-line bg-panel p-4">
               <div className="space-y-4">
                 <div>
                   <h3 className="text-base font-semibold text-ink">Предпочитаемые услуги</h3>

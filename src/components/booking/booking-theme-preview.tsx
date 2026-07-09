@@ -61,7 +61,7 @@ export function BookingThemePreview({
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-full border text-xs",
                       index === 0
-                        ? "border-ink bg-ink text-white"
+                        ? "border-ink bg-ink text-ink-contrast"
                         : "border-line bg-[var(--ui-field-bg,#ffffff)] text-muted",
                     )}
                   >
@@ -101,14 +101,14 @@ export function BookingThemePreview({
                   className={cn(
                     "flex min-w-[68px] flex-col items-center rounded-[18px] border px-3 py-2 text-center",
                     slot.selected
-                      ? "border-ink bg-ink text-white"
+                      ? "border-ink bg-ink text-ink-contrast"
                       : "border-line bg-[var(--ui-field-bg,#ffffff)] text-ink",
                   )}
                 >
                   <span
                     className={cn(
                       "text-[10px] uppercase tracking-[0.08em]",
-                      slot.selected ? "text-white/70" : "text-ink-soft",
+                      slot.selected ? "text-ink-contrast" : "text-ink-soft",
                     )}
                   >
                     {slot.weekday}
@@ -125,7 +125,7 @@ export function BookingThemePreview({
                   className={cn(
                     "rounded-[18px] border px-4 py-2 text-sm font-medium",
                     slot.selected
-                      ? "border-ink bg-ink text-white"
+                      ? "border-ink bg-ink text-ink-contrast"
                       : "border-line bg-[var(--ui-field-bg,#ffffff)] text-ink",
                   )}
                 >

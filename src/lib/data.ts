@@ -30,7 +30,9 @@ import {
   mapProfile,
   mergeProfileMedia,
   mapService,
+  mapServiceManual,
 } from "@/lib/mappers/domain";
+import type { ServiceManualSummary } from "@/lib/service-manuals";
 import {
   getOwnerClientsRows,
   getOwnerDashboardRows,
@@ -38,12 +40,16 @@ import {
   getOwnerProfileMediaRow,
   getOwnerProfileRow,
   getOwnerScheduleRows,
+  getOwnerServiceManualRows,
   getOwnerSettingsRows,
 } from "@/lib/repositories/owner-repository";
 import { getWorkspaceTeamRows } from "@/lib/repositories/team-repository";
 import { buildBookingSlotsForService } from "@/lib/slots";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isRetryableSupabaseNetworkError } from "@/lib/supabase/auth-errors";
+import {
+  isRetryableSupabaseNetworkError,
+  isSupabaseMissingColumnError,
+} from "@/lib/supabase/auth-errors";
 import {
   canManageWorkspace,
   getAccountStatusLabel,
@@ -168,6 +174,7 @@ const PUBLIC_PROFILE_BASE_COLUMNS = [
   "bio",
   "location_text",
   "timezone",
+  "address",
   "telegram_chat_id",
   "booking_theme_preset",
   "booking_page_settings",
@@ -264,6 +271,8 @@ export const getPublicPageData = cache(async function getPublicPageData(
     .eq("username", username)
     .maybeSingle();
 
+  let resolvedProfileRow = profileRow;
+
   if (profileError) {
     if (isRetryableSupabaseNetworkError(profileError)) {
       throw new Error(
@@ -271,11 +280,27 @@ export const getPublicPageData = cache(async function getPublicPageData(
       );
     }
 
-    throw new Error("Не получилось загрузить профиль мастера.");
+    // Колонка ещё не добавлена миграцией — перечитываем профиль целиком,
+    // чтобы публичная страница не падала из-за нового опционального поля.
+    if (isSupabaseMissingColumnError(profileError)) {
+      const fallback = await admin
+        .from("profiles")
+        .select("*")
+        .eq("username", username)
+        .maybeSingle();
+
+      if (fallback.error) {
+        throw new Error("Не получилось загрузить профиль мастера.");
+      }
+
+      resolvedProfileRow = fallback.data;
+    } else {
+      throw new Error("Не получилось загрузить профиль мастера.");
+    }
   }
 
-  if (!profileRow) notFound();
-  const publicProfileRow = profileRow as unknown as Record<string, unknown>;
+  if (!resolvedProfileRow) notFound();
+  const publicProfileRow = resolvedProfileRow as unknown as Record<string, unknown>;
   if (!isAccountActive(normalizeAccountStatus(publicProfileRow.account_status))) {
     notFound();
   }
@@ -650,6 +675,34 @@ export async function getClientsData() {
   };
 }
 
+function buildServiceManualSummaries(
+  rows: Record<string, unknown>[],
+  timezone: string,
+): Record<string, ServiceManualSummary> {
+  const summaries: Record<string, ServiceManualSummary> = {};
+
+  for (const row of rows) {
+    const manual = mapServiceManual(row);
+    const confirmedAtLabel = manual.confirmedByMasterAt
+      ? DateTime.fromISO(manual.confirmedByMasterAt)
+          .setZone(timezone)
+          .setLocale("ru")
+          .toFormat("d MMMM yyyy, HH:mm")
+      : null;
+
+    summaries[manual.serviceId] = {
+      serviceId: manual.serviceId,
+      content: manual.content,
+      version: manual.version,
+      isActive: manual.isActive,
+      isConfirmed: Boolean(manual.confirmedByMasterAt),
+      confirmedAtLabel,
+    };
+  }
+
+  return summaries;
+}
+
 export async function getSettingsData() {
   const authProfile = await getCurrentAuthProfile();
 
@@ -659,6 +712,7 @@ export async function getSettingsData() {
         profile: mockProfile,
         services: mockServices,
         availabilityRules,
+        serviceManuals: {} as Record<string, ServiceManualSummary>,
         source: "mock" as const,
       };
     }
@@ -671,15 +725,19 @@ export async function getSettingsData() {
       profile: authProfile.profile,
       services: mockServices,
       availabilityRules,
+      serviceManuals: {} as Record<string, ServiceManualSummary>,
       source: "mock" as const,
     };
   }
 
-  const [settingsData, profileMediaRow] = await Promise.all([
+  const [settingsData, profileMediaRow, serviceManualRows] = await Promise.all([
     getOwnerSettingsRows({
       profileId: authProfile.profile.id,
     }),
     getOwnerProfileMediaRow({
+      profileId: authProfile.profile.id,
+    }),
+    getOwnerServiceManualRows({
       profileId: authProfile.profile.id,
     }),
   ]);
@@ -689,6 +747,10 @@ export async function getSettingsData() {
     services: settingsData.services.map((row) => mapService(row)),
     availabilityRules: settingsData.availabilityRules.map((row) =>
       mapAvailabilityRule(row),
+    ),
+    serviceManuals: buildServiceManualSummaries(
+      serviceManualRows,
+      authProfile.profile.timezone,
     ),
     source: "supabase" as const,
   };

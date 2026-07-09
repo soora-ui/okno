@@ -36,6 +36,42 @@ export function getClientIp(request: Request) {
   );
 }
 
+// In-memory лимитер для демо-режима (без Supabase таблица попыток недоступна).
+// Одного процесса достаточно: демо не масштабируется горизонтально.
+const demoAttemptsByIp = new Map<string, number[]>();
+
+export function assertDemoBookingRateLimit(request: Request) {
+  const windowMs = PUBLIC_BOOKING_WINDOW_MINUTES * 60_000;
+  const now = Date.now();
+  const ipHash = sha256(getClientIp(request));
+  const recentAttempts = (demoAttemptsByIp.get(ipHash) ?? []).filter(
+    (timestamp) => now - timestamp < windowMs,
+  );
+
+  if (recentAttempts.length >= MAX_PUBLIC_BOOKINGS_PER_WINDOW) {
+    demoAttemptsByIp.set(ipHash, recentAttempts);
+    return {
+      ok: false as const,
+      message:
+        "Слишком много попыток записи за короткое время. Попробуй еще раз чуть позже.",
+    };
+  }
+
+  recentAttempts.push(now);
+  demoAttemptsByIp.set(ipHash, recentAttempts);
+
+  // Не даем карте расти бесконечно от ротации IP.
+  if (demoAttemptsByIp.size > 10_000) {
+    for (const [key, timestamps] of demoAttemptsByIp) {
+      if (timestamps.every((timestamp) => now - timestamp >= windowMs)) {
+        demoAttemptsByIp.delete(key);
+      }
+    }
+  }
+
+  return { ok: true as const };
+}
+
 export function buildBookingRequestHash(input: BookingRequestFingerprintInput) {
   return sha256(
     JSON.stringify({

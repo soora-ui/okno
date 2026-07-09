@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import type { Profile } from "@/lib/mock-data";
+import { logError } from "@/lib/observability/logger";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   sendBookingConfirmationSms,
@@ -173,7 +174,7 @@ export async function processNotificationQueue(eventIds: string[]) {
     .select("id, type, target, payload, attempts");
 
   if (error) {
-    console.error("okno: notification queue claim failed", error);
+    logError("Notification queue claim failed", { eventIds, error });
     return;
   }
 

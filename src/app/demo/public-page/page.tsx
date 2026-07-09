@@ -22,6 +22,7 @@ export default async function DemoPublicPage({ searchParams }: DemoPublicPagePro
       services={landingDemoServices}
       bookingSlotsByService={landingDemoBookingSlotsByService}
       bookingHref={landingDemoBookHref}
+      homeHref="/"
       eyebrowLabel={
         guidedDemo ? "Демо публичной страницы" : `Онлайн-запись @${landingDemoProfile.username}`
       }

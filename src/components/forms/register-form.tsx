@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
+import { Link2 } from "lucide-react";
 import { registerMasterAction } from "@/app/actions/auth";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { initialAuthActionState } from "@/components/forms/auth-state";
@@ -12,6 +13,7 @@ import {
   cityOptions,
   defaultCityValue,
 } from "@/lib/cities";
+import { publicLinkHost, suggestUsername } from "@/lib/site";
 
 const accountModes = [
   {
@@ -43,8 +45,30 @@ export function RegisterForm() {
     registerMasterAction,
     initialAuthActionState,
   );
-  const [accountMode, setAccountMode] = useState<AccountMode>("solo");
+  const values = state.values;
+  const [accountMode, setAccountMode] = useState<AccountMode>(
+    (values?.accountMode as AccountMode) ?? "solo",
+  );
   const isSolo = accountMode === "solo";
+
+  // Публичная ссылка автогенерируется от имени и ниши, пока мастер не
+  // отредактирует её вручную. Имя/ниша — неконтролируемые поля, поэтому их
+  // текущие значения держим в ref и пересчитываем ссылку по onChange.
+  const nameParts = useRef({
+    fullName: values?.fullName ?? "",
+    specialty: values?.specialty ?? "",
+  });
+  const [username, setUsername] = useState(values?.username ?? "");
+  const [usernameEdited, setUsernameEdited] = useState(
+    Boolean(values?.username),
+  );
+
+  function refreshSuggestedUsername() {
+    if (usernameEdited) return;
+    setUsername(
+      suggestUsername(nameParts.current.fullName, nameParts.current.specialty),
+    );
+  }
 
   return (
     <form action={formAction} className="space-y-6">
@@ -97,6 +121,7 @@ export function RegisterForm() {
             name="workspaceName"
             placeholder="okno studio"
             hint="Это имя появится в админке и у сотрудников."
+            defaultValue={values?.workspaceName}
             required
           />
         ) : null}
@@ -106,12 +131,22 @@ export function RegisterForm() {
             label={isSolo ? "Имя мастера" : "Имя администратора"}
             name="fullName"
             placeholder={isSolo ? "Алина" : "Алина Мороз"}
+            defaultValue={values?.fullName}
+            onChange={(event) => {
+              nameParts.current.fullName = event.target.value;
+              refreshSuggestedUsername();
+            }}
             required
           />
           <Input
             label={isSolo ? "Ниша" : "Роль или специализация"}
             name="specialty"
             placeholder={isSolo ? "Маникюр и брови" : "Управляющий студией"}
+            defaultValue={values?.specialty}
+            onChange={(event) => {
+              nameParts.current.specialty = event.target.value;
+              refreshSuggestedUsername();
+            }}
             required
           />
           <Input
@@ -119,6 +154,7 @@ export function RegisterForm() {
             name="email"
             type="email"
             placeholder="you@example.com"
+            defaultValue={values?.email}
             required
           />
           <Input
@@ -134,10 +170,15 @@ export function RegisterForm() {
           <Input
             label={isSolo ? "Публичная ссылка" : "Username администратора"}
             name="username"
-            placeholder={isSolo ? "alina-nails" : "alina-admin"}
+            placeholder={isSolo ? "alina-manikyur" : "alina-admin"}
+            value={username}
+            onChange={(event) => {
+              setUsername(event.target.value);
+              setUsernameEdited(true);
+            }}
             hint={
               isSolo
-                ? "Эту ссылку ты будешь отправлять клиентам."
+                ? "Сгенерировали от имени и ниши — можно изменить на свою."
                 : "Нужен для входа и личного кабинета администратора."
             }
             required
@@ -145,11 +186,20 @@ export function RegisterForm() {
           <Select
             label="Город"
             name="city"
-            defaultValue={defaultCityValue}
+            defaultValue={values?.city || defaultCityValue}
             options={cityOptions}
-            hint="Часовой пояс определим автоматически по выбранному городу."
+            hint="Часовой пояс определим автоматически. Точный адрес добавишь в кабинете."
           />
         </div>
+
+        {isSolo ? (
+          <div className="flex items-center gap-3 rounded-[18px] bg-panel px-4 py-3">
+            <Link2 size={18} className="shrink-0 text-accent-deep" />
+            <p className="truncate text-sm font-medium text-ink">
+              {publicLinkHost}/{username || "ваша-ссылка"}
+            </p>
+          </div>
+        ) : null}
       </Card>
 
       {isSolo ? (
@@ -168,6 +218,7 @@ export function RegisterForm() {
               label="Название услуги"
               name="serviceTitle"
               placeholder="Маникюр с покрытием"
+              defaultValue={values?.serviceTitle}
               required
             />
             <Input
@@ -175,6 +226,7 @@ export function RegisterForm() {
               name="servicePrice"
               type="number"
               placeholder="1900"
+              defaultValue={values?.servicePrice}
               required
             />
             <Input
@@ -182,6 +234,7 @@ export function RegisterForm() {
               name="serviceDurationMinutes"
               type="number"
               placeholder="120"
+              defaultValue={values?.serviceDurationMinutes}
               required
             />
           </div>
@@ -191,6 +244,7 @@ export function RegisterForm() {
             name="serviceDescription"
             placeholder="Включает покрытие, без дизайна"
             hint="Это описание будет видно клиенту на публичной странице."
+            defaultValue={values?.serviceDescription}
           />
         </Card>
       ) : (

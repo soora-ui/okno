@@ -29,6 +29,7 @@ import {
 } from "@/components/public/public-profile-shared";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { Reveal } from "@/components/ui/reveal";
 import { getBookingThemeStyle } from "@/lib/booking-theme-presets";
 import { formatCurrency } from "@/lib/mock-data";
 
@@ -135,6 +136,9 @@ export function PublicProfileView({
                     {profile.locationText}
                   </span>
                 </div>
+                {profile.address ? (
+                  <p className="text-sm text-ink-soft">{profile.address}</p>
+                ) : null}
               </div>
               {profile.bookingPageSettings.headline ? (
                 <p className="max-w-2xl text-xl font-medium leading-snug text-ink sm:text-2xl">
@@ -250,7 +254,7 @@ export function PublicProfileView({
                   style={{ backgroundColor: "var(--public-surface-strong)" }}
                 >
                   <Sparkles size={16} className="text-accent-deep" />
-                  Путь к записи без перегруза
+                  Как выглядит запись
                 </div>
               ) : null}
 
@@ -331,56 +335,59 @@ export function PublicProfileView({
               data-demo-id="works"
               className="relative mt-16 rounded-[40px] space-y-6"
             >
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <div className="max-w-2xl space-y-3">
-                  <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
-                    Готовые работы
-                  </p>
-                  <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-                    Можно заранее почувствовать стиль мастера
-                  </h2>
-                  <p className="text-base leading-7 text-ink-soft sm:text-lg">
-                    Подборка показывает реальные работы из кабинета. Если хочется
-                    посмотреть всё крупнее, открой pop-up и пролистай всю галерею.
-                  </p>
+              <Reveal variant="fade-up">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div className="max-w-2xl space-y-3">
+                    <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
+                      Готовые работы
+                    </p>
+                    <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+                      Можно заранее почувствовать стиль мастера
+                    </h2>
+                    <p className="text-base leading-7 text-ink-soft sm:text-lg">
+                      Подборка показывает реальные работы из кабинета. Если хочется
+                      посмотреть всё крупнее, открой pop-up и пролистай всю галерею.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setIsPortfolioOpen(true)}
+                    className="gap-2"
+                  >
+                    Открыть всю галерею
+                  </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setIsPortfolioOpen(true)}
-                  className="gap-2"
-                >
-                  Открыть всю галерею
-                </Button>
-              </div>
+              </Reveal>
 
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {profile.portfolioWorks.map((work, index) => (
-                  <button
-                    key={work.id}
-                    type="button"
-                    onClick={() => setIsPortfolioOpen(true)}
-                    className="card-hover group overflow-hidden rounded-[32px] border border-line text-left shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
-                    style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
-                  >
-                    <div className="relative aspect-[4/5] overflow-hidden">
-                      <Image
-                        src={work.imageUrl}
-                        alt={`${profile.fullName}, работа ${index + 1}`}
-                        fill
-                        sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 25vw"
-                        className="object-cover transition duration-500 group-hover:scale-[1.03]"
-                      />
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgba(20,21,18,0.72)] to-transparent px-4 py-4">
-                        <span
-                          className="inline-flex rounded-full px-3 py-1 text-xs font-medium text-ink"
-                          style={{ backgroundColor: "var(--public-surface-strong)" }}
-                        >
-                          Работа {index + 1}
-                        </span>
+                  <Reveal key={work.id} variant="fade-up" delay={(index % 4) * 0.1}>
+                    <button
+                      type="button"
+                      onClick={() => setIsPortfolioOpen(true)}
+                      className="card-hover group w-full overflow-hidden rounded-[32px] border border-line text-left shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
+                      style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                    >
+                      <div className="relative aspect-[4/5] overflow-hidden">
+                        <Image
+                          src={work.imageUrl}
+                          alt={`${profile.fullName}, работа ${index + 1}`}
+                          fill
+                          sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 25vw"
+                          className="object-cover transition duration-500 group-hover:scale-[1.03]"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgba(20,21,18,0.72)] to-transparent px-4 py-4">
+                          <span
+                            className="inline-flex rounded-full px-3 py-1 text-xs font-medium text-ink"
+                            style={{ backgroundColor: "var(--public-surface-strong)" }}
+                          >
+                            Работа {index + 1}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                  </Reveal>
                 ))}
               </div>
             </section>
@@ -391,14 +398,16 @@ export function PublicProfileView({
             data-demo-id="works"
             className="relative mt-14 rounded-[40px] space-y-6"
           >
-            <div className="max-w-2xl space-y-2">
-              <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
-                Портфолио
-              </p>
-              <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-                Работы мастера
-              </h2>
-            </div>
+            <Reveal variant="fade-up">
+              <div className="max-w-2xl space-y-2">
+                <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
+                  Портфолио
+                </p>
+                <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+                  Работы мастера
+                </h2>
+              </div>
+            </Reveal>
             {hasPortfolioWorks ? (
               <>
                 <div className="flex flex-wrap items-end justify-between gap-4">
@@ -416,23 +425,24 @@ export function PublicProfileView({
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   {profile.portfolioWorks.map((work, index) => (
-                    <button
-                      key={work.id}
-                      type="button"
-                      onClick={() => setIsPortfolioOpen(true)}
-                      className="card-hover group overflow-hidden rounded-[32px] border border-line text-left shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
-                      style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
-                    >
-                      <div className="relative aspect-[4/5] overflow-hidden">
-                        <Image
-                          src={work.imageUrl}
-                          alt={`${profile.fullName}, работа ${index + 1}`}
-                          fill
-                          sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 25vw"
-                          className="object-cover transition duration-500 group-hover:scale-[1.03]"
-                        />
-                      </div>
-                    </button>
+                    <Reveal key={work.id} variant="fade-up" delay={(index % 4) * 0.1}>
+                      <button
+                        type="button"
+                        onClick={() => setIsPortfolioOpen(true)}
+                        className="card-hover group w-full overflow-hidden rounded-[32px] border border-line text-left shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
+                        style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                      >
+                        <div className="relative aspect-[4/5] overflow-hidden">
+                          <Image
+                            src={work.imageUrl}
+                            alt={`${profile.fullName}, работа ${index + 1}`}
+                            fill
+                            sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 25vw"
+                            className="object-cover transition duration-500 group-hover:scale-[1.03]"
+                          />
+                        </div>
+                      </button>
+                    </Reveal>
                   ))}
                 </div>
               </>
@@ -455,73 +465,76 @@ export function PublicProfileView({
           data-demo-id="services"
           className="relative mt-16 rounded-[40px] space-y-6"
         >
-          <div className="max-w-2xl space-y-2">
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
-              Услуги
-            </p>
-            <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-              {showDemoSections ? "Понятный каталог без перегруза" : "Что делает мастер"}
-            </h2>
-            {showDemoSections ? (
-              <p className="text-base leading-7 text-ink-soft sm:text-lg">
-                Каждая услуга сразу показывает, сколько длится визит и во сколько он
-                обойдётся, чтобы клиент принимал решение спокойно и без лишних уточнений.
+          <Reveal variant="fade-up">
+            <div className="max-w-2xl space-y-2">
+              <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
+                Услуги
               </p>
-            ) : null}
-          </div>
+              <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+                {showDemoSections ? "Понятный каталог услуг" : "Что делает мастер"}
+              </h2>
+              {showDemoSections ? (
+                <p className="text-base leading-7 text-ink-soft sm:text-lg">
+                  У каждой услуги сразу видно длительность и цену, поэтому можно
+                  выбрать визит без лишних вопросов.
+                </p>
+              ) : null}
+            </div>
+          </Reveal>
 
           <div className="grid gap-4 md:grid-cols-2">
             {services.map((service, index) => (
-              <article
-                key={service.id}
-                className="card-hover group relative overflow-hidden rounded-[32px] border border-line p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
-                style={{
-                  backgroundColor:
-                    index % 2 === 0
-                      ? "var(--ui-card-bg, #ffffff)"
-                      : "var(--color-accent-soft)",
-                }}
-              >
-                <div className="space-y-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-2">
-                      <p className="text-sm uppercase tracking-[0.18em] text-muted">
-                        {service.durationMinutes} минут
-                      </p>
-                      <h3 className="text-2xl font-semibold text-ink">
-                        {service.title}
-                      </h3>
+              <Reveal key={service.id} variant="fade-up" delay={(index % 2) * 0.1}>
+                <article
+                  className="card-hover group relative overflow-hidden rounded-[32px] border border-line p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
+                  style={{
+                    backgroundColor:
+                      index % 2 === 0
+                        ? "var(--ui-card-bg, #ffffff)"
+                        : "var(--color-accent-soft)",
+                  }}
+                >
+                  <div className="space-y-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-2">
+                        <p className="text-sm uppercase tracking-[0.18em] text-muted">
+                          {service.durationMinutes} минут
+                        </p>
+                        <h3 className="text-2xl font-semibold text-ink">
+                          {service.title}
+                        </h3>
+                      </div>
+                      <div
+                        className="rounded-full px-4 py-2 text-sm font-medium text-ink shadow-sm"
+                        style={{ backgroundColor: "var(--public-surface-strong)" }}
+                      >
+                        {formatCurrency(service.price)}
+                      </div>
                     </div>
-                    <div
-                      className="rounded-full px-4 py-2 text-sm font-medium text-ink shadow-sm"
-                      style={{ backgroundColor: "var(--public-surface-strong)" }}
-                    >
-                      {formatCurrency(service.price)}
+
+                    <p className="text-sm leading-7 text-ink-soft sm:text-base">
+                      {service.description}
+                    </p>
+
+                    <div className="flex items-center justify-between gap-3 pt-2">
+                      <span className="text-sm text-muted">
+                        {showDemoSections
+                          ? "Запись без регистрации и звонка"
+                          : `${service.durationMinutes} мин • ${formatCurrency(service.price)}`}
+                      </span>
+                      <ButtonLink
+                        href={bookingHref}
+                        documentNavigation={guidedDemo}
+                        variant="secondary"
+                        className="gap-2"
+                      >
+                        Выбрать
+                        <ArrowRight size={16} />
+                      </ButtonLink>
                     </div>
                   </div>
-
-                  <p className="text-sm leading-7 text-ink-soft sm:text-base">
-                    {service.description}
-                  </p>
-
-                  <div className="flex items-center justify-between gap-3 pt-2">
-                    <span className="text-sm text-muted">
-                      {showDemoSections
-                        ? "Запись без регистрации и звонка"
-                        : `${service.durationMinutes} мин • ${formatCurrency(service.price)}`}
-                    </span>
-                    <ButtonLink
-                      href={bookingHref}
-                      documentNavigation={guidedDemo}
-                      variant="secondary"
-                      className="gap-2"
-                    >
-                      Выбрать
-                      <ArrowRight size={16} />
-                    </ButtonLink>
-                  </div>
-                </div>
-              </article>
+                </article>
+              </Reveal>
             ))}
           </div>
         </section>
@@ -533,90 +546,94 @@ export function PublicProfileView({
             data-demo-id="rules"
             className="relative mt-16 rounded-[40px] grid gap-6 lg:grid-cols-[1.05fr_0.95fr]"
           >
-          <div className="rounded-[36px] border border-transparent bg-[linear-gradient(145deg,#23241f_0%,#343730_100%)] p-6 text-white shadow-[0_30px_90px_rgba(35,36,31,0.18)] sm:p-8">
-            <p className="text-sm uppercase tracking-[0.24em] text-white/60">
-              Как всё устроено
-            </p>
-            <h2 className="mt-3 max-w-lg text-3xl font-semibold tracking-tight sm:text-4xl">
-              Запись выглядит как личная витрина мастера, а не как форма из банка
-            </h2>
-            <div className="mt-8 space-y-4">
-              {publicInfoItems.map((item) => {
-                const icons = {
-                  CalendarClock,
-                  BadgeCheck,
-                  Clock3,
-                } as const;
-                const Icon = icons[item.icon];
-
-                return (
-                <div
-                  key={item.title}
-                  className="rounded-[28px] border border-white/10 bg-white/6 p-5"
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon size={20} className="text-[var(--color-accent)]" />
-                    <h3 className="text-lg font-medium text-white">{item.title}</h3>
-                  </div>
-                  <p className="mt-3 text-sm leading-7 text-white/70">{item.text}</p>
-                </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-6 rounded-[36px] border border-line bg-white/82 p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8">
-            <div className="space-y-3">
-              <p className="text-sm uppercase tracking-[0.24em] text-muted">
-                Что важно знать
+          <Reveal variant="fade-up">
+            <div className="rounded-[36px] border border-transparent bg-[linear-gradient(145deg,#23241f_0%,#343730_100%)] p-6 text-white shadow-[0_30px_90px_rgba(35,36,31,0.18)] sm:p-8">
+              <p className="text-sm uppercase tracking-[0.24em] text-white/60">
+                Как всё устроено
               </p>
-              <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-                Всё, что помогает решиться на запись
+              <h2 className="mt-3 max-w-lg text-3xl font-semibold tracking-tight sm:text-4xl">
+                Страница записи выглядит как витрина мастера, а не как обычная форма
               </h2>
-            </div>
+              <div className="mt-8 space-y-4">
+                {publicInfoItems.map((item) => {
+                  const icons = {
+                    CalendarClock,
+                    BadgeCheck,
+                    Clock3,
+                  } as const;
+                  const Icon = icons[item.icon];
 
-            <div className="grid gap-4">
-              <div className="rounded-[28px] border border-line bg-panel p-5">
-                <div className="flex items-center gap-3">
-                  <MapPin size={18} className="text-accent-deep" />
-                  <h3 className="text-lg font-medium text-ink">Локация и описание</h3>
-                </div>
-                <p className="mt-3 text-sm leading-7 text-ink-soft">
-                  Мастер сам указывает район, описание и формат приёма в кабинете, а
-                  публичная страница сразу показывает оформленную версию этих данных.
-                </p>
-              </div>
-
-              <div className="rounded-[28px] border border-line bg-white p-5">
-                <div className="flex items-center gap-3">
-                  <ShieldCheck size={18} className="text-accent-deep" />
-                  <h3 className="text-lg font-medium text-ink">Перенос и отмена</h3>
-                </div>
-                <p className="mt-3 text-sm leading-7 text-ink-soft">
-                  Мастер сам задаёт, до какого момента запись можно отменить или
-                  перенести самостоятельно. Эти правила применяются к каждой записи
-                  без ручных уточнений.
-                </p>
-              </div>
-
-              <div className="rounded-[28px] border border-line bg-[rgba(238,247,240,0.92)] p-5">
-                <div className="flex items-center gap-3">
-                  <MessageCircleHeart size={18} className="text-accent-deep" />
-                  <h3 className="text-lg font-medium text-ink">Подтверждение и напоминания</h3>
-                </div>
-                <p className="mt-3 text-sm leading-7 text-ink-soft">
-                  После бронирования клиент сразу видит подтверждение на экране, а
-                  уведомления и напоминания для клиента и мастера включаются в
-                  настройках записи.
-                </p>
+                  return (
+                  <div
+                    key={item.title}
+                    className="rounded-[28px] border border-white/10 bg-white/6 p-5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon size={20} className="text-[var(--color-accent)]" />
+                      <h3 className="text-lg font-medium text-white">{item.title}</h3>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-white/70">{item.text}</p>
+                  </div>
+                  );
+                })}
               </div>
             </div>
+          </Reveal>
 
-            <div className="rounded-[28px] border border-dashed border-line px-5 py-4 text-sm text-muted">
-              Страница сделана так, чтобы её было не стыдно отправить клиенту в
-              мессенджер: крупная витрина, понятные услуги и быстрый путь к записи.
+          <Reveal variant="fade-up" delay={0.2}>
+            <div className="space-y-6 rounded-[36px] border border-line bg-glass p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8">
+              <div className="space-y-3">
+                <p className="text-sm uppercase tracking-[0.24em] text-muted">
+                  Что важно знать
+                </p>
+                <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+                  Всё, что помогает решиться на запись
+                </h2>
+              </div>
+
+              <div className="grid gap-4">
+                <div className="rounded-[28px] border border-line bg-panel p-5">
+                  <div className="flex items-center gap-3">
+                    <MapPin size={18} className="text-accent-deep" />
+                    <h3 className="text-lg font-medium text-ink">Локация и описание</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-7 text-ink-soft">
+                    Мастер сам указывает район, описание и формат приёма в кабинете, а
+                    публичная страница сразу показывает оформленную версию этих данных.
+                  </p>
+                </div>
+
+                <div className="rounded-[28px] border border-line bg-surface p-5">
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck size={18} className="text-accent-deep" />
+                    <h3 className="text-lg font-medium text-ink">Перенос и отмена</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-7 text-ink-soft">
+                    Мастер сам задаёт, до какого момента запись можно отменить или
+                    перенести самостоятельно. Эти правила применяются к каждой записи
+                    без ручных уточнений.
+                  </p>
+                </div>
+
+                <div className="rounded-[28px] border border-line bg-[rgba(238,247,240,0.92)] p-5">
+                  <div className="flex items-center gap-3">
+                    <MessageCircleHeart size={18} className="text-accent-deep" />
+                    <h3 className="text-lg font-medium text-ink">Подтверждение и напоминания</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-7 text-ink-soft">
+                    После бронирования клиент сразу видит подтверждение на экране, а
+                    уведомления и напоминания для клиента и мастера включаются в
+                    настройках записи.
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-dashed border-line px-5 py-4 text-sm text-muted">
+                Такую страницу не стыдно скинуть клиенту в мессенджер: крупные
+                фото, понятные услуги и запись в пару кликов.
+              </div>
             </div>
-          </div>
+          </Reveal>
         </section>
         ) : null}
 
@@ -625,9 +642,7 @@ export function PublicProfileView({
         ) : null}
 
         <footer className="mt-16 flex flex-col gap-4 border-t border-line pt-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            Онлайн-запись к {profile.fullName} с понятными услугами и быстрым выбором времени.
-          </p>
+          <p>Онлайн-запись к {profile.fullName}.</p>
           <Link href={homeHref} className="font-medium text-ink underline underline-offset-4">
             Создано в okno
           </Link>

@@ -3,6 +3,7 @@ import { SiteShell } from "@/components/layout/site-shell";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { RegisterForm } from "@/components/forms/register-form";
+import { publicLinkHost } from "@/lib/site";
 
 export default function RegisterPage() {
   return (
@@ -25,7 +26,7 @@ export default function RegisterPage() {
             <div className="rounded-[24px] border border-line bg-surface p-4">
               <div className="flex items-center gap-3">
                 <Link2 size={18} className="text-accent-deep" />
-                <p className="font-medium text-ink">okno.app/alina-nails</p>
+                <p className="font-medium text-ink">{publicLinkHost}/ваша-ссылка</p>
               </div>
               <p className="mt-2 text-sm leading-6 text-muted">
                 У мастера сразу появится рабочая ссылка для клиентов, а у студии откроется отдельная админка.

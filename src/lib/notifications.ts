@@ -1,4 +1,5 @@
 import { env, isSmsConfigured, isTelegramConfigured } from "@/lib/env";
+import { sendSms } from "@/lib/sms";
 
 export async function sendBookingConfirmationSms(input: {
   phone: string;
@@ -10,23 +11,28 @@ export async function sendBookingConfirmationSms(input: {
     return { ok: false as const, skipped: true as const };
   }
 
-  try {
-    const response = await fetch(env.smsApiUrl!, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.smsApiKey}`,
-      },
-      body: JSON.stringify({
-        phone: input.phone,
-        message: `okno: запись к ${input.masterName} подтверждена. ${input.serviceTitle}, ${input.startsAtLabel}.`,
-      }),
-    });
+  const result = await sendSms({
+    phone: input.phone,
+    message: `okno: запись к ${input.masterName} подтверждена. ${input.serviceTitle}, ${input.startsAtLabel}.`,
+  });
 
-    return { ok: response.ok, skipped: false as const };
-  } catch {
-    return { ok: false as const, skipped: false as const };
+  return { ok: result.ok, skipped: false as const };
+}
+
+export async function sendPhoneVerificationSms(input: {
+  phone: string;
+  code: string;
+}) {
+  if (!isSmsConfigured) {
+    return { ok: false as const, skipped: true as const };
   }
+
+  const result = await sendSms({
+    phone: input.phone,
+    message: `okno: код подтверждения ${input.code}. Никому его не сообщайте.`,
+  });
+
+  return { ok: result.ok, skipped: false as const };
 }
 
 export async function sendMasterTelegramNotification(input: {
@@ -68,23 +74,12 @@ export async function sendClientReminderSms(input: {
     return { ok: false as const, skipped: true as const };
   }
 
-  try {
-    const response = await fetch(env.smsApiUrl!, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.smsApiKey}`,
-      },
-      body: JSON.stringify({
-        phone: input.phone,
-        message: `okno: напоминание о записи к ${input.masterName}. ${input.serviceTitle}, ${input.startsAtLabel}.`,
-      }),
-    });
+  const result = await sendSms({
+    phone: input.phone,
+    message: `okno: напоминание о записи к ${input.masterName}. ${input.serviceTitle}, ${input.startsAtLabel}.`,
+  });
 
-    return { ok: response.ok, skipped: false as const };
-  } catch {
-    return { ok: false as const, skipped: false as const };
-  }
+  return { ok: result.ok, skipped: false as const };
 }
 
 export async function sendMasterReminderTelegram(input: {

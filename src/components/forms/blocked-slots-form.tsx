@@ -55,7 +55,7 @@ export function BlockedSlotsForm({
           label="Причина"
           name="reason"
           placeholder="Например: обед, закупка, личные дела, отпуск"
-          hint={`Время будет скрыто для клиентов по часовому поясу ${timezone}.`}
+          hint="Время сразу станет недоступно для клиентов на публичной странице."
         />
         <FormMessage message={state.message} success={state.success} />
         <SubmitButton

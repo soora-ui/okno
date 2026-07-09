@@ -1,6 +1,23 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { env, isJobsSecretConfigured } from "@/lib/env";
 import { processDueNotificationQueue } from "@/lib/notification-queue";
+
+// Сравнение за константное время: обычный === прерывается на первом
+// несовпадении и утекает по таймингу.
+function isSecretMatch(candidate: string | null, secret: string) {
+  if (!candidate) {
+    return false;
+  }
+
+  const candidateBuffer = Buffer.from(candidate);
+  const secretBuffer = Buffer.from(secret);
+
+  return (
+    candidateBuffer.length === secretBuffer.length &&
+    timingSafeEqual(candidateBuffer, secretBuffer)
+  );
+}
 
 function isAuthorized(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -8,8 +25,13 @@ function isAuthorized(request: Request) {
     ? authHeader.slice("Bearer ".length).trim()
     : null;
   const headerToken = request.headers.get("x-jobs-secret");
+  const secret = env.jobsSecret;
 
-  return bearerToken === env.jobsSecret || headerToken === env.jobsSecret;
+  if (!secret) {
+    return false;
+  }
+
+  return isSecretMatch(bearerToken, secret) || isSecretMatch(headerToken, secret);
 }
 
 export async function POST(request: Request) {

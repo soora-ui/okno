@@ -27,6 +27,7 @@ export function mapProfile(row: Record<string, unknown>): Profile {
     bio: String(row.bio ?? ""),
     locationText: String(row.location_text ?? ""),
     timezone: String(row.timezone ?? "Europe/Simferopol"),
+    address: String(row.address ?? ""),
     telegramChatId: row.telegram_chat_id ? String(row.telegram_chat_id) : null,
     avatarUrl: media.avatarUrl,
     avatarPath: media.avatarPath,
@@ -34,6 +35,9 @@ export function mapProfile(row: Record<string, unknown>): Profile {
     bookingThemePresetId: normalizeBookingThemePresetId(row.booking_theme_preset),
     bookingPageSettings: normalizeBookingPageSettings(row.booking_page_settings),
     subscriptionTier: row.subscription_tier === "pro" ? "pro" : "free",
+    subscriptionUntil: row.subscription_until
+      ? String(row.subscription_until)
+      : null,
     monthlyBookingLimit: Number(row.monthly_booking_limit ?? 50),
     monthlyBookingsUsed: Number(row.monthly_bookings_used ?? 0),
     bookingWindowDays: Number(row.booking_window_days ?? 30),
@@ -87,6 +91,22 @@ export function mapService(row: Record<string, unknown>) {
     price: Number(row.price),
     isActive: Boolean(row.is_active),
     sortOrder: Number(row.sort_order ?? 0),
+  };
+}
+
+export function mapServiceManual(row: Record<string, unknown>) {
+  return {
+    id: String(row.id),
+    serviceId: String(row.service_id),
+    profileId: String(row.profile_id),
+    content: String(row.content ?? ""),
+    version: Number(row.version ?? 1),
+    isActive: Boolean(row.is_active),
+    confirmedByMasterAt: row.confirmed_by_master_at
+      ? String(row.confirmed_by_master_at)
+      : null,
+    createdAt: String(row.created_at ?? ""),
+    updatedAt: String(row.updated_at ?? ""),
   };
 }
 

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { SiteShell } from "@/components/layout/site-shell";
 import { BookingFlow } from "@/components/booking/booking-flow";
 import { getPublicPageData } from "@/lib/data";
+import { isPhoneVerificationRequired } from "@/lib/phone-verification";
 
 type Props = {
   params: Promise<{ username: string }>;
@@ -27,6 +28,7 @@ export default async function BookingPage({ params, searchParams }: Props) {
           themePresetId={data.profile.bookingThemePresetId}
           commentFieldMode={data.profile.bookingPageSettings.commentFieldMode}
           initialServiceId={initialServiceId}
+          phoneVerificationRequired={isPhoneVerificationRequired}
         />
       </div>
     </SiteShell>

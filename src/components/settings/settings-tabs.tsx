@@ -10,10 +10,14 @@ import {
   Palette,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   UserRound,
   Wrench,
 } from "lucide-react";
 import type { AvailabilityRule, Profile, Service } from "@/lib/mock-data";
+import type { ServiceManualSummary } from "@/lib/service-manuals";
+import { hasActivePro } from "@/lib/subscription";
+import { formatPublicProfileLink } from "@/lib/site";
 import { Card } from "@/components/ui/card";
 import {
   AccessSettingsForm,
@@ -22,6 +26,7 @@ import {
   BookingPreferencesForm,
   ProfileSettingsForm,
   ServicesSettingsForm,
+  SubscriptionSettingsForm,
 } from "@/components/forms/settings-forms";
 import { ButtonLink } from "@/components/ui/button";
 
@@ -52,10 +57,12 @@ export function SettingsTabs({
   profile,
   services,
   availabilityRules,
+  serviceManuals = {},
 }: {
   profile: Profile;
   services: Service[];
   availabilityRules: AvailabilityRule[];
+  serviceManuals?: Record<string, ServiceManualSummary>;
 }) {
   const [activeTab, setActiveTab] =
     useState<(typeof tabs)[number]["id"]>("profile");
@@ -100,7 +107,7 @@ export function SettingsTabs({
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-panel px-4 py-4">
               <span className="text-sm font-medium text-accent-deep">
-                okno.app/{profile.username}
+                {formatPublicProfileLink(profile.username)}
               </span>
               <ButtonLink href={`/${profile.username}`} variant="secondary" className="min-h-10 px-4 py-2">
                 Открыть
@@ -131,7 +138,11 @@ export function SettingsTabs({
             <Wrench size={18} className="text-warning" />
             <h2 className="text-xl font-semibold text-ink">Услуги</h2>
           </div>
-          <ServicesSettingsForm services={services} />
+          <ServicesSettingsForm
+            services={services}
+            manualsByServiceId={serviceManuals}
+            hasProAccess={hasActivePro(profile)}
+          />
         </Card>
       ) : null}
 
@@ -195,6 +206,14 @@ export function SettingsTabs({
         <div className="space-y-6">
           <Card className="space-y-4">
             <div className="flex items-center gap-3">
+              <Sparkles size={18} className="text-accent-deep" />
+              <h2 className="text-xl font-semibold text-ink">Подписка</h2>
+            </div>
+            <SubscriptionSettingsForm profile={profile} />
+          </Card>
+
+          <Card className="space-y-4">
+            <div className="flex items-center gap-3">
               <ShieldCheck size={18} className="text-ink" />
               <h2 className="text-xl font-semibold text-ink">
                 Доступ к аккаунту
@@ -212,7 +231,7 @@ export function SettingsTabs({
             </p>
             <button
               type="button"
-              className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#d8b1b1] px-5 py-3 text-sm font-medium text-[#b14f4f] transition duration-300 hover:bg-[#fff5f5]"
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--color-danger-border)] px-5 py-3 text-sm font-medium text-[var(--color-danger)] transition duration-300 hover:bg-[var(--color-danger-soft)]"
             >
               Удалить аккаунт
             </button>

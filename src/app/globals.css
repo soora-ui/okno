@@ -18,6 +18,9 @@
   --color-success-soft: #e6f3eb;
   --color-warning: #8e6c2f;
   --color-warning-soft: #f5ecdb;
+  --color-danger: #b14f4f;
+  --color-danger-border: #d8b1b1;
+  --color-danger-soft: #fff5f5;
 
   /* Elevated surfaces (cards, headers) and the colour that sits on top of an
      ink-filled surface. Tokenised so dark mode can flip them in one place. */
@@ -55,6 +58,9 @@
     --color-success-soft: #1c2c23;
     --color-warning: #d8ab63;
     --color-warning-soft: #2c2417;
+    --color-danger: #e6a6a6;
+    --color-danger-border: #5a3a3a;
+    --color-danger-soft: #2a1b1b;
 
     --color-surface: #201e18;
     --color-surface-strong: #2a2821;
@@ -85,6 +91,17 @@
 
 .bg-surface-strong {
   background-color: var(--color-surface-strong);
+}
+
+/* Translucent "glass" surfaces (backdrop-blurred panels). Built from the
+   surface token via color-mix so they flip with the theme instead of staying
+   white in dark mode. Replaces hardcoded bg-white/NN. */
+.bg-glass {
+  background-color: color-mix(in srgb, var(--color-surface) 82%, transparent);
+}
+
+.bg-glass-strong {
+  background-color: color-mix(in srgb, var(--color-surface) 94%, transparent);
 }
 
 .text-ink-contrast {

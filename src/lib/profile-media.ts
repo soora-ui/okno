@@ -16,7 +16,13 @@ export const acceptedImageMimeTypes = [
 
 export const maxAvatarFileSizeBytes = 8 * 1024 * 1024;
 export const maxPortfolioFileSizeBytes = 8 * 1024 * 1024;
-export const maxPortfolioWorks = 8;
+export const maxAvatarUploadFileSizeBytes = 1.5 * 1024 * 1024;
+export const maxPortfolioUploadFileSizeBytes = 2 * 1024 * 1024;
+export const maxAvatarImageDimension = 720;
+export const maxPortfolioImageDimension = 1800;
+export const imageCompressionMimeType = "image/webp";
+export const imageCompressionQuality = 0.82;
+export const maxPortfolioWorks = 15;
 
 const publicSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "") ?? "";
 

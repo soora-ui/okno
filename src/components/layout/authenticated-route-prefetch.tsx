@@ -3,22 +3,28 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-function scheduleIdle(callback: () => void) {
-  if (typeof globalThis.window === "undefined") {
-    return () => undefined;
+type NetworkAwareNavigator = Navigator & {
+  connection?: {
+    saveData?: boolean;
+    effectiveType?: string;
+  };
+};
+
+function shouldSkipPrefetch() {
+  if (typeof window === "undefined") {
+    return true;
   }
 
-  if (typeof globalThis.requestIdleCallback === "function") {
-    const idleId = globalThis.requestIdleCallback(
-      () => callback(),
-      { timeout: 1200 },
-    );
-
-    return () => globalThis.cancelIdleCallback(idleId);
+  const connection = (navigator as NetworkAwareNavigator).connection;
+  if (!connection) {
+    return false;
   }
 
-  const timeoutId = globalThis.setTimeout(callback, 150);
-  return () => globalThis.clearTimeout(timeoutId);
+  return (
+    connection.saveData ||
+    connection.effectiveType === "slow-2g" ||
+    connection.effectiveType === "2g"
+  );
 }
 
 export function AuthenticatedRoutePrefetch({
@@ -28,63 +34,56 @@ export function AuthenticatedRoutePrefetch({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const filteredRoutes = Array.from(
-    new Set(routes.filter((href) => href !== pathname)),
-  );
-  const routesKey = filteredRoutes.join("|");
 
   useEffect(() => {
-    if (filteredRoutes.length === 0) {
+    if (shouldSkipPrefetch()) {
+      return;
+    }
+
+    const targets = routes.filter((route) => route !== pathname).slice(0, 2);
+
+    if (targets.length === 0) {
       return;
     }
 
     let cancelled = false;
-    const cleanups: Array<() => void> = [];
+    const timeoutIds: number[] = [];
 
-    const prefetchRoute = (href: string) => {
-      const cleanup = scheduleIdle(() => {
-        if (cancelled) {
-          return;
-        }
+    const startPrefetch = () => {
+      targets.forEach((href, index) => {
+        const timeoutId = window.setTimeout(() => {
+          if (!cancelled) {
+            router.prefetch(href);
+          }
+        }, 1200 + index * 1400);
 
-        const prefetchOptions: NonNullable<Parameters<typeof router.prefetch>[1]> = {
-          kind: "auto" as NonNullable<
-            Parameters<typeof router.prefetch>[1]
-          >["kind"],
-          onInvalidate: () => {
-            if (!cancelled) {
-              prefetchRoute(href);
-            }
-          },
-        };
-
-        router.prefetch(href, prefetchOptions);
+        timeoutIds.push(timeoutId);
       });
-
-      cleanups.push(cleanup);
     };
 
-    filteredRoutes.forEach((href, index) => {
-      const cleanup = scheduleIdle(() => {
-        if (cancelled) {
-          return;
+    if (document.readyState === "complete") {
+      startPrefetch();
+    } else {
+      const onLoad = () => {
+        if (!cancelled) {
+          startPrefetch();
         }
+      };
 
-        const timeoutId = globalThis.setTimeout(() => {
-          prefetchRoute(href);
-        }, index * 250);
+      window.addEventListener("load", onLoad, { once: true });
 
-        cleanups.push(() => globalThis.clearTimeout(timeoutId));
-      });
-
-      cleanups.push(cleanup);
-    });
+      return () => {
+        cancelled = true;
+        window.removeEventListener("load", onLoad);
+        timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      };
+    }
 
     return () => {
       cancelled = true;
-      cleanups.forEach((cleanup) => cleanup());
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
     };
-  }, [pathname, router, filteredRoutes, routesKey]);
+  }, [pathname, router, routes]);
 
   return null;
 }

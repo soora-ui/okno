@@ -171,7 +171,7 @@ export function TeamMemberCard({
           <span
             className={`rounded-full border px-3 py-1 text-xs font-medium ${
               member.accountStatus === "disabled"
-                ? "border-[#d8b1b1] bg-[#fff5f5] text-[#b14f4f]"
+                ? "border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
                 : "border-line bg-surface text-ink-soft"
             }`}
           >

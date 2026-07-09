@@ -89,13 +89,13 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(184,211,196,0.4),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(247,226,211,0.6),_transparent_30%)]" />
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-12 pt-4 sm:px-6 lg:px-8">
-        <header className="sticky top-4 z-20 mb-6 rounded-full border border-line bg-white/95 px-4 py-3 shadow-[0_18px_50px_rgba(35,36,31,0.08)] backdrop-blur">
+        <header className="sticky top-4 z-20 mb-6 rounded-full border border-line bg-glass-strong px-4 py-3 shadow-[0_18px_50px_rgba(35,36,31,0.08)] backdrop-blur">
           <div className="flex items-center justify-between gap-4">
             <BrandLogo />
 
             <Link
               href={landingDemoPublicPageHref}
-              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-white px-4 py-3 text-sm font-medium text-ink transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface px-4 py-3 text-sm font-medium text-ink transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
             >
               <ArrowLeft size={16} />
               Назад
@@ -113,8 +113,8 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                       className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-full border text-xs",
                         index <= step
-                          ? "border-ink bg-ink text-white"
-                          : "border-line bg-white text-muted",
+                          ? "border-ink bg-ink text-ink-contrast"
+                          : "border-line bg-surface text-muted",
                       )}
                     >
                       {index < step ? <Check size={14} /> : index + 1}
@@ -151,7 +151,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                         "rounded-[24px] border p-4 text-left transition active:scale-[0.99]",
                         service.id === selectedService?.id
                           ? "border-accent bg-accent-soft"
-                          : "border-line bg-white hover:bg-panel",
+                          : "border-line bg-surface hover:bg-panel",
                       )}
                     >
                       <div className="flex items-start justify-between gap-4">
@@ -199,14 +199,14 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                                 className={cn(
                                   "flex min-w-[78px] flex-col items-center rounded-[18px] border px-4 py-3 text-center transition",
                                   isSelected
-                                    ? "border-ink bg-ink text-white"
-                                    : "border-line bg-white text-ink",
+                                    ? "border-ink bg-ink text-ink-contrast"
+                                    : "border-line bg-surface text-ink",
                                 )}
                               >
                                 <p
                                   className={cn(
                                     "text-[11px] font-medium uppercase tracking-[0.08em]",
-                                    isSelected ? "text-white/70" : "text-ink-soft",
+                                    isSelected ? "text-ink-contrast" : "text-ink-soft",
                                   )}
                                 >
                                   {weekdayLabel}
@@ -242,8 +242,8 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                                 className={cn(
                                   "rounded-2xl border px-4 py-3 text-xl font-medium transition",
                                   isSelected
-                                    ? "border-ink bg-ink text-white"
-                                    : "border-line bg-white text-ink hover:bg-panel",
+                                    ? "border-ink bg-ink text-ink-contrast"
+                                    : "border-line bg-surface text-ink hover:bg-panel",
                                 )}
                               >
                                 {slot.date.match(/\d+/)?.[0] ?? slot.date}
@@ -280,8 +280,8 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                             className={cn(
                               "snap-start shrink-0 rounded-[18px] border px-5 py-3 text-center text-lg font-semibold transition active:scale-[0.99]",
                               slotTime === selectedTime
-                                ? "border-ink bg-ink text-white"
-                                : "border-line bg-white text-ink",
+                                ? "border-ink bg-ink text-ink-contrast"
+                                : "border-line bg-surface text-ink",
                             )}
                           >
                             {slotTime}
@@ -302,7 +302,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                             className={cn(
                               "rounded-[22px] px-4 py-4 text-center text-2xl font-medium transition active:scale-[0.99]",
                               slotTime === selectedTime
-                                ? "bg-ink text-white"
+                                ? "bg-ink text-ink-contrast"
                                 : "bg-transparent text-ink hover:bg-panel",
                             )}
                           >
@@ -369,7 +369,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                   </Link>
                   <button
                     type="submit"
-                    className="inline-flex min-h-11 min-w-56 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-white transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
+                    className="inline-flex min-h-11 min-w-56 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-ink-contrast transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
                   >
                     Подтвердить запись
                     <ChevronRight size={16} />
@@ -402,13 +402,13 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                   canContinueFromStepOne ? (
                     <Link
                       href={buildDemoBookingHref({ ...baseParams, step: "1" })}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-white transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-ink-contrast transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
                     >
                       Дальше
                       <ChevronRight size={16} />
                     </Link>
                   ) : (
-                    <span className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-white opacity-40">
+                    <span className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-ink-contrast opacity-40">
                       Дальше
                       <ChevronRight size={16} />
                     </span>
@@ -417,13 +417,13 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                   canContinueFromStepTwo ? (
                     <Link
                       href={buildDemoBookingHref({ ...baseParams, step: "2" })}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-white transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-ink-contrast transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
                     >
                       Дальше
                       <ChevronRight size={16} />
                     </Link>
                   ) : (
-                    <span className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-white opacity-40">
+                    <span className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-ink-contrast opacity-40">
                       Дальше
                       <ChevronRight size={16} />
                     </span>

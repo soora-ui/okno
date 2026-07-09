@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useActionState, useState } from "react";
-import { EyeOff, Pencil } from "lucide-react";
+import { Bot, EyeOff, Pencil, ShieldCheck, Sparkles } from "lucide-react";
 import {
   createServiceAction,
   updateAvailabilityAction,
@@ -13,12 +13,25 @@ import {
   updateServiceAction,
   type SettingsActionState,
 } from "@/app/actions/settings";
+import { saveServiceManualAction } from "@/app/actions/service-manuals";
+import { startProSubscriptionAction } from "@/app/actions/subscription";
+import {
+  formatSubscriptionUntil,
+  hasActivePro,
+  proPlan,
+} from "@/lib/subscription";
 import {
   commentFieldModeLabels,
   commentFieldModes,
   headlineMaxLength,
   subheadlineMaxLength,
 } from "@/lib/booking-page-settings";
+import {
+  manualConfirmationLabel,
+  manualMaxLength,
+  manualPlaceholder,
+  type ServiceManualSummary,
+} from "@/lib/service-manuals";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -79,6 +92,13 @@ export function ProfileSettingsForm({ profile }: { profile: Profile }) {
             })}
             options={cityOptions}
             hint="Часовой пояс записей и уведомлений определим автоматически."
+          />
+          <Input
+            label="Точный адрес"
+            name="address"
+            defaultValue={profile.address}
+            placeholder="ул. Пушкина, 12, кабинет 3"
+            hint="Виден клиентам на странице записи. Город выбирается из списка выше."
           />
           <Textarea
             label="О себе"
@@ -210,7 +230,7 @@ export function BookingPageSettingsForm({ profile }: { profile: Profile }) {
         name="headline"
         defaultValue={settings.headline}
         maxLength={headlineMaxLength}
-        placeholder="Например: Аккуратный маникюр без спешки"
+        placeholder="Например: Аккуратный маникюр в удобное для вас время"
         hint={`Короткий тезис под именем мастера. До ${headlineMaxLength} символов.`}
       />
       <Textarea
@@ -218,7 +238,7 @@ export function BookingPageSettingsForm({ profile }: { profile: Profile }) {
         name="subheadline"
         defaultValue={settings.subheadline}
         maxLength={subheadlineMaxLength}
-        placeholder="Например: Спокойный кабинет в центре, запись без переписок"
+        placeholder="Например: Уютный кабинет в центре, запись без переписок"
         hint={`Пояснение на 1–2 строки. До ${subheadlineMaxLength} символов.`}
       />
       <Select
@@ -337,14 +357,75 @@ export function AvailabilitySettingsForm({
   );
 }
 
-export function ServicesSettingsForm({ services }: { services: Service[] }) {
+export function SubscriptionSettingsForm({ profile }: { profile: Profile }) {
+  const [state, action] = useActionState(startProSubscriptionAction, initialState);
+  const isPro = hasActivePro(profile);
+  const untilLabel = formatSubscriptionUntil(profile.subscriptionUntil);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-panel px-4 py-4">
+        <div className="flex items-center gap-3">
+          <Sparkles size={18} className="text-accent-deep" />
+          <div>
+            <p className="text-sm font-semibold text-ink">
+              {isPro ? `Тариф ${proPlan.title}` : "Бесплатный тариф"}
+            </p>
+            <p className="mt-1 text-xs text-ink-soft">
+              {isPro
+                ? untilLabel
+                  ? `Активен до ${untilLabel}`
+                  : "Активен"
+                : "AI-консультация и другие PRO-функции недоступны"}
+            </p>
+          </div>
+        </div>
+        <span
+          className={`rounded-full px-3 py-1 text-xs ${
+            isPro ? "bg-success-soft text-success" : "bg-surface text-muted"
+          }`}
+        >
+          {isPro ? "PRO" : "Free"}
+        </span>
+      </div>
+
+      <p className="text-sm leading-6 text-ink-soft">
+        {proPlan.title} открывает AI-консультацию по услугам и снимает лимит записей.
+        Оплата разовая, доступ на {proPlan.periodDays} дней — {proPlan.priceRub} ₽.
+      </p>
+
+      <form action={action}>
+        <FormMessage message={state.message} success={state.success} />
+        <SubmitButton
+          idleLabel={isPro ? `Продлить ${proPlan.title}` : `Подключить ${proPlan.title}`}
+          pendingLabel="Открываю оплату..."
+        />
+      </form>
+    </div>
+  );
+}
+
+export function ServicesSettingsForm({
+  services,
+  manualsByServiceId = {},
+  hasProAccess = false,
+}: {
+  services: Service[];
+  manualsByServiceId?: Record<string, ServiceManualSummary>;
+  hasProAccess?: boolean;
+}) {
   const [createState, createAction] = useActionState(createServiceAction, initialState);
 
   return (
     <div className="space-y-6">
       <div className="space-y-3">
         {services.map((service) => (
-          <ServiceEditor key={service.id} service={service} />
+          <ServiceEditor
+            key={service.id}
+            service={service}
+            manual={manualsByServiceId[service.id]}
+            hasProAccess={hasProAccess}
+          />
         ))}
       </div>
 
@@ -368,11 +449,20 @@ export function ServicesSettingsForm({ services }: { services: Service[] }) {
   );
 }
 
-function ServiceEditor({ service }: { service: Service }) {
+function ServiceEditor({
+  service,
+  manual,
+  hasProAccess,
+}: {
+  service: Service;
+  manual?: ServiceManualSummary;
+  hasProAccess: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [state, action] = useActionState(updateServiceAction, initialState);
 
   return (
+    <div className="space-y-3">
     <form action={action} className="space-y-4 rounded-[18px] border border-line bg-surface p-4">
       <input type="hidden" name="serviceId" value={service.id} />
       <input type="hidden" name="sortOrder" value={String(service.sortOrder || 1)} />
@@ -436,6 +526,121 @@ function ServiceEditor({ service }: { service: Service }) {
           </div>
           <FormMessage message={state.message} success={state.success} />
           <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
+        </>
+      ) : (
+        <FormMessage message={state.message} success={state.success} />
+      )}
+    </form>
+      <ServiceManualEditor
+        serviceId={service.id}
+        manual={manual}
+        hasProAccess={hasProAccess}
+      />
+    </div>
+  );
+}
+
+function ServiceManualEditor({
+  serviceId,
+  manual,
+  hasProAccess,
+}: {
+  serviceId: string;
+  manual?: ServiceManualSummary;
+  hasProAccess: boolean;
+}) {
+  if (!hasProAccess) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-dashed border-line bg-panel p-4">
+        <div className="flex items-center gap-3">
+          <Bot size={16} className="text-muted" />
+          <div>
+            <h4 className="text-sm font-semibold text-ink">AI-консультация</h4>
+            <p className="mt-1 text-xs text-ink-soft">
+              Доступно на тарифе {proPlan.title} — подключи его во вкладке «Аккаунт».
+            </p>
+          </div>
+        </div>
+        <span className="rounded-full bg-surface px-3 py-1 text-xs text-muted">
+          PRO
+        </span>
+      </div>
+    );
+  }
+
+  return <ServiceManualEditorForm serviceId={serviceId} manual={manual} />;
+}
+
+function ServiceManualEditorForm({
+  serviceId,
+  manual,
+}: {
+  serviceId: string;
+  manual?: ServiceManualSummary;
+}) {
+  const [open, setOpen] = useState(false);
+  const [agree, setAgree] = useState(false);
+  const [state, action] = useActionState(saveServiceManualAction, initialState);
+
+  const statusLabel = manual?.isConfirmed
+    ? `Подтверждён · версия ${manual.version}${
+        manual.confirmedAtLabel ? ` · ${manual.confirmedAtLabel}` : ""
+      }`
+    : "Не настроен";
+
+  return (
+    <form
+      action={action}
+      className="space-y-4 rounded-[18px] border border-line bg-panel p-4"
+    >
+      <input type="hidden" name="serviceId" value={serviceId} />
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Bot size={16} className="text-accent-deep" />
+          <div>
+            <h4 className="text-sm font-semibold text-ink">AI-консультация</h4>
+            <p className="mt-1 text-xs text-ink-soft">Мануал по услуге · {statusLabel}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink transition hover:bg-surface"
+        >
+          {open ? "Свернуть" : manual?.isConfirmed ? "Изменить" : "Настроить"}
+        </button>
+      </div>
+
+      {open ? (
+        <>
+          <Textarea
+            label="Мануал по этой услуге"
+            name="content"
+            defaultValue={manual?.content ?? ""}
+            placeholder={manualPlaceholder}
+            hint="Бот отвечает клиентам строго по этому тексту и не достраивает ответы из общих знаний. Чего нет в мануале — на то бот ответит «не знаю»."
+            maxLength={manualMaxLength}
+            className="min-h-48 whitespace-pre-wrap"
+          />
+          <label className="flex items-start gap-3 rounded-2xl border border-line bg-surface px-4 py-3">
+            <input
+              type="checkbox"
+              name="confirmed"
+              checked={agree}
+              onChange={(event) => setAgree(event.target.checked)}
+              className="mt-1 size-4 shrink-0 accent-[var(--color-ink,#23241f)]"
+            />
+            <span className="flex items-start gap-2 text-sm text-ink-soft">
+              <ShieldCheck size={16} className="mt-0.5 shrink-0 text-accent-deep" />
+              {manualConfirmationLabel}
+            </span>
+          </label>
+          <FormMessage message={state.message} success={state.success} />
+          <SubmitButton
+            idleLabel="Сохранить и подтвердить"
+            pendingLabel="Сохраняю..."
+            disabled={!agree}
+          />
         </>
       ) : (
         <FormMessage message={state.message} success={state.success} />

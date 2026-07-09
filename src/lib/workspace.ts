@@ -53,6 +53,17 @@ export function canManageWorkspace(role: AccountRole) {
   return role === "admin";
 }
 
+export function getDefaultAccountRoute(input: {
+  accountRole: AccountRole;
+  workspaceKind: WorkspaceKind;
+}) {
+  if (input.accountRole === "admin" && isTeamWorkspaceKind(input.workspaceKind)) {
+    return "/team";
+  }
+
+  return "/dashboard";
+}
+
 export function isAccountActive(status: AccountStatus) {
   return status === "active";
 }

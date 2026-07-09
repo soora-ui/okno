@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   isNonFatalSupabaseSessionError,
   isRetryableSupabaseNetworkError,
+  isSupabaseMissingColumnError,
+  isSupabaseMissingTableError,
 } from "@/lib/supabase/auth-errors";
 
 type Row = Record<string, unknown>;
@@ -17,10 +19,12 @@ const PROFILE_COLUMNS = [
   "bio",
   "location_text",
   "timezone",
+  "address",
   "telegram_chat_id",
   "booking_theme_preset",
   "booking_page_settings",
   "subscription_tier",
+  "subscription_until",
   "monthly_booking_limit",
   "booking_window_days",
   "slot_interval_minutes",
@@ -51,6 +55,18 @@ const SERVICE_COLUMNS = [
   "price",
   "is_active",
   "sort_order",
+].join(",");
+
+const SERVICE_MANUAL_COLUMNS = [
+  "id",
+  "service_id",
+  "profile_id",
+  "content",
+  "version",
+  "is_active",
+  "confirmed_by_master_at",
+  "created_at",
+  "updated_at",
 ].join(",");
 
 const BOOKING_COLUMNS = [
@@ -160,6 +176,21 @@ export async function getOwnerProfileRow() {
       throw new Error(
         "Нет связи с кабинетом. Проверь подключение к Supabase и попробуй еще раз.",
       );
+    }
+
+    // Если в БД ещё нет какой-то новой колонки (миграция не прогнана),
+    // не роняем весь кабинет — перечитываем профиль целиком. Маппер сам
+    // подставит дефолты для отсутствующих полей.
+    if (isSupabaseMissingColumnError(profileError)) {
+      const fallback = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("password_auth_id", user.id)
+        .maybeSingle();
+
+      if (!fallback.error) {
+        return fallback.data ? (fallback.data as unknown as Row) : null;
+      }
     }
 
     throw new Error("Не получилось загрузить профиль мастера.");
@@ -379,6 +410,35 @@ export async function getOwnerSettingsRows(input: { profileId: string }) {
     services: asRows(serviceResult.data),
     availabilityRules: asRows(availabilityResult.data),
   };
+}
+
+// Активные (подтверждённые) мануалы AI-консультации мастера — по одному на
+// услугу. Фича опциональная: если миграция ещё не прогнана или произошла
+// ошибка, возвращаем пустой список, чтобы не ронять страницу настроек.
+export async function getOwnerServiceManualRows(input: { profileId: string }) {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("service_manuals")
+    .select(SERVICE_MANUAL_COLUMNS)
+    .eq("profile_id", input.profileId)
+    .eq("is_active", true);
+
+  if (error) {
+    if (isSupabaseMissingTableError(error, "service_manuals")) {
+      return [];
+    }
+
+    if (isRetryableSupabaseNetworkError(error)) {
+      throw new Error(
+        "Нет связи с кабинетом. Проверь подключение к Supabase и попробуй еще раз.",
+      );
+    }
+
+    return [];
+  }
+
+  return asRows(data);
 }
 
 export async function getOwnerNotificationRows(input: {

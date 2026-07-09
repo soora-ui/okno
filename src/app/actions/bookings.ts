@@ -7,13 +7,18 @@ import { z } from "zod";
 import {
   decryptPhone,
   encryptPhone,
+  getBusyUntilIso,
   getCancellationDeadlineIso,
   hashPhone,
+  isValidPhoneNumber,
+  normalizePhoneDigits,
   phoneLast4,
 } from "@/lib/booking";
 import { checkBookingConflict } from "@/lib/booking-conflicts";
 import { getCurrentAuthProfile } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/env";
+import { writeAuditLog } from "@/lib/observability/audit";
+import { logError } from "@/lib/observability/logger";
 import {
   buildReminderNotificationEvents,
   cancelQueuedReminderEvents,
@@ -24,7 +29,10 @@ import {
   clients as mockClients,
   services as mockServices,
 } from "@/lib/mock-data";
-import { isSupabaseMissingColumnError } from "@/lib/supabase/auth-errors";
+import {
+  isSupabaseBookingOverlapError,
+  isSupabaseMissingColumnError,
+} from "@/lib/supabase/auth-errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type BookingOperationActionState = {
@@ -35,18 +43,24 @@ export type BookingOperationActionState = {
 const manualBookingSchema = z.object({
   serviceId: z.string().min(1),
   name: z.string().trim().min(2),
-  phone: z.string().trim().min(6),
+  phone: z.string().trim().refine(isValidPhoneNumber),
   date: z.string().min(1),
   time: z.string().min(1),
   note: z.string().trim().default(""),
 });
 
+// В Supabase идентификаторы — UUID; в демо-режиме mock-данные используют
+// строковые id вида "booking-1", поэтому там оставляем свободный формат.
+const entityIdSchema = isSupabaseConfigured
+  ? z.string().uuid()
+  : z.string().min(1);
+
 const bookingIdSchema = z.object({
-  bookingId: z.string().min(1),
+  bookingId: entityIdSchema,
 });
 
 const clientNotesSchema = z.object({
-  clientId: z.string().min(1),
+  clientId: entityIdSchema,
   notes: z.string().trim().default(""),
 });
 
@@ -62,6 +76,15 @@ function revalidateBookingPaths(username: string) {
   revalidatePath("/clients");
   revalidatePath(`/${username}`);
   revalidatePath(`/${username}/book`);
+}
+
+function getAuditProfileContext(profile: NonNullable<Awaited<ReturnType<typeof requireProfile>>>) {
+  return {
+    actorKind: "master" as const,
+    actorProfileId: profile.id,
+    profileId: profile.id,
+    workspaceId: profile.workspaceId,
+  };
 }
 
 function formatMockPhone(phone: string) {
@@ -262,7 +285,11 @@ export async function createManualBookingAction(
   });
 
   if (conflictError) {
-    console.error("okno: failed to check manual booking conflict", conflictError);
+    logError("Failed to check manual booking conflict", {
+      profileId: profile.id,
+      serviceId: parsed.data.serviceId,
+      error: conflictError,
+    });
     return {
       success: false,
       message: "Не получилось проверить свободное время.",
@@ -273,7 +300,7 @@ export async function createManualBookingAction(
     return { success: false, message: "Это время уже занято." };
   }
 
-  const normalizedPhone = parsed.data.phone.replace(/\D/g, "");
+  const normalizedPhone = normalizePhoneDigits(parsed.data.phone);
   const storedPhone = normalizedPhone || parsed.data.phone;
   const encryptedPhone = encryptPhone(storedPhone);
   const phoneHash = hashPhone(storedPhone);
@@ -385,6 +412,11 @@ export async function createManualBookingAction(
       status: "confirmed",
       starts_at: startsAtIso,
       ends_at: endsAtIso,
+      busy_until:
+        getBusyUntilIso({
+          endsAtIso,
+          bufferMinutes: profile.bufferMinutes,
+        }) ?? slotBusyEndIso,
       source: "manual",
       client_note: parsed.data.note,
       cancellation_token_expires_at: cancellationDeadlineIso,
@@ -393,8 +425,24 @@ export async function createManualBookingAction(
     .single();
 
   if (insertBookingError || !insertedBooking) {
+    if (isSupabaseBookingOverlapError(insertBookingError)) {
+      return { success: false, message: "Это время уже занято." };
+    }
+
     return { success: false, message: "Не получилось создать запись." };
   }
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "booking.manual.created",
+    targetType: "booking",
+    targetId: String(insertedBooking.id),
+    metadata: {
+      serviceId: String(serviceRow.id),
+      startsAtIso,
+      source: "manual",
+    },
+  });
 
   const reminderRows = buildReminderNotificationEvents({
     profile: {
@@ -473,6 +521,11 @@ export async function cancelBookingByMasterAction(
     .maybeSingle();
 
   if (error) {
+    logError("Failed to cancel booking by master", {
+      profileId: profile.id,
+      bookingId: parsed.data.bookingId,
+      error,
+    });
     return { success: false, message: "Не получилось отменить запись." };
   }
 
@@ -481,6 +534,13 @@ export async function cancelBookingByMasterAction(
   }
 
   await cancelQueuedReminderEvents(parsed.data.bookingId);
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "booking.cancelled_by_master",
+    targetType: "booking",
+    targetId: parsed.data.bookingId,
+  });
 
   revalidateBookingPaths(profile.username);
 

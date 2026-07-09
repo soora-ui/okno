@@ -4,22 +4,44 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import {
+  getCityLabel,
+  resolveTimezoneForCity,
+} from "@/lib/cities";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isSupabaseMissingColumnError } from "@/lib/supabase/auth-errors";
 import {
   isAccountActive,
-  isTeamWorkspaceKind,
   normalizeAccountRole,
-  normalizeAccountStatus,
   normalizeWorkspaceKind,
+  normalizeAccountStatus,
+  getDefaultAccountRoute,
   workspaceKindValues,
 } from "@/lib/workspace";
+
+export type RegisterFormValues = {
+  accountMode: string;
+  workspaceName: string;
+  fullName: string;
+  specialty: string;
+  email: string;
+  username: string;
+  city: string;
+  serviceTitle: string;
+  servicePrice: string;
+  serviceDurationMinutes: string;
+  serviceDescription: string;
+};
 
 export type AuthActionState = {
   success: boolean;
   message: string;
+  // Введённые значения возвращаются обратно в форму: в React 19
+  // <form action> сбрасывает неконтролируемые поля после сабмита, поэтому
+  // без эха данные мастера терялись бы при ошибке валидации.
+  values?: RegisterFormValues;
 };
 
 const registerSchema = z.object({
@@ -33,7 +55,7 @@ const registerSchema = z.object({
   serviceTitle: z.string().trim().optional().default(""),
   servicePrice: z.coerce.number().optional().default(0),
   serviceDurationMinutes: z.coerce.number().optional().default(60),
-  timezone: z.string().trim().min(3),
+  city: z.string().trim().min(2),
   serviceDescription: z.string().trim().optional().default(""),
 });
 
@@ -42,20 +64,6 @@ const loginSchema = z.object({
   password: z.string().min(8),
   redirectTo: z.string().optional(),
 });
-
-function resolveDefaultAccountRoute(input: {
-  accountRole: unknown;
-  workspaceKind: unknown;
-}) {
-  const accountRole = normalizeAccountRole(input.accountRole);
-  const workspaceKind = normalizeWorkspaceKind(input.workspaceKind);
-
-  if (accountRole === "admin" && isTeamWorkspaceKind(workspaceKind)) {
-    return "/team";
-  }
-
-  return "/dashboard";
-}
 
 export async function registerMasterAction(
   _prevState: AuthActionState,
@@ -69,11 +77,27 @@ export async function registerMasterAction(
     };
   }
 
-  const parsed = registerSchema.safeParse(Object.fromEntries(formData));
+  const raw = Object.fromEntries(formData) as Record<string, string>;
+  const echoValues: RegisterFormValues = {
+    accountMode: raw.accountMode ?? "solo",
+    workspaceName: raw.workspaceName ?? "",
+    fullName: raw.fullName ?? "",
+    specialty: raw.specialty ?? "",
+    email: raw.email ?? "",
+    username: raw.username ?? "",
+    city: raw.city ?? "",
+    serviceTitle: raw.serviceTitle ?? "",
+    servicePrice: raw.servicePrice ?? "",
+    serviceDurationMinutes: raw.serviceDurationMinutes ?? "",
+    serviceDescription: raw.serviceDescription ?? "",
+  };
+
+  const parsed = registerSchema.safeParse(raw);
   if (!parsed.success) {
     return {
       success: false,
-      message: "Проверь форму: имя, email, пароль, username и параметры услуги.",
+      message: "Проверь форму: имя, email, пароль, username, город и параметры услуги.",
+      values: echoValues,
     };
   }
 
@@ -86,6 +110,7 @@ export async function registerMasterAction(
     return {
       success: false,
       message: "Для студии или компании укажи название команды.",
+      values: echoValues,
     };
   }
 
@@ -99,6 +124,7 @@ export async function registerMasterAction(
     return {
       success: false,
       message: "Для одиночного мастера заполни первую услугу: название, цену и длительность.",
+      values: echoValues,
     };
   }
 
@@ -110,7 +136,11 @@ export async function registerMasterAction(
     .maybeSingle();
 
   if (existingProfile) {
-    return { success: false, message: "Этот username уже занят." };
+    return {
+      success: false,
+      message: "Этот username уже занят.",
+      values: echoValues,
+    };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -123,20 +153,23 @@ export async function registerMasterAction(
     return {
       success: false,
       message: error?.message || "Не получилось создать аккаунт.",
+      values: echoValues,
     };
   }
 
   const workspaceId = randomUUID();
   const accountRole = isSoloAccount ? "solo" : "admin";
+  const timezone = resolveTimezoneForCity(parsed.data.city);
+  const locationText = getCityLabel(parsed.data.city);
   const profileInsert = {
     email: parsed.data.email,
     password_auth_id: data.user.id,
     full_name: parsed.data.fullName,
     username: parsed.data.username,
     specialty: parsed.data.specialty,
-    timezone: parsed.data.timezone,
+    timezone,
     bio: "",
-    location_text: "",
+    location_text: locationText,
     workspace_id: workspaceId,
     workspace_name: workspaceName,
     workspace_kind: parsed.data.accountMode,
@@ -160,6 +193,7 @@ export async function registerMasterAction(
     return {
       success: false,
       message: "Аккаунт создался, но профиль мастера не записался в базу.",
+      values: echoValues,
     };
   }
 
@@ -234,12 +268,19 @@ export async function loginMasterAction(
     };
   }
 
-  const redirectTo =
-    parsed.data.redirectTo && parsed.data.redirectTo.startsWith("/")
-      ? parsed.data.redirectTo
-      : resolveDefaultAccountRoute({
-          accountRole: profileRow?.account_role,
-          workspaceKind: profileRow?.workspace_kind,
+  // Разрешаем только внутренние пути: "//evil.com" и "/\evil.com" браузер
+  // трактует как переход на внешний домен (open redirect).
+  const requestedRedirect = parsed.data.redirectTo;
+  const isSafeRedirect =
+    requestedRedirect &&
+    requestedRedirect.startsWith("/") &&
+    !requestedRedirect.startsWith("//") &&
+    !requestedRedirect.startsWith("/\\");
+  const redirectTo = isSafeRedirect
+    ? requestedRedirect
+    : getDefaultAccountRoute({
+          accountRole: normalizeAccountRole(profileRow?.account_role),
+          workspaceKind: normalizeWorkspaceKind(profileRow?.workspace_kind),
         });
   redirect(redirectTo);
 }

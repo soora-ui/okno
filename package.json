@@ -11,9 +11,11 @@
     "migrate:profile-media": "node --env-file=.env.local scripts/migrate-profile-media.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
     "@sentry/nextjs": "^10.50.0",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
+    "framer-motion": "^12.42.2",
     "lucide-react": "^1.7.0",
     "luxon": "^3.7.2",
     "next": "16.2.2",

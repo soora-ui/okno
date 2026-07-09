@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { DateTime } from "luxon";
 import { env } from "@/lib/env";
+import { logWarn } from "@/lib/observability/logger";
 
 const PHONE_ENCRYPTION_VERSION = "enc1";
 
@@ -51,12 +52,29 @@ export function encryptPhone(phone: string) {
   ].join(":");
 }
 
+// Лог о нешифрованных телефонах пишем ограниченно, чтобы проходы по
+// legacy-клиентам не заваливали мониторинг одинаковыми записями.
+let unencryptedPhoneWarningsLeft = 20;
+
+function warnUnencryptedPhone() {
+  if (unencryptedPhoneWarningsLeft <= 0) {
+    return;
+  }
+
+  unencryptedPhoneWarningsLeft -= 1;
+  logWarn(
+    "decryptPhone: found legacy unencrypted phone value, needs re-encryption migration",
+  );
+}
+
 export function decryptPhone(phoneEncrypted: string) {
   if (!phoneEncrypted) {
     return "";
   }
 
   if (!phoneEncrypted.startsWith(`${PHONE_ENCRYPTION_VERSION}:`)) {
+    warnUnencryptedPhone();
+
     try {
       const decoded = Buffer.from(phoneEncrypted, "base64").toString("utf8");
       const normalizedInput = phoneEncrypted.replace(/=+$/u, "");

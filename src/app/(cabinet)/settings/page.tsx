@@ -6,17 +6,22 @@ import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { getSettingsData } from "@/lib/data";
 import { canManageWorkspace, isTeamWorkspaceKind } from "@/lib/workspace";
 
-export default async function SettingsPage() {
-  const data = await getSettingsData();
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ subscription?: string }>;
+}) {
+  const [data, query] = await Promise.all([getSettingsData(), searchParams]);
 
   if (!data) {
     redirect("/login");
   }
 
-  const { availabilityRules, profile, services } = data;
+  const { availabilityRules, profile, services, serviceManuals } = data;
   const showWorkspaceAdminLink =
     canManageWorkspace(profile.accountRole) &&
     isTeamWorkspaceKind(profile.workspaceKind);
+  const showSubscriptionNotice = query.subscription === "processing";
 
   return (
     <div className="space-y-6 py-4">
@@ -26,6 +31,16 @@ export default async function SettingsPage() {
           <h1 className="text-4xl font-semibold text-ink">Профиль и параметры записи</h1>
         </div>
       </div>
+
+      {showSubscriptionNotice ? (
+        <Card className="bg-panel">
+          <p className="text-sm font-medium text-ink">Проверяем оплату подписки</p>
+          <p className="mt-2 text-sm leading-6 text-ink-soft">
+            ЮKassa подтверждает платёж — обычно это занимает несколько секунд. Обнови
+            страницу: как только оплата пройдёт, тариф во вкладке «Аккаунт» станет PRO.
+          </p>
+        </Card>
+      ) : null}
 
       {showWorkspaceAdminLink ? (
         <Card className="flex flex-wrap items-center justify-between gap-4 bg-panel">
@@ -45,6 +60,7 @@ export default async function SettingsPage() {
         profile={profile}
         services={services}
         availabilityRules={availabilityRules}
+        serviceManuals={serviceManuals}
       />
     </div>
   );

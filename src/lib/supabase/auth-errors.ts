@@ -139,3 +139,66 @@ export function isSupabaseUndefinedRoutineError(
       value.includes("no matches were found in the schema cache"),
   );
 }
+
+export function isSupabaseBookingOverlapError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const target = error as { code?: unknown; cause?: unknown };
+  const directCode = typeof target.code === "string" ? target.code : null;
+  const causeCode =
+    target.cause &&
+    typeof target.cause === "object" &&
+    typeof (target.cause as { code?: unknown }).code === "string"
+      ? ((target.cause as { code?: unknown }).code as string)
+      : null;
+
+  if (directCode === "23P01" || causeCode === "23P01") {
+    return true;
+  }
+
+  return collectErrorMessages(error).some((value) =>
+    value.includes("bookings_no_overlap_excl"),
+  );
+}
+
+export function isSupabaseMissingTableError(
+  error: unknown,
+  tableName?: string,
+) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const target = error as { code?: unknown; cause?: unknown };
+  const directCode = typeof target.code === "string" ? target.code : null;
+  const causeCode =
+    target.cause &&
+    typeof target.cause === "object" &&
+    typeof (target.cause as { code?: unknown }).code === "string"
+      ? ((target.cause as { code?: unknown }).code as string)
+      : null;
+
+  const isMissingTableCode =
+    directCode === "42P01" ||
+    causeCode === "42P01" ||
+    directCode === "PGRST205" ||
+    causeCode === "PGRST205";
+
+  if (!isMissingTableCode) {
+    return false;
+  }
+
+  if (!tableName) {
+    return true;
+  }
+
+  const normalizedTableName = tableName.toLowerCase();
+  return collectErrorMessages(error).some(
+    (value) =>
+      value.includes(normalizedTableName) ||
+      value.includes("could not find the table") ||
+      value.includes("does not exist"),
+  );
+}

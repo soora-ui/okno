@@ -3,7 +3,7 @@
 import { DateTime } from "luxon";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,13 @@ import {
   getBookingThemeStyle,
   type BookingThemePresetId,
 } from "@/lib/booking-theme-presets";
-import { isValidPhoneNumber } from "@/lib/booking";
+import {
+  buildFullPhone,
+  defaultPhoneCountryCode,
+  getPhoneCountry,
+  isValidNationalPhone,
+  phoneCountries,
+} from "@/lib/phone";
 import {
   defaultBookingPageSettings,
   type CommentFieldMode,
@@ -30,6 +36,7 @@ type BookingFlowProps = {
   commentFieldMode?: CommentFieldMode;
   mode?: "live" | "demo";
   initialServiceId?: string;
+  phoneVerificationRequired?: boolean;
 };
 
 const steps = ["Услуга", "Дата и время", "Контакты"];
@@ -42,6 +49,7 @@ export function BookingFlow({
   commentFieldMode = defaultBookingPageSettings.commentFieldMode,
   mode = "live",
   initialServiceId,
+  phoneVerificationRequired = false,
 }: BookingFlowProps) {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -54,11 +62,198 @@ export function BookingFlow({
   const [dateValue, setDateValue] = useState(initialSlots[0]?.value ?? "");
   const [time, setTime] = useState(initialSlots[0]?.times[0] ?? "");
   const [name, setName] = useState("");
+  const [countryCode, setCountryCode] = useState(defaultPhoneCountryCode);
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const isPhoneValid = useMemo(() => isValidPhoneNumber(phone), [phone]);
+
+  // Подтверждение номера по SMS: код привязан к конкретному полному номеру,
+  // при смене номера пользователь проходит подтверждение заново.
+  const [codeSentPhone, setCodeSentPhone] = useState("");
+  const [codeChannel, setCodeChannel] = useState<"call" | "sms">("sms");
+  const [codeInput, setCodeInput] = useState("");
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+  const [verifiedToken, setVerifiedToken] = useState("");
+  const [verifiedPhone, setVerifiedPhone] = useState("");
+  const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
+
+  // Обратный звонок (запасной канал): клиент сам звонит на номер от sms.ru,
+  // статус опрашиваем, пока sms.ru не подтвердит совпадение номера.
+  const [callcheckPhone, setCallcheckPhone] = useState("");
+  const [callcheckPretty, setCallcheckPretty] = useState("");
+  const [callcheckFor, setCallcheckFor] = useState("");
+  const [callcheckExpired, setCallcheckExpired] = useState(false);
+  const [startingCallcheck, setStartingCallcheck] = useState(false);
+
+  const fullPhone = useMemo(
+    () => buildFullPhone(countryCode, phone),
+    [countryCode, phone],
+  );
+  const isPhoneValid = useMemo(
+    () => isValidNationalPhone(countryCode, phone),
+    [countryCode, phone],
+  );
+  const needsPhoneVerification = phoneVerificationRequired && mode === "live";
+  const isPhoneVerified =
+    !needsPhoneVerification || (Boolean(verifiedToken) && verifiedPhone === fullPhone);
+  const isCodeSentToCurrentPhone = codeSentPhone === fullPhone;
+  const selectedCountry = getPhoneCountry(countryCode);
+
+  useEffect(() => {
+    if (resendSecondsLeft <= 0) {
+      return;
+    }
+
+    const timer = setTimeout(
+      () => setResendSecondsLeft((seconds) => seconds - 1),
+      1000,
+    );
+    return () => clearTimeout(timer);
+  }, [resendSecondsLeft]);
+
+  const sendVerificationCode = useCallback(async () => {
+    setVerifyError("");
+    setSendingCode(true);
+
+    try {
+      const response = await fetch("/api/phone-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send", phone: fullPhone }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setVerifyError(payload.error || "Не получилось отправить SMS.");
+        if (typeof payload.retryAfterSeconds === "number") {
+          setCodeSentPhone(fullPhone);
+          setResendSecondsLeft(payload.retryAfterSeconds);
+        }
+        return;
+      }
+
+      setCodeSentPhone(fullPhone);
+      setCodeChannel(payload.channel === "call" ? "call" : "sms");
+      setCodeInput("");
+      setResendSecondsLeft(
+        typeof payload.retryAfterSeconds === "number" ? payload.retryAfterSeconds : 60,
+      );
+    } catch {
+      setVerifyError("Не получилось отправить SMS. Проверь интернет и попробуй еще раз.");
+    } finally {
+      setSendingCode(false);
+    }
+  }, [fullPhone]);
+
+  const startCallcheckFlow = useCallback(async () => {
+    setVerifyError("");
+    setStartingCallcheck(true);
+
+    try {
+      const response = await fetch("/api/phone-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "callcheck", phone: fullPhone }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setVerifyError(payload.error || "Не получилось запустить проверку звонком.");
+        return;
+      }
+
+      setCallcheckPhone(String(payload.callPhone ?? ""));
+      setCallcheckPretty(String(payload.callPhonePretty ?? payload.callPhone ?? ""));
+      setCallcheckFor(fullPhone);
+      setCallcheckExpired(false);
+    } catch {
+      setVerifyError("Не получилось запустить проверку звонком. Попробуй еще раз.");
+    } finally {
+      setStartingCallcheck(false);
+    }
+  }, [fullPhone]);
+
+  const callcheckActive =
+    Boolean(callcheckPhone) &&
+    callcheckFor === fullPhone &&
+    !callcheckExpired &&
+    !isPhoneVerified;
+
+  useEffect(() => {
+    if (!callcheckActive) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const response = await fetch("/api/phone-verification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "callcheck-status",
+            phone: fullPhone,
+            username,
+          }),
+        });
+        const payload = await response.json();
+
+        if (cancelled || !response.ok) {
+          return;
+        }
+
+        if (payload.confirmed && payload.token) {
+          setVerifiedToken(String(payload.token));
+          setVerifiedPhone(fullPhone);
+        } else if (payload.expired) {
+          setCallcheckExpired(true);
+        }
+      } catch {
+        // Сетевые сбои при поллинге молча пропускаем — следующий тик повторит.
+      }
+    };
+
+    const timer = setInterval(poll, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [callcheckActive, fullPhone, username]);
+
+  const verifyCode = useCallback(async () => {
+    setVerifyError("");
+    setVerifyingCode(true);
+
+    try {
+      const response = await fetch("/api/phone-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "verify",
+          phone: fullPhone,
+          code: codeInput.trim(),
+          username,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setVerifyError(payload.error || "Код не подошел. Попробуй еще раз.");
+        return;
+      }
+
+      setVerifiedToken(String(payload.token ?? ""));
+      setVerifiedPhone(fullPhone);
+    } catch {
+      setVerifyError("Не получилось проверить код. Попробуй еще раз.");
+    } finally {
+      setVerifyingCode(false);
+    }
+  }, [codeInput, fullPhone, username]);
 
   const selectedService = useMemo(
     () => services.find((service) => service.id === serviceId),
@@ -127,6 +322,11 @@ export function BookingFlow({
       return;
     }
 
+    if (needsPhoneVerification && !isPhoneVerified) {
+      setError("Сначала подтверди номер телефона кодом.");
+      return;
+    }
+
     setPending(true);
 
     try {
@@ -152,8 +352,9 @@ export function BookingFlow({
           date: dateValue,
           time,
           name,
-          phone,
+          phone: fullPhone,
           note,
+          ...(needsPhoneVerification ? { phoneVerificationToken: verifiedToken } : {}),
         }),
       });
 
@@ -179,16 +380,19 @@ export function BookingFlow({
   }, [
     commentFieldMode,
     dateValue,
+    fullPhone,
+    isPhoneVerified,
     mode,
     name,
+    needsPhoneVerification,
     note,
-    phone,
     router,
     selectedDateLabel,
     selectedService?.title,
     serviceId,
     time,
     username,
+    verifiedToken,
   ]);
 
   return (
@@ -202,7 +406,7 @@ export function BookingFlow({
                   className={cn(
                     "flex h-8 w-8 items-center justify-center rounded-full border text-xs",
                     index <= step
-                      ? "border-ink bg-ink text-white"
+                      ? "border-ink bg-ink text-ink-contrast"
                       : "border-line bg-[var(--ui-field-bg,#ffffff)] text-muted",
                   )}
                 >
@@ -278,7 +482,7 @@ export function BookingFlow({
                             className={cn(
                               "flex min-w-[78px] flex-col items-center rounded-[18px] border px-4 py-3 text-center transition",
                               slot.value === dateValue
-                                ? "border-ink bg-ink text-white"
+                                ? "border-ink bg-ink text-ink-contrast"
                                 : "border-line bg-[var(--ui-field-bg,#ffffff)] text-ink",
                             )}
                           >
@@ -286,7 +490,7 @@ export function BookingFlow({
                               className={cn(
                                 "text-[11px] font-medium uppercase tracking-[0.08em]",
                                 slot.value === dateValue
-                                  ? "text-white/70"
+                                  ? "text-ink-contrast"
                                   : "text-ink-soft",
                               )}
                             >
@@ -325,7 +529,7 @@ export function BookingFlow({
                             className={cn(
                               "rounded-2xl border px-4 py-3 text-xl font-medium transition",
                               slot.value === dateValue
-                                ? "border-ink bg-ink text-white"
+                                ? "border-ink bg-ink text-ink-contrast"
                                 : "border-line bg-[var(--ui-field-bg,#ffffff)] text-ink hover:bg-panel",
                             )}
                           >
@@ -358,7 +562,7 @@ export function BookingFlow({
                         className={cn(
                           "touch-manipulation snap-start shrink-0 rounded-[18px] border px-5 py-3 text-center text-lg font-semibold transition active:scale-[0.99]",
                           slotTime === time
-                            ? "border-ink bg-ink text-white"
+                            ? "border-ink bg-ink text-ink-contrast"
                             : "border-line bg-[var(--ui-field-bg,#ffffff)] text-ink",
                         )}
                       >
@@ -376,7 +580,7 @@ export function BookingFlow({
                         className={cn(
                           "touch-manipulation rounded-[22px] px-4 py-4 text-center text-2xl font-medium transition active:scale-[0.99]",
                           slotTime === time
-                            ? "bg-ink text-white"
+                            ? "bg-ink text-ink-contrast"
                             : "bg-transparent text-ink hover:bg-panel",
                         )}
                       >
@@ -402,17 +606,170 @@ export function BookingFlow({
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
-            <Input
-              label="Телефон"
-              placeholder="+7 978 000-00-00"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              pattern="^\\+?[0-9\\s()\\-]{10,20}$"
-              hint="Нужен только для подтверждения записи и связи по визиту. Никакого спама."
-            />
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="flex w-24 shrink-0 flex-col gap-2 text-sm">
+                  <span
+                    className="font-medium"
+                    style={{ color: "var(--color-ink, #23241f)" }}
+                  >
+                    Код
+                  </span>
+                  <span className="relative block">
+                    <span
+                      className="flex min-h-12 items-center justify-between gap-1 rounded-2xl border px-3 text-[15px]"
+                      style={{
+                        borderColor: "var(--color-line, #d3c5b3)",
+                        backgroundColor: "var(--ui-field-bg, #ffffff)",
+                        color: "var(--color-ink, #23241f)",
+                      }}
+                    >
+                      {countryCode}
+                      <ChevronDown size={14} />
+                    </span>
+                    {/* Невидимый select поверх: в поле виден только код, полный
+                        справочник со странами открывается нативным списком. */}
+                    <select
+                      aria-label="Код страны"
+                      value={countryCode}
+                      onChange={(event) => setCountryCode(event.target.value)}
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    >
+                      {phoneCountries.map((country) => (
+                        <option key={country.code} value={country.code}>
+                          {country.flag} {country.code} · {country.label}
+                        </option>
+                      ))}
+                    </select>
+                  </span>
+                </label>
+                <div className="min-w-44 flex-1">
+                  <Input
+                    label="Телефон"
+                    placeholder={selectedCountry?.placeholder ?? "978 000-00-00"}
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    className="w-full"
+                  />
+                </div>
+                {needsPhoneVerification ? (
+                  isPhoneVerified ? (
+                    <span className="flex min-h-12 items-center gap-2 text-sm font-medium text-ink">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-soft">
+                        <Check size={14} />
+                      </span>
+                      Подтвержден
+                    </span>
+                  ) : (
+                    <Button
+                      onClick={sendVerificationCode}
+                      disabled={!isPhoneValid || sendingCode || (isCodeSentToCurrentPhone && resendSecondsLeft > 0)}
+                      className="disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {sendingCode
+                        ? "Получаю..."
+                        : isCodeSentToCurrentPhone
+                          ? resendSecondsLeft > 0
+                            ? `Еще раз через ${resendSecondsLeft} с`
+                            : "Отправить еще раз"
+                          : "Получить код"}
+                    </Button>
+                  )
+                ) : null}
+              </div>
+              {needsPhoneVerification && isCodeSentToCurrentPhone && !isPhoneVerified ? (
+                <>
+                  {!callcheckActive ? (
+                    <>
+                      <p className="text-sm leading-6 text-ink-soft">
+                        {codeChannel === "call"
+                          ? `Сейчас на ${fullPhone} поступит звонок-сброс. Отвечать не нужно — введи последние 4 цифры номера, с которого звонили.`
+                          : `Отправили SMS с кодом на ${fullPhone}.`}
+                      </p>
+                      <div className="flex flex-wrap items-end gap-3">
+                        <Input
+                          label={
+                            codeChannel === "call"
+                              ? "Последние 4 цифры номера"
+                              : "Код из SMS"
+                          }
+                          placeholder="0000"
+                          value={codeInput}
+                          onChange={(event) =>
+                            setCodeInput(event.target.value.replace(/\D/g, "").slice(0, 6))
+                          }
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          className="w-44 text-center tracking-[0.3em]"
+                        />
+                        <Button
+                          onClick={verifyCode}
+                          disabled={codeInput.trim().length < 4 || verifyingCode}
+                          className="disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {verifyingCode ? "Проверяю..." : "Подтвердить"}
+                        </Button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={startCallcheckFlow}
+                        disabled={startingCallcheck}
+                        className="w-fit text-sm text-ink-soft underline underline-offset-4 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {startingCallcheck
+                          ? "Запускаю проверку..."
+                          : "Звонок не пришел? Подтверди сам обратным звонком"}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="space-y-2 rounded-[20px] bg-panel p-4 text-sm leading-6 text-ink-soft">
+                      <p>
+                        Позвони с номера {fullPhone} на{" "}
+                        <a
+                          href={`tel:+${callcheckPhone}`}
+                          className="font-semibold text-ink underline underline-offset-4"
+                        >
+                          {callcheckPretty}
+                        </a>
+                        {" "}— звонок сбросится, это бесплатно. Номер подтвердится
+                        автоматически.
+                      </p>
+                      <p className="text-xs text-muted">
+                        Ждем твой звонок... На это есть 5 минут.
+                      </p>
+                    </div>
+                  )}
+                  {callcheckExpired ? (
+                    <p className="text-sm text-warning">
+                      Время на звонок вышло. Запусти проверку еще раз.
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+              {phone.length > 0 && !isPhoneValid ? (
+                <p className="text-sm text-warning">
+                  Проверь номер: для {countryCode} нужно{" "}
+                  {selectedCountry
+                    ? selectedCountry.minDigits === selectedCountry.maxDigits
+                      ? `${selectedCountry.minDigits} цифр`
+                      : `${selectedCountry.minDigits}–${selectedCountry.maxDigits} цифр`
+                    : "8–12 цифр"}{" "}
+                  после кода страны.
+                </p>
+              ) : null}
+              {verifyError ? (
+                <p className="text-sm text-warning">{verifyError}</p>
+              ) : null}
+              <p
+                className="text-xs"
+                style={{ color: "var(--color-muted, #656055)" }}
+              >
+                Нужен только для подтверждения записи и связи по визиту. Никакого спама.
+              </p>
+            </div>
             {commentFieldMode !== "hidden" ? (
               <Textarea
                 label={
@@ -477,7 +834,12 @@ export function BookingFlow({
           ) : (
             <Button
               onClick={submit}
-              disabled={!name || !isPhoneValid || pending}
+              disabled={
+                !name ||
+                !isPhoneValid ||
+                pending ||
+                (needsPhoneVerification && !isPhoneVerified)
+              }
               className="min-w-56 gap-2 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {pending

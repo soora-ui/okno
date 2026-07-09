@@ -21,6 +21,7 @@ export type Profile = {
   bio: string;
   locationText: string;
   timezone: string;
+  address: string;
   telegramChatId: string | null;
   avatarUrl: string;
   avatarPath: string | null;
@@ -28,6 +29,7 @@ export type Profile = {
   bookingThemePresetId: BookingThemePresetId;
   bookingPageSettings: BookingPageSettings;
   subscriptionTier: SubscriptionTier;
+  subscriptionUntil: string | null;
   monthlyBookingLimit: number;
   monthlyBookingsUsed: number;
   bookingWindowDays: number;
@@ -54,6 +56,18 @@ export type Service = {
   price: number;
   isActive: boolean;
   sortOrder: number;
+};
+
+export type ServiceManual = {
+  id: string;
+  serviceId: string;
+  profileId: string;
+  content: string;
+  version: number;
+  isActive: boolean;
+  confirmedByMasterAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type BookingStatus =
@@ -125,14 +139,15 @@ export type BookingSlot = {
 
 export const profile: Profile = {
   id: "master-1",
-  email: "hello@okno.app",
+  email: "hello@okno.business",
   passwordAuthId: "auth-1",
   fullName: "Алина Мороз",
   username: "alina-nails",
   specialty: "Маникюр и брови",
-  bio: "Спокойный кабинет у метро, мягкий сервис и аккуратные записи без спешки.",
+  bio: "Кабинет у метро, работаю по записи с интервалом 30 минут между визитами, чтобы не торопить и не задерживать.",
   locationText: "Симферополь",
   timezone: "Europe/Simferopol",
+  address: "ул. Пушкина, 12, кабинет 3",
   telegramChatId: "@okno_master_bot",
   avatarUrl: "/demo/avatar.svg",
   avatarPath: null,
@@ -161,6 +176,7 @@ export const profile: Profile = {
   bookingThemePresetId: defaultBookingThemePresetId,
   bookingPageSettings: defaultBookingPageSettings,
   subscriptionTier: "free",
+  subscriptionUntil: null,
   monthlyBookingLimit: 50,
   monthlyBookingsUsed: 47,
   bookingWindowDays: 30,

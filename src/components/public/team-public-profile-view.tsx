@@ -7,6 +7,7 @@ import { ArrowRight, BriefcaseBusiness, CalendarClock, MapPin, Users2 } from "lu
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
+import { Reveal } from "@/components/ui/reveal";
 import { getClosestSlots } from "@/components/public/public-profile-shared";
 import { getBookingThemeStyle } from "@/lib/booking-theme-presets";
 import { formatCurrency, type Service } from "@/lib/mock-data";
@@ -226,7 +227,7 @@ export function TeamPublicProfileView({
                 type="button"
                 onClick={() => setSelectionMode("master")}
                 className={`rounded-full px-4 py-2 text-sm transition ${
-                  selectionMode === "master" ? "bg-ink text-white" : "text-ink-soft"
+                  selectionMode === "master" ? "bg-ink text-ink-contrast" : "text-ink-soft"
                 }`}
               >
                 Сначала мастер
@@ -235,7 +236,7 @@ export function TeamPublicProfileView({
                 type="button"
                 onClick={() => setSelectionMode("service")}
                 className={`rounded-full px-4 py-2 text-sm transition ${
-                  selectionMode === "service" ? "bg-ink text-white" : "text-ink-soft"
+                  selectionMode === "service" ? "bg-ink text-ink-contrast" : "text-ink-soft"
                 }`}
               >
                 Сначала услуга
@@ -402,31 +403,38 @@ export function TeamPublicProfileView({
         </section>
 
         <section className="mt-16 space-y-6">
-          <div className="max-w-2xl space-y-2">
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
-              Ближайшие окна
-            </p>
-            <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-              Кто из команды доступен в ближайшее время
-            </h2>
-          </div>
+          <Reveal variant="fade-up">
+            <div className="max-w-2xl space-y-2">
+              <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
+                Ближайшие окна
+              </p>
+              <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+                Кто из команды доступен в ближайшее время
+              </h2>
+            </div>
+          </Reveal>
 
           {closestTeamSlots.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {closestTeamSlots.map((slot) => (
-                <Link
+              {closestTeamSlots.map((slot, index) => (
+                <Reveal
                   key={`${slot.memberName}-${slot.serviceId}-${slot.date}-${slot.time}`}
-                  href={slot.href}
-                  className="rounded-[28px] border border-line p-5 shadow-[0_10px_30px_rgba(35,36,31,0.04)] transition hover:-translate-y-0.5"
-                  style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                  variant="fade-up"
+                  delay={(index % 3) * 0.1}
                 >
-                  <p className="text-sm text-muted">{slot.memberName}</p>
-                  <p className="mt-2 text-xl font-semibold text-ink">{slot.serviceTitle}</p>
-                  <p className="mt-3 text-sm text-ink-soft">{slot.dateLabel}</p>
-                  <div className="mt-4 inline-flex rounded-full bg-panel px-4 py-2 text-sm font-medium text-ink">
-                    {slot.time}
-                  </div>
-                </Link>
+                  <Link
+                    href={slot.href}
+                    className="block rounded-[28px] border border-line p-5 shadow-[0_10px_30px_rgba(35,36,31,0.04)] transition hover:-translate-y-0.5"
+                    style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                  >
+                    <p className="text-sm text-muted">{slot.memberName}</p>
+                    <p className="mt-2 text-xl font-semibold text-ink">{slot.serviceTitle}</p>
+                    <p className="mt-3 text-sm text-ink-soft">{slot.dateLabel}</p>
+                    <div className="mt-4 inline-flex rounded-full bg-panel px-4 py-2 text-sm font-medium text-ink">
+                      {slot.time}
+                    </div>
+                  </Link>
+                </Reveal>
               ))}
             </div>
           ) : (
@@ -441,69 +449,72 @@ export function TeamPublicProfileView({
         </section>
 
         <section className="mt-16 space-y-6">
-          <div className="max-w-2xl space-y-2">
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
-              Мастера
-            </p>
-            <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-              Кто работает в {profile.workspaceName}
-            </h2>
-          </div>
+          <Reveal variant="fade-up">
+            <div className="max-w-2xl space-y-2">
+              <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
+                Мастера
+              </p>
+              <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+                Кто работает в {profile.workspaceName}
+              </h2>
+            </div>
+          </Reveal>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {members.map((member) => {
+            {members.map((member, index) => {
               const lowestPrice =
                 member.services.length > 0
                   ? Math.min(...member.services.map((service) => service.price))
                   : null;
 
               return (
-                <article
-                  key={member.profile.id}
-                  className="h-full rounded-[32px] border border-line p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
-                  style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
-                >
-                  <div className="flex h-full flex-col gap-5">
-                    <div className="flex items-center gap-4">
-                      <Image
-                        src={member.profile.avatarUrl}
-                        alt={member.profile.fullName}
-                        width={72}
-                        height={72}
-                        className="h-[72px] w-[72px] rounded-full object-cover"
-                      />
-                      <div className="min-w-0">
-                        <h3 className="truncate text-xl font-semibold text-ink">
-                          {member.profile.fullName}
-                        </h3>
-                        <p className="truncate text-sm text-ink-soft">{member.profile.specialty}</p>
+                <Reveal key={member.profile.id} variant="fade-up" delay={(index % 3) * 0.1}>
+                  <article
+                    className="h-full rounded-[32px] border border-line p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
+                    style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                  >
+                    <div className="flex h-full flex-col gap-5">
+                      <div className="flex items-center gap-4">
+                        <Image
+                          src={member.profile.avatarUrl}
+                          alt={member.profile.fullName}
+                          width={72}
+                          height={72}
+                          className="h-[72px] w-[72px] rounded-full object-cover"
+                        />
+                        <div className="min-w-0">
+                          <h3 className="truncate text-xl font-semibold text-ink">
+                            {member.profile.fullName}
+                          </h3>
+                          <p className="truncate text-sm text-ink-soft">{member.profile.specialty}</p>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-2 text-sm text-ink-soft">
-                      <p className="inline-flex items-center gap-2">
-                        <MapPin size={16} />
-                        {member.profile.locationText}
-                      </p>
-                      <p className="inline-flex items-center gap-2">
-                        <CalendarClock size={16} />
-                        {member.services.length} услуг в записи
-                      </p>
-                    </div>
-
-                    <div className="mt-auto flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm text-muted">Цена от</p>
-                        <p className="text-xl font-semibold text-ink">
-                          {lowestPrice !== null ? formatCurrency(lowestPrice) : "По запросу"}
+                      <div className="space-y-2 text-sm text-ink-soft">
+                        <p className="inline-flex items-center gap-2">
+                          <MapPin size={16} />
+                          {member.profile.locationText}
+                        </p>
+                        <p className="inline-flex items-center gap-2">
+                          <CalendarClock size={16} />
+                          {member.services.length} услуг в записи
                         </p>
                       </div>
-                      <ButtonLink href={`/${member.profile.username}`} variant="secondary">
-                        Открыть
-                      </ButtonLink>
+
+                      <div className="mt-auto flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm text-muted">Цена от</p>
+                          <p className="text-xl font-semibold text-ink">
+                            {lowestPrice !== null ? formatCurrency(lowestPrice) : "По запросу"}
+                          </p>
+                        </div>
+                        <ButtonLink href={`/${member.profile.username}`} variant="secondary">
+                          Открыть
+                        </ButtonLink>
+                      </div>
                     </div>
-                  </div>
-                </article>
+                  </article>
+                </Reveal>
               );
             })}
           </div>

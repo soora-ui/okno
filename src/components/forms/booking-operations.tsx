@@ -46,6 +46,10 @@ export function ManualBookingForm({
           label="Телефон"
           name="phone"
           placeholder="+7 978 000-00-00"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          pattern="^\\+?[0-9\\s()\\-]{10,20}$"
           required
         />
       </div>
@@ -76,11 +80,11 @@ export function ManualBookingForm({
           required
         />
         <Input
-          label="Часовой пояс"
-          value={profile.timezone}
+          label="Город мастера"
+          value={profile.locationText}
           disabled
           readOnly
-          hint="Используем часовой пояс мастера для всех ручных записей."
+          hint="Время ручной записи будет создано по настройкам этого мастера."
         />
       </div>
       <Textarea

@@ -25,7 +25,7 @@ const presets: Record<BookingThemePresetId, BookingThemePreset> = {
   linen: {
     id: "linen",
     label: "Светлый лен",
-    description: "Нейтральный, спокойный и самый универсальный.",
+    description: "Нейтральный и самый универсальный вариант.",
     swatches: ["#F4F2EF", "#161616", "#D0C0AE"],
     style: {
       "--color-ink": "#161616",
@@ -58,7 +58,7 @@ const presets: Record<BookingThemePresetId, BookingThemePreset> = {
   merlot: {
     id: "merlot",
     label: "Бордо",
-    description: "Тёплая premium-подача с акцентом на глубокий красный.",
+    description: "Тёплая тема с акцентом на глубокий красный.",
     swatches: ["#C7C6C1", "#2D2825", "#691D20"],
     style: {
       "--color-ink": "#2D2825",
@@ -91,7 +91,7 @@ const presets: Record<BookingThemePresetId, BookingThemePreset> = {
   lagoon: {
     id: "lagoon",
     label: "Лагуна",
-    description: "Холодный акцент с аккуратным editorial-настроением.",
+    description: "Холодный акцент со сдержанным настроением.",
     swatches: ["#BEBEBE", "#17475D", "#7D6261"],
     style: {
       "--color-ink": "#17475D",
@@ -124,7 +124,7 @@ const presets: Record<BookingThemePresetId, BookingThemePreset> = {
   rosewood: {
     id: "rosewood",
     label: "Розовое дерево",
-    description: "Мягкая розово-тауповая тема без лишней приторности.",
+    description: "Розово-тауповая тема без лишней приторности.",
     swatches: ["#9C5869", "#D6C8BF", "#4D463C"],
     style: {
       "--color-ink": "#4D463C",

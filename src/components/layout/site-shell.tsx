@@ -120,7 +120,7 @@ export async function SiteShell({
               <nav className="hidden items-center gap-5 md:flex">
                 {links.map((link) => (
                   <Link
-                    key={link.href}
+                    key={`${link.href}::${link.label}`}
                     href={link.href}
                     className="text-sm text-ink-soft transition hover:text-ink"
                   >

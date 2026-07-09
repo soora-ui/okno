@@ -23,7 +23,12 @@ import {
   processNotificationQueue,
 } from "@/lib/notification-queue";
 import {
+  isPhoneVerificationRequired,
+  isPhoneVerificationTokenValid,
+} from "@/lib/phone-verification";
+import {
   acquireBookingIdempotency,
+  assertDemoBookingRateLimit,
   assertPublicBookingRateLimit,
   buildBookingRequestHash,
   buildIdempotencyKey,
@@ -35,6 +40,7 @@ import {
   isSupabaseMissingColumnError,
 } from "@/lib/supabase/auth-errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { hasActivePro } from "@/lib/subscription";
 import { profile as mockProfile, services as mockServices } from "@/lib/mock-data";
 
 const bookingSchema = z.object({
@@ -45,6 +51,7 @@ const bookingSchema = z.object({
   name: z.string().min(2),
   phone: z.string().refine(isValidPhoneNumber),
   note: z.string().optional().default(""),
+  phoneVerificationToken: z.string().optional().default(""),
 });
 
 export async function POST(request: Request) {
@@ -55,6 +62,11 @@ export async function POST(request: Request) {
   }
 
   if (!isSupabaseConfigured) {
+    const demoRateLimit = assertDemoBookingRateLimit(request);
+    if (!demoRateLimit.ok) {
+      return NextResponse.json({ error: demoRateLimit.message }, { status: 429 });
+    }
+
     const mockService = mockServices.find((service) => service.id === parsed.data.serviceId);
     const startsAtIso = toUtcIsoFromLocalSlot({
       date: parsed.data.date,
@@ -79,6 +91,20 @@ export async function POST(request: Request) {
   const admin = createSupabaseAdminClient();
   const normalizedPhone = normalizePhoneDigits(parsed.data.phone);
   const storedPhone = normalizedPhone || parsed.data.phone;
+
+  if (
+    isPhoneVerificationRequired &&
+    !isPhoneVerificationTokenValid({
+      phone: storedPhone,
+      username: parsed.data.username,
+      token: parsed.data.phoneVerificationToken,
+    })
+  ) {
+    return NextResponse.json(
+      { error: "Подтверди номер телефона кодом и попробуй снова." },
+      { status: 403 },
+    );
+  }
   const requestHash = buildBookingRequestHash({
     username: parsed.data.username,
     serviceId: parsed.data.serviceId,
@@ -210,6 +236,34 @@ export async function POST(request: Request) {
 
   if (!serviceRow) {
     return respondWithError(404, "Услуга не найдена.");
+  }
+
+  // Free-tier cap: a master without active PRO can accept only 1 booking total.
+  // Existing bookings are left untouched — once a free master already has one
+  // confirmed booking, any further public booking (i.e. a new client) is
+  // blocked. PRO removes the cap.
+  if (
+    !hasActivePro({
+      subscriptionTier: String(profileRow.subscription_tier ?? "free"),
+      subscriptionUntil: (profileRow.subscription_until as string | null) ?? null,
+    })
+  ) {
+    const { count: confirmedBookings, error: bookingCountError } = await admin
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("profile_id", profileRow.id)
+      .eq("status", "confirmed");
+
+    if (bookingCountError) {
+      return respondWithError(500, "Не получилось проверить лимит записей.");
+    }
+
+    if ((confirmedBookings ?? 0) >= 1) {
+      return respondWithError(
+        403,
+        "Мастер сейчас не принимает новые записи.",
+      );
+    }
   }
 
   const startsAtIso = toUtcIsoFromLocalSlot({

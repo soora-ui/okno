@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import {
+  getCityLabel,
+  resolveTimezoneForCity,
+} from "@/lib/cities";
 import { getCurrentAuthProfile } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -28,7 +32,7 @@ const createMemberSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   username: z.string().trim().min(3).regex(/^[a-z0-9-]+$/),
-  timezone: z.string().trim().min(3),
+  city: z.string().trim().min(2),
 });
 
 const updateMemberSchema = z.object({
@@ -37,7 +41,7 @@ const updateMemberSchema = z.object({
   specialty: z.string().trim().min(2),
   email: z.string().email(),
   username: z.string().trim().min(3).regex(/^[a-z0-9-]+$/),
-  timezone: z.string().trim().min(3),
+  city: z.string().trim().min(2),
   password: z.string().trim().optional().default(""),
 });
 
@@ -50,8 +54,11 @@ async function requireAdminProfile() {
   const authProfile = await getCurrentAuthProfile();
   const profile = authProfile?.profile ?? null;
 
+  // workspaceId обязателен: все команды ниже фильтруют по нему, и пустое
+  // значение не должно превратиться в запрос без ограничения по workspace.
   if (
     !profile ||
+    !profile.workspaceId ||
     !canManageWorkspace(profile.accountRole) ||
     !isTeamWorkspaceKind(profile.workspaceKind)
   ) {
@@ -170,7 +177,7 @@ export async function createTeamMemberAction(
   if (!parsed.success) {
     return {
       success: false,
-      message: "Проверь имя, роль, email, пароль, username и часовой пояс сотрудника.",
+      message: "Проверь имя, роль, email, пароль, username и город сотрудника.",
     };
   }
 
@@ -202,15 +209,17 @@ export async function createTeamMemberAction(
     };
   }
 
+  const timezone = resolveTimezoneForCity(parsed.data.city);
+  const locationText = getCityLabel(parsed.data.city);
   const profileInsert = {
     email: parsed.data.email,
     password_auth_id: createdUser.user.id,
     full_name: parsed.data.fullName,
     username: parsed.data.username,
     specialty: parsed.data.specialty,
-    timezone: parsed.data.timezone,
+    timezone,
     bio: "",
-    location_text: "",
+    location_text: locationText,
     workspace_id: profile.workspaceId,
     workspace_name: profile.workspaceName,
     workspace_kind: profile.workspaceKind,
@@ -270,7 +279,7 @@ export async function updateTeamMemberAction(
     return {
       success: false,
       message:
-        "Проверь имя, специализацию, email, username и часовой пояс сотрудника.",
+        "Проверь имя, специализацию, email, username и город сотрудника.",
     };
   }
 
@@ -281,6 +290,8 @@ export async function updateTeamMemberAction(
     };
   }
 
+  const timezone = resolveTimezoneForCity(parsed.data.city);
+  const locationText = getCityLabel(parsed.data.city);
   const admin = createSupabaseAdminClient();
   const memberRow = await getWorkspaceMemberRow({
     workspaceId: profile.workspaceId,
@@ -341,7 +352,8 @@ export async function updateTeamMemberAction(
       specialty: parsed.data.specialty,
       email: parsed.data.email,
       username: parsed.data.username,
-      timezone: parsed.data.timezone,
+      timezone,
+      location_text: locationText,
     })
     .eq("id", parsed.data.memberProfileId)
     .eq("workspace_id", profile.workspaceId);

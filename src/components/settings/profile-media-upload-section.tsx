@@ -361,13 +361,13 @@ function PortfolioUploadSection({ profile }: { profile: Profile }) {
   };
 
   return (
-    <section className="space-y-4 rounded-[24px] border border-line bg-[rgba(250,248,244,0.88)] p-5">
+    <section className="space-y-4 rounded-[24px] border border-line bg-panel p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <h3 className="text-lg font-semibold text-ink">Готовые работы</h3>
           <p className="text-sm leading-6 text-ink-soft">
             На публичной странице они появятся отдельным блоком, а клиент сможет
-            открыть галерею в pop-up и спокойно пролистать все изображения.
+            открыть галерею в pop-up и пролистать все изображения.
           </p>
         </div>
         <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-ink">

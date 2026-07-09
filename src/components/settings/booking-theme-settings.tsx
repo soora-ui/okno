@@ -100,7 +100,7 @@ export function BookingThemeSettings({
         <SubmitButton idleLabel="Сохранить пресет" pendingLabel="Сохраняю..." />
       </form>
 
-      <div className="space-y-3 rounded-[24px] border border-line bg-[rgba(250,248,244,0.88)] p-5">
+      <div className="space-y-3 rounded-[24px] border border-line bg-panel p-5">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-ink">Как это увидит клиент</p>
           <p className="text-sm leading-6 text-ink-soft">
