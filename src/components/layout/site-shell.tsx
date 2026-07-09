@@ -5,6 +5,7 @@ import { AccountMenu } from "@/components/layout/account-menu";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { PageTransition } from "@/components/layout/page-transition";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
+import { SupportChatWidget } from "@/components/support/support-chat-widget";
 import { ButtonLink } from "@/components/ui/button";
 import { appMode } from "@/lib/env";
 import { getAccountNotificationPanelData, getCurrentAuthProfile } from "@/lib/data";
@@ -164,6 +165,7 @@ export async function SiteShell({
           <PageTransition>{children}</PageTransition>
         </main>
       </div>
+      <SupportChatWidget />
     </div>
   );
 }

@@ -19,6 +19,7 @@ export const env = {
   sentryTracesSampleRate: process.env.SENTRY_TRACES_SAMPLE_RATE,
   sentryReplaysSessionSampleRate: process.env.SENTRY_REPLAYS_SESSION_SAMPLE_RATE,
   sentryReplaysOnErrorSampleRate: process.env.SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE,
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
 };
 
 export const isSupabaseConfigured = Boolean(
@@ -35,6 +36,7 @@ export const isYooKassaConfigured = Boolean(
   env.yookassaShopId && env.yookassaSecretKey,
 );
 export const isSentryConfigured = Boolean(env.sentryDsn);
+export const isSupportAssistantConfigured = Boolean(env.anthropicApiKey);
 
 // Платформенные админы задаются списком почт в ADMIN_EMAILS (через запятую).
 // Список — единственный источник истины: доступ к /admin нельзя получить
