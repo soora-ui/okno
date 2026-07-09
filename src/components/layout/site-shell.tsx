@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AuthenticatedRoutePrefetch } from "@/components/layout/authenticated-route-prefetch";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
+import { SupportChatWidget } from "@/components/support/support-chat-widget";
 import { ButtonLink } from "@/components/ui/button";
 import { appMode } from "@/lib/env";
 import { getAccountNotificationPanelData, getCurrentAuthProfile } from "@/lib/data";
@@ -156,6 +157,7 @@ export async function SiteShell({
         </header>
         <main className="flex-1">{children}</main>
       </div>
+      <SupportChatWidget />
     </div>
   );
 }

@@ -9,6 +9,7 @@ export const env = {
   smsApiKey: process.env.SMS_API_KEY,
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
   jobsSecret: process.env.JOBS_SECRET,
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
 };
 
 export const isSupabaseConfigured = Boolean(
@@ -19,6 +20,7 @@ export const isSmsConfigured = Boolean(env.smsApiUrl && env.smsApiKey);
 
 export const isTelegramConfigured = Boolean(env.telegramBotToken);
 export const isJobsSecretConfigured = Boolean(env.jobsSecret);
+export const isSupportAssistantConfigured = Boolean(env.anthropicApiKey);
 
 export type AppMode = "demo" | "work";
 
