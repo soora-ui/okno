@@ -441,6 +441,14 @@ export function ServicesSettingsForm({
           <UnitInput label="Длительность" unit="мин" name="durationMinutes" placeholder="60" />
           <UnitInput label="Цена" unit="₽" name="price" placeholder="1500" />
         </div>
+        <UnitInput
+          label="Повторный визит через"
+          unit="нед"
+          name="repeatIntervalWeeks"
+          placeholder="Например, 3"
+          hint="Если заполнено, клиент сможет отметить напоминание о повторном визите при записи."
+          required={false}
+        />
         <input type="hidden" name="sortOrder" value={String(services.length + 1)} />
         <FormMessage message={createState.message} success={createState.success} />
         <SubmitButton idleLabel="Добавить" pendingLabel="Добавляю..." />
@@ -524,6 +532,17 @@ function ServiceEditor({
               defaultValue={String(service.price)}
             />
           </div>
+          <UnitInput
+            label="Повторный визит через"
+            unit="нед"
+            name="repeatIntervalWeeks"
+            defaultValue={
+              service.repeatIntervalWeeks ? String(service.repeatIntervalWeeks) : ""
+            }
+            placeholder="Например, 3"
+            hint="Если заполнено, клиент сможет отметить напоминание о повторном визите при записи."
+            required={false}
+          />
           <FormMessage message={state.message} success={state.success} />
           <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
         </>
@@ -655,12 +674,16 @@ function UnitInput({
   name,
   defaultValue,
   placeholder,
+  hint,
+  required = true,
 }: {
   label: string;
   unit: string;
   name: string;
   defaultValue?: string;
   placeholder?: string;
+  hint?: string;
+  required?: boolean;
 }) {
   return (
     <label className="flex flex-col gap-2 text-sm">
@@ -673,10 +696,11 @@ function UnitInput({
           placeholder={placeholder}
           inputMode="numeric"
           className="w-full bg-transparent text-[15px] text-ink outline-none"
-          required
+          required={required}
         />
         <span className="ml-3 text-xs text-muted">{unit}</span>
       </div>
+      {hint ? <span className="text-xs text-muted">{hint}</span> : null}
     </label>
   );
 }

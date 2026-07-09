@@ -55,6 +55,7 @@ const SERVICE_COLUMNS = [
   "price",
   "is_active",
   "sort_order",
+  "repeat_interval_weeks",
 ].join(",");
 
 const SERVICE_MANUAL_COLUMNS = [

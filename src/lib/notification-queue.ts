@@ -7,6 +7,7 @@ import {
   sendClientReminderSms,
   sendMasterReminderTelegram,
   sendMasterTelegramNotification,
+  sendRepeatVisitReminderSms,
 } from "@/lib/notifications";
 
 type NotificationEventJob = {
@@ -15,7 +16,8 @@ type NotificationEventJob = {
     | "sms_confirmation"
     | "telegram_new_booking"
     | "sms_reminder_client"
-    | "telegram_reminder_master";
+    | "telegram_reminder_master"
+    | "sms_repeat_visit_reminder";
   target: string;
   payload: Record<string, unknown>;
   attempts: number;
@@ -31,7 +33,9 @@ function parseJob(row: Record<string, unknown>): NotificationEventJob {
           ? "sms_reminder_client"
           : row.type === "telegram_reminder_master"
             ? "telegram_reminder_master"
-            : "sms_confirmation",
+            : row.type === "sms_repeat_visit_reminder"
+              ? "sms_repeat_visit_reminder"
+              : "sms_confirmation",
     target: String(row.target ?? ""),
     payload:
       row.payload && typeof row.payload === "object"
@@ -88,6 +92,23 @@ async function processNotificationJob(job: NotificationEventJob) {
         result.ok || result.skipped
           ? null
           : "Напоминание мастеру в Telegram не отправилось.",
+    };
+  }
+
+  if (job.type === "sms_repeat_visit_reminder") {
+    const result = await sendRepeatVisitReminderSms({
+      phone: String(job.payload.phone ?? job.target),
+      masterName: String(job.payload.masterName ?? ""),
+      serviceTitle: String(job.payload.serviceTitle ?? ""),
+    });
+
+    return {
+      ok: result.ok,
+      skipped: result.skipped,
+      lastError:
+        result.ok || result.skipped
+          ? null
+          : "Напоминание о повторном визите не отправилось.",
     };
   }
 
@@ -272,6 +293,42 @@ export function buildReminderNotificationEvents(input: {
   return rows;
 }
 
+// Отдельная функция (а не часть buildReminderNotificationEvents): напоминание
+// о повторном визите ставится только если клиент явно согласился (галочка на
+// форме записи) и зависит от repeat_interval_weeks конкретной услуги, а не от
+// профильных reminder-часов мастера.
+export function buildRepeatVisitReminderEvent(input: {
+  profileId: string;
+  bookingId: string;
+  phone: string;
+  masterName: string;
+  serviceTitle: string;
+  startsAtIso: string;
+  repeatIntervalWeeks: number;
+}) {
+  const startsAt = DateTime.fromISO(input.startsAtIso, { zone: "utc" });
+
+  if (!startsAt.isValid || input.repeatIntervalWeeks <= 0) {
+    return null;
+  }
+
+  const scheduledFor = startsAt.plus({ weeks: input.repeatIntervalWeeks });
+
+  return {
+    profile_id: input.profileId,
+    booking_id: input.bookingId,
+    type: "sms_repeat_visit_reminder",
+    status: "queued",
+    target: input.phone,
+    scheduled_for: scheduledFor.toISO(),
+    payload: {
+      phone: input.phone,
+      masterName: input.masterName,
+      serviceTitle: input.serviceTitle,
+    },
+  };
+}
+
 export async function cancelQueuedReminderEvents(bookingId: string) {
   const admin = createSupabaseAdminClient();
   await admin
@@ -282,6 +339,10 @@ export async function cancelQueuedReminderEvents(bookingId: string) {
       last_error: "Напоминание отменено из-за изменения или отмены записи.",
     })
     .eq("booking_id", bookingId)
-    .in("type", ["sms_reminder_client", "telegram_reminder_master"])
+    .in("type", [
+      "sms_reminder_client",
+      "telegram_reminder_master",
+      "sms_repeat_visit_reminder",
+    ])
     .eq("status", "queued");
 }

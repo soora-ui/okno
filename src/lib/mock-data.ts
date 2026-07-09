@@ -56,6 +56,9 @@ export type Service = {
   price: number;
   isActive: boolean;
   sortOrder: number;
+  // Через сколько недель стоит напомнить клиенту про повторный визит. Мастер
+  // настраивает это per-услуге; null — не предлагать напоминание.
+  repeatIntervalWeeks: number | null;
 };
 
 export type ServiceManual = {
@@ -125,7 +128,8 @@ export type NotificationEvent = {
     | "sms_confirmation"
     | "telegram_new_booking"
     | "sms_reminder_client"
-    | "telegram_reminder_master";
+    | "telegram_reminder_master"
+    | "sms_repeat_visit_reminder";
   status: "sent" | "queued" | "failed" | "processing" | "cancelled";
   target: string;
   createdAt: string;
@@ -204,6 +208,7 @@ export const services: Service[] = [
     price: 1900,
     isActive: true,
     sortOrder: 1,
+    repeatIntervalWeeks: 3,
   },
   {
     id: "svc-2",
@@ -214,6 +219,7 @@ export const services: Service[] = [
     price: 900,
     isActive: true,
     sortOrder: 2,
+    repeatIntervalWeeks: 4,
   },
 ];
 

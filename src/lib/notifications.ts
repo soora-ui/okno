@@ -82,6 +82,23 @@ export async function sendClientReminderSms(input: {
   return { ok: result.ok, skipped: false as const };
 }
 
+export async function sendRepeatVisitReminderSms(input: {
+  phone: string;
+  masterName: string;
+  serviceTitle: string;
+}) {
+  if (!isSmsConfigured) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const result = await sendSms({
+    phone: input.phone,
+    message: `okno: пора повторить «${input.serviceTitle}» у ${input.masterName}. Запишись на удобное время.`,
+  });
+
+  return { ok: result.ok, skipped: false as const };
+}
+
 export async function sendMasterReminderTelegram(input: {
   chatId: string | null;
   clientName: string;

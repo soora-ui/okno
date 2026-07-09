@@ -210,6 +210,7 @@ const PUBLIC_SERVICE_COLUMNS = [
   "price",
   "is_active",
   "sort_order",
+  "repeat_interval_weeks",
 ].join(",");
 
 const PUBLIC_AVAILABILITY_RULE_COLUMNS = [
@@ -931,8 +932,12 @@ export async function getBookingConfirmationData(
     }
 
     return {
+      bookingId: booking.id,
       clientName: booking.clientName,
       serviceTitle: booking.serviceTitle,
+      startsAtIso: booking.startsAtIso,
+      endsAtIso: booking.endsAtIso,
+      masterName: booking.masterName,
       startsAtLabel: humanizeBookingDate({
         startsAtIso: booking.startsAtIso,
         timezone: mockProfile.timezone,
@@ -965,7 +970,7 @@ export async function getBookingConfirmationData(
 
   const { data: bookingRow, error: bookingError } = await admin
     .from("bookings")
-    .select("id, profile_id, client_id, service_id, starts_at, cancellation_token")
+    .select("id, profile_id, client_id, service_id, starts_at, ends_at, cancellation_token")
     .eq("id", bookingId)
     .eq("profile_id", profileRow.id)
     .maybeSingle();
@@ -978,21 +983,29 @@ export async function getBookingConfirmationData(
     return null;
   }
 
-  const [{ data: clientRow, error: clientError }, { data: serviceRow, error: serviceError }] =
-    await Promise.all([
-      admin
-        .from("clients")
-        .select("name")
-        .eq("id", bookingRow.client_id)
-        .maybeSingle(),
-      admin
-        .from("services")
-        .select("title")
-        .eq("id", bookingRow.service_id)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: clientRow, error: clientError },
+    { data: serviceRow, error: serviceError },
+    { data: masterRow, error: masterError },
+  ] = await Promise.all([
+    admin
+      .from("clients")
+      .select("name")
+      .eq("id", bookingRow.client_id)
+      .maybeSingle(),
+    admin
+      .from("services")
+      .select("title")
+      .eq("id", bookingRow.service_id)
+      .maybeSingle(),
+    admin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", profileRow.id)
+      .maybeSingle(),
+  ]);
 
-  if (clientError || serviceError) {
+  if (clientError || serviceError || masterError) {
     throw new Error("Не получилось собрать подтверждение записи.");
   }
 
@@ -1001,14 +1014,98 @@ export async function getBookingConfirmationData(
   }
 
   return {
+    bookingId: String(bookingRow.id),
     clientName: String(clientRow.name),
     serviceTitle: String(serviceRow.title),
+    startsAtIso: String(bookingRow.starts_at),
+    endsAtIso: String(bookingRow.ends_at),
+    masterName: String(masterRow?.full_name ?? ""),
     startsAtLabel: humanizeBookingDate({
       startsAtIso: String(bookingRow.starts_at),
       timezone: String(profileRow.timezone ?? "Europe/Simferopol"),
     }),
     cancellationToken: String(bookingRow.cancellation_token ?? ""),
     themePresetId: normalizeBookingThemePresetId(profileRow.booking_theme_preset),
+  };
+}
+
+// Данные для генерации .ics/ссылки Google Calendar по id записи. Не требует
+// привязки к username — раздается по прямой ссылке из письма/страницы
+// подтверждения, поэтому ищем запись напрямую по id.
+export async function getBookingCalendarData(bookingId: string) {
+  if (!bookingId) {
+    return null;
+  }
+
+  if (!isSupabaseConfigured) {
+    ensureWorkRuntime("календарь записи");
+
+    const booking = getMockBookingConfirmation(bookingId);
+
+    if (!booking) {
+      return null;
+    }
+
+    return {
+      bookingId: booking.id,
+      serviceTitle: booking.serviceTitle,
+      masterName: booking.masterName || mockProfile.fullName,
+      startsAtIso: booking.startsAtIso,
+      endsAtIso: booking.endsAtIso,
+      location: mockProfile.address || mockProfile.locationText,
+      note: "",
+      updatedAtIso: booking.startsAtIso,
+    };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data: bookingRow, error: bookingError } = await admin
+    .from("bookings")
+    .select(
+      "id, profile_id, service_id, starts_at, ends_at, client_note, created_at, status",
+    )
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (bookingError) {
+    throw new Error("Не получилось загрузить запись для календаря.");
+  }
+
+  if (!bookingRow || bookingRow.status !== "confirmed") {
+    return null;
+  }
+
+  const [{ data: profileRow, error: profileError }, { data: serviceRow, error: serviceError }] =
+    await Promise.all([
+      admin
+        .from("profiles")
+        .select("full_name, address, location_text")
+        .eq("id", bookingRow.profile_id)
+        .maybeSingle(),
+      admin
+        .from("services")
+        .select("title")
+        .eq("id", bookingRow.service_id)
+        .maybeSingle(),
+    ]);
+
+  if (profileError || serviceError) {
+    throw new Error("Не получилось собрать данные для календаря.");
+  }
+
+  if (!profileRow || !serviceRow) {
+    return null;
+  }
+
+  return {
+    bookingId: String(bookingRow.id),
+    serviceTitle: String(serviceRow.title),
+    masterName: String(profileRow.full_name ?? ""),
+    startsAtIso: String(bookingRow.starts_at),
+    endsAtIso: String(bookingRow.ends_at),
+    location: String(profileRow.address ?? profileRow.location_text ?? ""),
+    note: String(bookingRow.client_note ?? ""),
+    updatedAtIso: String(bookingRow.created_at ?? bookingRow.starts_at),
   };
 }
 
