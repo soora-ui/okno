@@ -45,6 +45,8 @@ export type Profile = {
   accountRole: AccountRole;
   accountStatus: AccountStatus;
   createdByProfileId: string | null;
+  referralCode: string | null;
+  referredBy: string | null;
 };
 
 export type Service = {
@@ -196,6 +198,8 @@ export const profile: Profile = {
   accountRole: "solo",
   accountStatus: "active",
   createdByProfileId: null,
+  referralCode: "ALINA7X",
+  referredBy: null,
 };
 
 export const services: Service[] = [
