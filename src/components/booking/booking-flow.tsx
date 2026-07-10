@@ -81,6 +81,7 @@ export function BookingFlow({
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
   const [wantsRepeatVisitReminder, setWantsRepeatVisitReminder] = useState(false);
+  const [certificateCode, setCertificateCode] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -372,6 +373,7 @@ export function BookingFlow({
           note,
           wantsRepeatVisitReminder,
           ...(needsPhoneVerification ? { phoneVerificationToken: verifiedToken } : {}),
+          ...(certificateCode.trim() ? { certificateCode: certificateCode.trim() } : {}),
         }),
       });
 
@@ -395,6 +397,7 @@ export function BookingFlow({
       setPending(false);
     }
   }, [
+    certificateCode,
     commentFieldMode,
     dateValue,
     fullPhone,
@@ -819,6 +822,15 @@ export function BookingFlow({
                   {pluralizeWeeks(selectedService.repeatIntervalWeeks)}
                 </span>
               </label>
+            ) : null}
+            {mode === "live" ? (
+              <Input
+                label="Код сертификата (если есть)"
+                placeholder="OKNO-XXXX-XXXX-XXXX"
+                value={certificateCode}
+                onChange={(event) => setCertificateCode(event.target.value)}
+                hint="Введи код подарочного сертификата, чтобы применить его к этой записи."
+              />
             ) : null}
           </div>
         ) : null}

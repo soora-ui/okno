@@ -1,20 +1,30 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { DateTime } from "luxon";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { isYooKassaConfigured } from "@/lib/env";
+import { certificateValidityDays } from "@/lib/gift-certificates";
 import { logError, logWarn } from "@/lib/observability/logger";
 import { writeAuditLog } from "@/lib/observability/audit";
+import { processNotificationQueue } from "@/lib/notification-queue";
 import { getYooKassaPayment, type YooKassaPayment } from "@/lib/payments/yookassa";
 import { isYooKassaIp } from "@/lib/payments/yookassa-ips";
 import { getClientIp } from "@/lib/public-booking-guards";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
+
 // Вебхук ЮKassa. Тело уведомления не является доверенным источником: статус
 // оплаты мы перепроверяем прямым запросом к API ЮKassa нашими ключами, поэтому
-// подделать активацию PRO нельзя. Дополнительно принимаем уведомления только
-// с IP-адресов ЮKassa (HMAC-подписи у их вебхуков нет — IP-фильтр это
-// официальная рекомендация). Всегда отвечаем 2xx на обработанные события,
-// чтобы ЮKassa не слала повторы; 5xx — только при внутренней ошибке (даём повтор).
+// подделать активацию PRO/сертификата нельзя. Дополнительно принимаем
+// уведомления только с IP-адресов ЮKassa (HMAC-подписи у их вебхуков нет —
+// IP-фильтр это официальная рекомендация). Всегда отвечаем 2xx на
+// обработанные события, чтобы ЮKassa не слала повторы; 5xx — только при
+// внутренней ошибке (даём повтор).
+//
+// Один платёж всегда относится ровно к одной из двух своих таблиц
+// (subscription_payments — платит мастер за PRO, gift_certificates — платит
+// клиент за сертификат); metadata.kind в самом платеже ЮKassa указывает,
+// какую ветку проверять первой, но мы все равно смотрим на реальное
+// совпадение provider_payment_id, а не доверяем присланным метаданным вслепую.
 export async function POST(request: Request) {
   if (!isYooKassaConfigured) {
     return NextResponse.json({ error: "ЮKassa не настроена." }, { status: 503 });
@@ -48,22 +58,37 @@ export async function POST(request: Request) {
     const payment = await getYooKassaPayment(paymentId);
     const supabase = createSupabaseAdminClient();
 
-    if (payment.metadata.kind === "tip") {
-      return await handleTipPayment(supabase, paymentId, payment);
+    if (payment.metadata?.kind === "tip") {
+      return await handleTipPayment({ supabase, paymentId, payment });
     }
 
-    return await handleSubscriptionPayment(supabase, paymentId, payment);
+    if (payment.metadata?.kind === "gift_certificate") {
+      const certificateResult = await handleGiftCertificatePayment({
+        supabase,
+        paymentId,
+        payment,
+      });
+      if (certificateResult) {
+        return certificateResult;
+      }
+      // Не нашли сертификат по этому платежу — на всякий случай пробуем
+      // ветку подписки ниже (не должно происходить, но не молчим 404-кой).
+    }
+
+    return await handleSubscriptionPayment({ supabase, paymentId, payment });
   } catch (error) {
     logError("Webhook: unexpected error", { paymentId, error });
     return NextResponse.json({ error: "Внутренняя ошибка." }, { status: 500 });
   }
 }
 
-async function handleSubscriptionPayment(
-  supabase: SupabaseClient,
-  paymentId: string,
-  payment: YooKassaPayment,
-) {
+async function handleSubscriptionPayment(input: {
+  supabase: SupabaseAdminClient;
+  paymentId: string;
+  payment: YooKassaPayment;
+}) {
+  const { supabase, paymentId, payment } = input;
+
   const { data: paymentRow, error: rowError } = await supabase
     .from("subscription_payments")
     .select("id, profile_id, period_days, status")
@@ -136,11 +161,13 @@ async function handleSubscriptionPayment(
   return NextResponse.json({ ok: true, status: "succeeded" });
 }
 
-async function handleTipPayment(
-  supabase: SupabaseClient,
-  paymentId: string,
-  payment: YooKassaPayment,
-) {
+async function handleTipPayment(input: {
+  supabase: SupabaseAdminClient;
+  paymentId: string;
+  payment: YooKassaPayment;
+}) {
+  const { supabase, paymentId, payment } = input;
+
   const { data: tipRow, error: rowError } = await supabase
     .from("tips")
     .select("id, profile_id, booking_id, amount, status")
@@ -188,6 +215,120 @@ async function handleTipPayment(
     targetId: tipRow.id,
     metadata: { amount: tipRow.amount, bookingId: tipRow.booking_id },
   });
+
+  return NextResponse.json({ ok: true, status: "succeeded" });
+}
+
+async function handleGiftCertificatePayment(input: {
+  supabase: SupabaseAdminClient;
+  paymentId: string;
+  payment: YooKassaPayment;
+}): Promise<Response | null> {
+  const { supabase, paymentId, payment } = input;
+
+  const { data: certificateRow, error: rowError } = await supabase
+    .from("gift_certificates")
+    .select("id, profile_id, status, code, amount, purchaser_contact, expires_at")
+    .eq("provider_payment_id", paymentId)
+    .maybeSingle();
+
+  if (rowError) {
+    logError("Webhook: failed to load gift certificate row", {
+      paymentId,
+      error: rowError,
+    });
+    return NextResponse.json({ error: "Внутренняя ошибка." }, { status: 500 });
+  }
+
+  if (!certificateRow) {
+    return null;
+  }
+
+  if (payment.status === "canceled") {
+    await supabase
+      .from("gift_certificates")
+      .update({ status: "canceled", updated_at: new Date().toISOString() })
+      .eq("id", certificateRow.id);
+    return NextResponse.json({ ok: true, status: "canceled" });
+  }
+
+  if (payment.status !== "succeeded") {
+    return NextResponse.json({ ok: true, status: payment.status });
+  }
+
+  if (certificateRow.status === "active" || certificateRow.status === "redeemed") {
+    return NextResponse.json({ ok: true, status: "already_active" });
+  }
+
+  const expiresAt =
+    certificateRow.expires_at ??
+    DateTime.now().plus({ days: certificateValidityDays }).toUTC().toISO();
+
+  await supabase
+    .from("gift_certificates")
+    .update({
+      status: "active",
+      expires_at: expiresAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", certificateRow.id);
+
+  await writeAuditLog({
+    actorKind: "system",
+    profileId: certificateRow.profile_id,
+    eventType: "gift_certificate.activated",
+    targetType: "gift_certificate",
+    targetId: certificateRow.id,
+    metadata: { amount: certificateRow.amount },
+  });
+
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", certificateRow.profile_id)
+    .maybeSingle();
+  const masterName = String(profileRow?.full_name ?? "мастер");
+  const expiresAtLabel = DateTime.fromISO(expiresAt ?? "", { zone: "utc" })
+    .setLocale("ru")
+    .toFormat("d LLLL yyyy");
+
+  const purchaserContact = String(certificateRow.purchaser_contact ?? "");
+  const looksLikePhone = /^\+?\d[\d\s-]{7,}$/.test(purchaserContact);
+
+  if (looksLikePhone) {
+    const { data: notificationRow, error: notificationError } = await supabase
+      .from("notification_events")
+      .insert({
+        profile_id: certificateRow.profile_id,
+        type: "sms_certificate_code",
+        status: "queued",
+        target: purchaserContact,
+        payload: {
+          phone: purchaserContact,
+          masterName,
+          amount: certificateRow.amount,
+          code: certificateRow.code,
+          expiresAtLabel,
+        },
+      })
+      .select("id")
+      .single();
+
+    if (notificationError) {
+      logError("Webhook: failed to enqueue certificate code delivery", {
+        certificateId: certificateRow.id,
+        error: notificationError,
+      });
+    } else if (notificationRow) {
+      after(async () => {
+        await processNotificationQueue([String(notificationRow.id)]);
+      });
+    }
+  } else {
+    logWarn("Webhook: purchaser contact is not a phone number, skipping SMS delivery", {
+      certificateId: certificateRow.id,
+    });
+  }
 
   return NextResponse.json({ ok: true, status: "succeeded" });
 }

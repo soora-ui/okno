@@ -16,11 +16,20 @@ export type CommentFieldMode = (typeof commentFieldModes)[number];
 export const headlineMaxLength = 80;
 export const subheadlineMaxLength = 160;
 
+// Подарочные сертификаты: номинал в рублях, ограничен разумным диапазоном,
+// чтобы не пораниться о случайно введенное огромное число.
+export const giftCertificateMinAmount = 500;
+export const giftCertificateMaxAmount = 50_000;
+export const maxGiftCertificateDenominations = 6;
+export const defaultGiftCertificateDenominations = [1000, 2000, 3000];
+
 export type BookingPageSettings = {
   schemaVersion: 1;
   headline: string;
   subheadline: string;
   commentFieldMode: CommentFieldMode;
+  giftCertificatesEnabled: boolean;
+  giftCertificateDenominations: number[];
 };
 
 export const defaultBookingPageSettings: BookingPageSettings = {
@@ -28,7 +37,15 @@ export const defaultBookingPageSettings: BookingPageSettings = {
   headline: "",
   subheadline: "",
   commentFieldMode: "optional",
+  giftCertificatesEnabled: false,
+  giftCertificateDenominations: defaultGiftCertificateDenominations,
 };
+
+const denominationSchema = z.coerce
+  .number()
+  .int()
+  .min(giftCertificateMinAmount)
+  .max(giftCertificateMaxAmount);
 
 /** Form input shape — what the settings form submits. */
 export const bookingPageSettingsFormSchema = z.object({
@@ -41,12 +58,27 @@ export type BookingPageSettingsFormInput = z.infer<
   typeof bookingPageSettingsFormSchema
 >;
 
+// Форма настроек сертификатов отправляется отдельно от остальной витрины
+// (свой раздел в кабинете), но живет в том же JSONB-блоке.
+export const giftCertificateSettingsFormSchema = z.object({
+  giftCertificatesEnabled: z
+    .union([z.literal("on"), z.literal("off"), z.boolean()])
+    .transform((value) => value === "on" || value === true)
+    .default(false),
+  denominations: z
+    .array(denominationSchema)
+    .min(1)
+    .max(maxGiftCertificateDenominations),
+});
+
 /** Lenient parse of whatever sits in the JSONB column. */
 const storedSchema = z
   .object({
     headline: z.string().max(400).optional(),
     subheadline: z.string().max(800).optional(),
     commentFieldMode: z.enum(commentFieldModes).optional(),
+    giftCertificatesEnabled: z.boolean().optional(),
+    giftCertificateDenominations: z.array(denominationSchema).optional(),
   })
   .partial();
 
@@ -64,11 +96,17 @@ export function normalizeBookingPageSettings(raw: unknown): BookingPageSettings 
   const parsed = storedSchema.safeParse(source ?? {});
   const data = parsed.success ? parsed.data : {};
 
+  const denominations = data.giftCertificateDenominations?.length
+    ? Array.from(new Set(data.giftCertificateDenominations)).sort((a, b) => a - b)
+    : defaultGiftCertificateDenominations;
+
   return {
     schemaVersion: 1,
     headline: (data.headline ?? "").trim().slice(0, headlineMaxLength),
     subheadline: (data.subheadline ?? "").trim().slice(0, subheadlineMaxLength),
     commentFieldMode: data.commentFieldMode ?? defaultBookingPageSettings.commentFieldMode,
+    giftCertificatesEnabled: data.giftCertificatesEnabled ?? false,
+    giftCertificateDenominations: denominations.slice(0, maxGiftCertificateDenominations),
   };
 }
 

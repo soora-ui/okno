@@ -47,7 +47,9 @@ export function buildAccountNotificationItems(input: {
             ? "Напоминание клиенту"
             : event.type === "sms_repeat_visit_reminder"
               ? "Напоминание о повторном визите"
-              : "Подтверждение отправлено",
+              : event.type === "sms_certificate_code"
+                ? "Сертификат отправлен"
+                : "Подтверждение отправлено",
     description:
       event.type === "telegram_new_booking"
         ? "Появилась новая запись. Проверь кабинет и, если нужно, свяжись с клиентом."
@@ -57,7 +59,9 @@ export function buildAccountNotificationItems(input: {
             ? `Напоминание о визите отправлено клиенту на ${event.target}.`
             : event.type === "sms_repeat_visit_reminder"
               ? `Напоминание о повторном визите отправлено клиенту на ${event.target}.`
-              : `Подтверждение по записи отправлено на ${event.target}.`,
+              : event.type === "sms_certificate_code"
+                ? `Код подарочного сертификата отправлен на ${event.target}.`
+                : `Подтверждение по записи отправлено на ${event.target}.`,
     href:
       event.type === "telegram_new_booking" || event.type === "telegram_reminder_master"
         ? "/dashboard#today-bookings"

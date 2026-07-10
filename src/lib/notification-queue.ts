@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   sendBookingConfirmationSms,
   sendClientReminderSms,
+  sendGiftCertificateCodeSms,
   sendMasterReminderTelegram,
   sendMasterTelegramNotification,
   sendRepeatVisitReminderSms,
@@ -17,7 +18,8 @@ type NotificationEventJob = {
     | "telegram_new_booking"
     | "sms_reminder_client"
     | "telegram_reminder_master"
-    | "sms_repeat_visit_reminder";
+    | "sms_repeat_visit_reminder"
+    | "sms_certificate_code";
   target: string;
   payload: Record<string, unknown>;
   attempts: number;
@@ -35,7 +37,9 @@ function parseJob(row: Record<string, unknown>): NotificationEventJob {
             ? "telegram_reminder_master"
             : row.type === "sms_repeat_visit_reminder"
               ? "sms_repeat_visit_reminder"
-              : "sms_confirmation",
+              : row.type === "sms_certificate_code"
+                ? "sms_certificate_code"
+                : "sms_confirmation",
     target: String(row.target ?? ""),
     payload:
       row.payload && typeof row.payload === "object"
@@ -74,6 +78,22 @@ async function processNotificationJob(job: NotificationEventJob) {
       skipped: result.skipped,
       lastError:
         result.ok || result.skipped ? null : "Напоминание клиенту по SMS не отправилось.",
+    };
+  }
+
+  if (job.type === "sms_certificate_code") {
+    const result = await sendGiftCertificateCodeSms({
+      phone: String(job.payload.phone ?? job.target),
+      masterName: String(job.payload.masterName ?? ""),
+      amount: Number(job.payload.amount ?? 0),
+      code: String(job.payload.code ?? ""),
+      expiresAtLabel: String(job.payload.expiresAtLabel ?? ""),
+    });
+
+    return {
+      ok: result.ok,
+      skipped: result.skipped,
+      lastError: result.ok || result.skipped ? null : "Код сертификата не отправился.",
     };
   }
 

@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   BellRing,
   CalendarRange,
+  Gift,
   Globe2,
   LayoutTemplate,
   Palette,
@@ -24,6 +25,7 @@ import {
   AvailabilitySettingsForm,
   BookingPageSettingsForm,
   BookingPreferencesForm,
+  GiftCertificateSettingsForm,
   ProfileSettingsForm,
   ServicesSettingsForm,
   SubscriptionSettingsForm,
@@ -180,6 +182,21 @@ export function SettingsTabs({
               </h2>
             </div>
             <BookingThemeSettings profile={profile} services={services} />
+          </Card>
+
+          <Card className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Gift size={18} className="text-accent-deep" />
+              <h2 className="text-xl font-semibold text-ink">
+                Подарочные сертификаты
+              </h2>
+            </div>
+            <p className="text-sm leading-6 text-ink-soft">
+              Клиенты смогут купить сертификат прямо на публичной странице и
+              оплатить его онлайн. Код сертификата придет покупателю по SMS
+              после оплаты.
+            </p>
+            <GiftCertificateSettingsForm profile={profile} />
           </Card>
 
           <Card className="space-y-4">
