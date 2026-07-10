@@ -47,6 +47,7 @@ const TEAM_SERVICE_COLUMNS = [
   "price",
   "is_active",
   "sort_order",
+  "repeat_interval_weeks",
 ].join(",");
 
 const TEAM_BOOKING_COLUMNS = [

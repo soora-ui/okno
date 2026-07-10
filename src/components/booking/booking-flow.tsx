@@ -41,6 +41,21 @@ type BookingFlowProps = {
 
 const steps = ["Услуга", "Дата и время", "Контакты"];
 
+function pluralizeWeeks(weeks: number) {
+  const mod10 = weeks % 10;
+  const mod100 = weeks % 100;
+
+  if (mod10 === 1 && mod100 !== 11) {
+    return "неделю";
+  }
+
+  if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) {
+    return "недели";
+  }
+
+  return "недель";
+}
+
 export function BookingFlow({
   username,
   services,
@@ -65,6 +80,7 @@ export function BookingFlow({
   const [countryCode, setCountryCode] = useState(defaultPhoneCountryCode);
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
+  const [wantsRepeatVisitReminder, setWantsRepeatVisitReminder] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -354,6 +370,7 @@ export function BookingFlow({
           name,
           phone: fullPhone,
           note,
+          wantsRepeatVisitReminder,
           ...(needsPhoneVerification ? { phoneVerificationToken: verifiedToken } : {}),
         }),
       });
@@ -393,6 +410,7 @@ export function BookingFlow({
     time,
     username,
     verifiedToken,
+    wantsRepeatVisitReminder,
   ]);
 
   return (
@@ -786,6 +804,21 @@ export function BookingFlow({
                     : "Поле необязательное, но мастеру правда полезно."
                 }
               />
+            ) : null}
+            {selectedService?.repeatIntervalWeeks ? (
+              <label className="flex items-start gap-3 rounded-[20px] border border-line bg-[var(--ui-field-bg,#ffffff)] p-4 text-sm leading-6 text-ink-soft">
+                <input
+                  type="checkbox"
+                  checked={wantsRepeatVisitReminder}
+                  onChange={(event) => setWantsRepeatVisitReminder(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-current"
+                />
+                <span>
+                  Напомнить про повторный визит через{" "}
+                  {selectedService.repeatIntervalWeeks}{" "}
+                  {pluralizeWeeks(selectedService.repeatIntervalWeeks)}
+                </span>
+              </label>
             ) : null}
           </div>
         ) : null}

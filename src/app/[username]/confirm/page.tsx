@@ -1,11 +1,14 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
+import { AddToCalendar } from "@/components/booking/add-to-calendar";
 import { SiteShell } from "@/components/layout/site-shell";
 import { TipForm } from "@/components/booking/tip-form";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getBookingThemeStyle } from "@/lib/booking-theme-presets";
 import { getBookingConfirmationData } from "@/lib/data";
+import { detectCalendarPlatformFromUserAgent } from "@/lib/ics";
 
 type ConfirmPageProps = {
   params: Promise<{ username: string }>;
@@ -30,6 +33,11 @@ export default async function ConfirmPage({
   if (!booking) {
     notFound();
   }
+
+  const requestHeaders = await headers();
+  const calendarPlatform = detectCalendarPlatformFromUserAgent(
+    requestHeaders.get("user-agent"),
+  );
 
   return (
     <SiteShell compact hideGuestMenu resolveAuth={false}>
@@ -58,6 +66,9 @@ export default async function ConfirmPage({
               <p className="font-medium text-ink">{booking.serviceTitle}</p>
               <p className="mt-2 text-sm text-ink-soft">{booking.startsAtLabel}</p>
             </div>
+            {booking.bookingId ? (
+              <AddToCalendar bookingId={booking.bookingId} platform={calendarPlatform} />
+            ) : null}
             <TipForm bookingId={booking.bookingId} />
             <div className="flex flex-wrap justify-center gap-3">
               {cancelToken ? (

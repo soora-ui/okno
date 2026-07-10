@@ -632,6 +632,9 @@ const serviceSchema = z.object({
   durationMinutes: z.coerce.number().min(5).max(480),
   price: z.coerce.number().min(0),
   sortOrder: z.coerce.number().min(0).default(0),
+  // Пусто/0 — не предлагать клиенту напоминание о повторном визите для
+  // этой услуги.
+  repeatIntervalWeeks: z.coerce.number().min(0).max(52).default(0),
 });
 
 export async function createServiceAction(
@@ -664,6 +667,9 @@ export async function createServiceAction(
     price: parsed.data.price,
     sort_order: parsed.data.sortOrder,
     is_active: true,
+    repeat_interval_weeks: parsed.data.repeatIntervalWeeks > 0
+      ? parsed.data.repeatIntervalWeeks
+      : null,
   });
 
   if (error) {
@@ -727,6 +733,9 @@ export async function updateServiceAction(
       price: parsed.data.price,
       sort_order: parsed.data.sortOrder,
       is_active: nextActive,
+      repeat_interval_weeks: parsed.data.repeatIntervalWeeks > 0
+        ? parsed.data.repeatIntervalWeeks
+        : null,
     })
     .eq("id", serviceId)
     .eq("profile_id", profile.id);

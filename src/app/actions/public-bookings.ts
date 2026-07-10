@@ -18,6 +18,7 @@ import { writeAuditLog } from "@/lib/observability/audit";
 import { logError } from "@/lib/observability/logger";
 import {
   buildReminderNotificationEvents,
+  buildRepeatVisitReminderEvent,
   cancelQueuedReminderEvents,
 } from "@/lib/notification-queue";
 import { isSupabaseBookingOverlapError } from "@/lib/supabase/auth-errors";
@@ -236,7 +237,7 @@ export async function rescheduleBookingByTokenAction(
   const admin = createSupabaseAdminClient();
   const { data: bookingRow, error: bookingError } = await admin
     .from("bookings")
-    .select("id, profile_id, service_id, client_id, starts_at")
+    .select("id, profile_id, service_id, client_id, starts_at, repeat_visit_reminder_requested")
     .eq("cancellation_token", parsed.data.cancellationToken)
     .eq("status", "confirmed")
     .maybeSingle();
@@ -261,7 +262,7 @@ export async function rescheduleBookingByTokenAction(
 
   const { data: serviceRow, error: serviceError } = await admin
     .from("services")
-    .select("title, duration_minutes")
+    .select("title, duration_minutes, repeat_interval_weeks")
     .eq("id", bookingRow.service_id)
     .maybeSingle();
 
@@ -389,6 +390,22 @@ export async function rescheduleBookingByTokenAction(
 
   if (reminderRows.length > 0) {
     await admin.from("notification_events").insert(reminderRows);
+  }
+
+  if (bookingRow.repeat_visit_reminder_requested) {
+    const repeatVisitRow = buildRepeatVisitReminderEvent({
+      profileId: String(bookingRow.profile_id),
+      bookingId: String(bookingRow.id),
+      phone: decryptPhone(String(clientRow.phone_encrypted ?? "")),
+      masterName: String(profileRow.full_name ?? bookingData.masterName),
+      serviceTitle: String(serviceRow.title ?? bookingData.serviceTitle),
+      startsAtIso: nextStartIso,
+      repeatIntervalWeeks: Number(serviceRow.repeat_interval_weeks ?? 0),
+    });
+
+    if (repeatVisitRow) {
+      await admin.from("notification_events").insert(repeatVisitRow);
+    }
   }
 
   await writeAuditLog({

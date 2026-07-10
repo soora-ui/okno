@@ -6,6 +6,8 @@ type MockBookingConfirmation = {
   clientName: string;
   serviceTitle: string;
   startsAtIso: string;
+  endsAtIso: string;
+  masterName: string;
   cancellationToken: string;
 };
 

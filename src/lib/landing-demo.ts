@@ -71,6 +71,7 @@ export const landingDemoServices: Service[] = [
     price: 2400,
     isActive: true,
     sortOrder: 1,
+    repeatIntervalWeeks: 3,
   },
   {
     id: "landing-svc-2",
@@ -81,6 +82,7 @@ export const landingDemoServices: Service[] = [
     price: 1300,
     isActive: true,
     sortOrder: 2,
+    repeatIntervalWeeks: 2,
   },
   {
     id: "landing-svc-3",
@@ -91,6 +93,7 @@ export const landingDemoServices: Service[] = [
     price: 800,
     isActive: true,
     sortOrder: 3,
+    repeatIntervalWeeks: null,
   },
 ];
 

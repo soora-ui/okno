@@ -91,6 +91,10 @@ export function mapService(row: Record<string, unknown>) {
     price: Number(row.price),
     isActive: Boolean(row.is_active),
     sortOrder: Number(row.sort_order ?? 0),
+    repeatIntervalWeeks:
+      row.repeat_interval_weeks === null || row.repeat_interval_weeks === undefined
+        ? null
+        : Number(row.repeat_interval_weeks),
   };
 }
 
@@ -181,7 +185,8 @@ export type MappedNotificationEvent = {
     | "sms_confirmation"
     | "sms_reminder_client"
     | "telegram_reminder_master"
-    | "telegram_new_booking";
+    | "telegram_new_booking"
+    | "sms_repeat_visit_reminder";
   status: "sent" | "failed" | "processing" | "cancelled" | "queued";
   target: string;
   createdAt: string;
@@ -198,7 +203,9 @@ export function mapNotificationEvent(row: Record<string, unknown>): MappedNotifi
           ? "sms_reminder_client"
           : row.type === "telegram_reminder_master"
             ? "telegram_reminder_master"
-            : "telegram_new_booking",
+            : row.type === "sms_repeat_visit_reminder"
+              ? "sms_repeat_visit_reminder"
+              : "telegram_new_booking",
     status:
       row.status === "sent"
         ? "sent"

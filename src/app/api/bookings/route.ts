@@ -20,6 +20,7 @@ import { saveMockBookingConfirmation } from "@/lib/mock-booking-confirmations";
 import { checkBookingConflict } from "@/lib/booking-conflicts";
 import {
   buildReminderNotificationEvents,
+  buildRepeatVisitReminderEvent,
   processNotificationQueue,
 } from "@/lib/notification-queue";
 import {
@@ -52,6 +53,7 @@ const bookingSchema = z.object({
   phone: z.string().refine(isValidPhoneNumber),
   note: z.string().optional().default(""),
   phoneVerificationToken: z.string().optional().default(""),
+  wantsRepeatVisitReminder: z.coerce.boolean().optional().default(false),
 });
 
 export async function POST(request: Request) {
@@ -73,11 +75,19 @@ export async function POST(request: Request) {
       time: parsed.data.time,
       timezone: mockProfile.timezone,
     });
+    const resolvedStartsAtIso = startsAtIso ?? new Date().toISOString();
+    const endsAtIso =
+      new Date(
+        new Date(resolvedStartsAtIso).getTime() +
+          (mockService?.durationMinutes ?? 60) * 60_000,
+      ).toISOString();
     const confirmation = saveMockBookingConfirmation({
       username: parsed.data.username,
       clientName: parsed.data.name,
       serviceTitle: mockService?.title ?? "Запись",
-      startsAtIso: startsAtIso ?? new Date().toISOString(),
+      startsAtIso: resolvedStartsAtIso,
+      endsAtIso,
+      masterName: mockProfile.fullName,
       cancellationToken: `mock-cancel-${randomUUID().replace(/-/g, "")}`,
     });
 
@@ -422,6 +432,9 @@ export async function POST(request: Request) {
           startsAtIso: startsAt.toISOString(),
           cancellationNoticeHours: Number(profileRow.cancellation_notice_hours ?? 0),
         }) ?? startsAt.toISOString(),
+      repeat_visit_reminder_requested:
+        parsed.data.wantsRepeatVisitReminder &&
+        Number(serviceRow.repeat_interval_weeks ?? 0) > 0,
     })
     .select("*")
     .single();
@@ -507,6 +520,31 @@ export async function POST(request: Request) {
         bookingId: String(bookingRow.id),
         error: reminderInsertError,
       });
+    }
+  }
+
+  if (bookingRow.repeat_visit_reminder_requested) {
+    const repeatVisitRow = buildRepeatVisitReminderEvent({
+      profileId: String(profileRow.id),
+      bookingId: String(bookingRow.id),
+      phone: storedPhone,
+      masterName: String(profileRow.full_name),
+      serviceTitle: String(serviceRow.title),
+      startsAtIso: startsAt.toISOString(),
+      repeatIntervalWeeks: Number(serviceRow.repeat_interval_weeks ?? 0),
+    });
+
+    if (repeatVisitRow) {
+      const { error: repeatVisitInsertError } = await admin
+        .from("notification_events")
+        .insert(repeatVisitRow);
+
+      if (repeatVisitInsertError) {
+        logError("Failed to enqueue repeat visit reminder", {
+          bookingId: String(bookingRow.id),
+          error: repeatVisitInsertError,
+        });
+      }
     }
   }
 
