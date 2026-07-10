@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
-import { isSupabaseConfigured } from "@/lib/env";
+import { env, isSupabaseConfigured, isYooKassaConfigured } from "@/lib/env";
 import { writeAuditLog } from "@/lib/observability/audit";
 import { logError } from "@/lib/observability/logger";
 import {
@@ -32,6 +32,8 @@ import {
   isPhoneVerificationRequired,
   isPhoneVerificationTokenValid,
 } from "@/lib/phone-verification";
+import { createYooKassaPayment } from "@/lib/payments/yookassa";
+import { computePrepaymentAmount, prepaymentReservationMinutes } from "@/lib/prepayment";
 import {
   acquireBookingIdempotency,
   assertDemoBookingRateLimit,
@@ -489,13 +491,40 @@ export async function POST(request: Request) {
     }
   }
 
+  // Настраиваемая предоплата (Модуль 2 из okno-tz-rating-prepayment.md):
+  // если на услуге включена предоплата, запись создаётся в статусе
+  // pending_payment и слот резервируется на 15 минут под оплату — ту же
+  // защиту от двойной записи, что и confirmed (см. bookings_no_overlap_excl
+  // в 202607090002_service_prepayment.sql). prepayment_required — снэпшот
+  // на момент создания, не пересчитывается, если мастер потом поменяет
+  // настройки услуги.
+  const servicePrepaymentType =
+    serviceRow.prepayment_type === "fixed" || serviceRow.prepayment_type === "percent"
+      ? (serviceRow.prepayment_type as "fixed" | "percent")
+      : "none";
+  const prepaymentRequired = servicePrepaymentType !== "none";
+  const prepaymentAmount = prepaymentRequired
+    ? computePrepaymentAmount({
+        prepaymentType: servicePrepaymentType,
+        prepaymentValue: Number(serviceRow.prepayment_value ?? 0),
+        servicePrice: Number(serviceRow.price),
+      })
+    : 0;
+
+  if (prepaymentRequired && !isYooKassaConfigured) {
+    return respondWithError(
+      503,
+      "Предоплата у этого мастера временно недоступна. Свяжись с мастером напрямую.",
+    );
+  }
+
   const { data: bookingRow, error: bookingError } = await admin
     .from("bookings")
     .insert({
       profile_id: profileRow.id,
       client_id: clientRow.id,
       service_id: serviceRow.id,
-      status: "confirmed",
+      status: prepaymentRequired ? "pending_payment" : "confirmed",
       starts_at: startsAt.toISOString(),
       ends_at: endsAt.toISOString(),
       busy_until:
@@ -505,6 +534,7 @@ export async function POST(request: Request) {
         }) ?? slotBusyEnd.toISOString(),
       source: "public_page",
       client_note: parsed.data.note,
+      prepayment_required: prepaymentRequired,
       cancellation_token_expires_at:
         getCancellationDeadlineIso({
           startsAtIso: startsAt.toISOString(),
@@ -529,6 +559,13 @@ export async function POST(request: Request) {
       return respondWithError(409, "Это время уже занято. Выбери другой слот.");
     }
 
+    if (isSupabaseMissingColumnError(bookingError, "prepayment_required")) {
+      return respondWithError(
+        500,
+        "В базе еще нет поля предоплаты. Прогони миграцию 202607090002_service_prepayment.sql.",
+      );
+    }
+
     return respondWithError(500, "Не получилось создать запись.");
   }
 
@@ -540,6 +577,101 @@ export async function POST(request: Request) {
         redeemed_booking_id: bookingRow.id,
       })
       .eq("id", certificateRow.id);
+  }
+
+  if (prepaymentRequired) {
+    const idempotenceKey = randomUUID();
+    const { data: prepaymentRow, error: prepaymentInsertError } = await admin
+      .from("prepayments")
+      .insert({
+        booking_id: bookingRow.id,
+        profile_id: profileRow.id,
+        amount: prepaymentAmount,
+        status: "pending",
+        provider: "yookassa",
+        idempotence_key: idempotenceKey,
+        expires_at: new Date(
+          Date.now() + prepaymentReservationMinutes * 60_000,
+        ).toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (prepaymentInsertError || !prepaymentRow) {
+      logError("Failed to create prepayment row", {
+        bookingId: String(bookingRow.id),
+        error: prepaymentInsertError,
+      });
+      await admin.from("bookings").delete().eq("id", bookingRow.id);
+      return respondWithError(500, "Не получилось начать оплату предоплаты.");
+    }
+
+    try {
+      const payment = await createYooKassaPayment({
+        amountRub: prepaymentAmount,
+        description: `Предоплата: ${String(serviceRow.title)}, ${String(profileRow.full_name)}`,
+        returnUrl: `${env.appUrl}/${parsed.data.username}/confirm?bookingId=${bookingRow.id}`,
+        idempotenceKey,
+        metadata: {
+          kind: "prepayment",
+          bookingId: String(bookingRow.id),
+          prepaymentId: String(prepaymentRow.id),
+        },
+      });
+
+      await admin
+        .from("prepayments")
+        .update({
+          provider_payment_id: payment.id,
+          confirmation_url: payment.confirmationUrl,
+        })
+        .eq("id", prepaymentRow.id);
+
+      if (!payment.confirmationUrl) {
+        throw new Error("ЮKassa не вернула ссылку на оплату.");
+      }
+
+      await writeAuditLog({
+        actorKind: "client",
+        profileId: String(profileRow.id),
+        workspaceId: String(profileRow.workspace_id ?? profileRow.id),
+        eventType: "prepayment.started",
+        targetType: "prepayment",
+        targetId: String(prepaymentRow.id),
+        metadata: {
+          bookingId: String(bookingRow.id),
+          amount: prepaymentAmount,
+        },
+      });
+
+      const responsePayload = {
+        ok: true,
+        bookingId: bookingRow.id,
+        redirectUrl: payment.confirmationUrl,
+      };
+
+      if (idempotencyRowId) {
+        await completeBookingIdempotency({
+          admin,
+          rowId: idempotencyRowId,
+          bookingId: String(bookingRow.id),
+          payload: responsePayload,
+        });
+      }
+
+      return NextResponse.json(responsePayload);
+    } catch (error) {
+      logError("Failed to create YooKassa prepayment", {
+        bookingId: String(bookingRow.id),
+        error,
+      });
+      await admin.from("prepayments").update({ status: "failed" }).eq("id", prepaymentRow.id);
+      await admin.from("bookings").delete().eq("id", bookingRow.id);
+      return respondWithError(
+        502,
+        "ЮKassa не приняла платёж предоплаты. Попробуй еще раз.",
+      );
+    }
   }
 
   const startsAtLabel = humanizeBookingDate({

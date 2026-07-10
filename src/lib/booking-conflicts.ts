@@ -25,6 +25,7 @@ type BlockedSlotConflictRow = {
 
 type QueryBuilder<T> = PromiseLike<QueryResponse<T>> & {
   eq(column: string, value: unknown): QueryBuilder<T>;
+  in(column: string, values: unknown[]): QueryBuilder<T>;
   lt(column: string, value: unknown): QueryBuilder<T>;
   gt(column: string, value: unknown): QueryBuilder<T>;
   neq(column: string, value: unknown): QueryBuilder<T>;
@@ -78,7 +79,7 @@ async function checkBookingConflictFallback(
     .from("bookings")
     .select("id, starts_at, ends_at")
     .eq("profile_id", input.profileId)
-    .eq("status", "confirmed")
+    .in("status", ["confirmed", "pending_payment"])
     .lt("starts_at", input.candidateBusyEndIso)
     .gt("ends_at", bookingEndThreshold.toISOString());
 

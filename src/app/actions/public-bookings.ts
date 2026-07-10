@@ -11,6 +11,7 @@ import {
   isSameLocalSlot,
 } from "@/lib/booking";
 import { checkBookingConflict } from "@/lib/booking-conflicts";
+import { suggestCancelVisitStatus } from "@/lib/client-reliability";
 import { bookings as mockBookings, profile as mockProfile } from "@/lib/mock-data";
 import { getBookingCancellationData } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -21,7 +22,10 @@ import {
   buildRepeatVisitReminderEvent,
   cancelQueuedReminderEvents,
 } from "@/lib/notification-queue";
-import { isSupabaseBookingOverlapError } from "@/lib/supabase/auth-errors";
+import {
+  isSupabaseBookingOverlapError,
+  isSupabaseMissingColumnError,
+} from "@/lib/supabase/auth-errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type PublicBookingActionState = {
@@ -85,6 +89,17 @@ export async function cancelBookingByTokenAction(
 
     booking.status = "cancelled_by_client";
     booking.cancelledAt = cancelledAt;
+    // Рейтинг надёжности (Модуль 1, okno-tz-rating-prepayment.md): статус
+    // визита при самостоятельной отмене клиентом фиксируем сразу, по факту
+    // времени отмены — так cancelled_late/cancelled_ok попадают в рейтинг,
+    // даже если мастер сам никогда не откроет эту запись в архиве.
+    booking.visitStatus = suggestCancelVisitStatus({
+      startsAtIso: booking.startsAt,
+      cancelledAtIso: cancelledAt,
+      timezone: mockProfile.timezone,
+      lateCancelThresholdHours: mockProfile.lateCancelThresholdHours,
+    });
+    booking.visitStatusSetAt = cancelledAt;
 
     revalidatePath(`/${mockProfile.username}`);
     revalidatePath(`/${mockProfile.username}/book`);
@@ -101,16 +116,45 @@ export async function cancelBookingByTokenAction(
   }
 
   const admin = createSupabaseAdminClient();
-  const { data: updatedBooking, error } = await admin
+  // Рейтинг надёжности (Модуль 1, okno-tz-rating-prepayment.md): фиксируем
+  // visit_status сразу по факту времени отмены, чтобы cancelled_late/
+  // cancelled_ok попадали в client_reliability даже без похода мастера в архив.
+  const visitStatus = suggestCancelVisitStatus({
+    startsAtIso: cancellationData.startsAtIso,
+    cancelledAtIso: cancelledAt,
+    timezone: cancellationData.timezone,
+    lateCancelThresholdHours: cancellationData.lateCancelThresholdHours,
+  });
+  let { data: updatedBooking, error } = await admin
     .from("bookings")
     .update({
       status: "cancelled_by_client",
       cancelled_at: cancelledAt,
+      visit_status: visitStatus,
+      visit_status_set_at: cancelledAt,
     })
     .eq("cancellation_token", parsed.data.cancellationToken)
     .eq("status", "confirmed")
     .select("id")
     .maybeSingle();
+
+  // Колонка visit_status еще может не быть (миграция 202607090001 не
+  // прогнана) — отменяем запись без неё, чтобы клиентская отмена не падала.
+  if (error && isSupabaseMissingColumnError(error, "visit_status")) {
+    const retry = await admin
+      .from("bookings")
+      .update({
+        status: "cancelled_by_client",
+        cancelled_at: cancelledAt,
+      })
+      .eq("cancellation_token", parsed.data.cancellationToken)
+      .eq("status", "confirmed")
+      .select("id")
+      .maybeSingle();
+
+    updatedBooking = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     return { success: false, message: "Не получилось отменить запись." };

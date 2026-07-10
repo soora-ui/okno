@@ -188,6 +188,7 @@ const PUBLIC_PROFILE_BASE_COLUMNS = [
   "cancellation_notice_hours",
   "client_reminder_hours",
   "master_reminder_hours",
+  "late_cancel_threshold_hours",
   "created_at",
   "workspace_id",
   "workspace_name",
@@ -365,7 +366,11 @@ export const getPublicPageData = cache(async function getPublicPageData(
       .filter((service) => service.isActive);
     const bookings = teamRows.bookings
       .map((row) => mapBooking(row))
-      .filter((booking) => booking.status === "confirmed");
+      // pending_payment резервирует слот под предоплату (Модуль 2) — должен
+      // блокировать слот в расписании команды так же, как confirmed.
+      .filter(
+        (booking) => booking.status === "confirmed" || booking.status === "pending_payment",
+      );
     const availabilityRules = asRecords(availabilityResult.data).map((row) =>
       mapAvailabilityRule(row),
     );
@@ -435,7 +440,10 @@ export const getPublicPageData = cache(async function getPublicPageData(
       .from("bookings")
       .select(PUBLIC_BOOKING_COLUMNS)
       .eq("profile_id", publicProfileRow.id)
-      .eq("status", "confirmed")
+      // pending_payment резервирует слот на время оплаты предоплаты (Модуль 2,
+      // okno-tz-rating-prepayment.md) — должен учитываться при построении
+      // свободных слотов так же, как confirmed.
+      .in("status", ["confirmed", "pending_payment"])
       .order("starts_at"),
   ]);
 
@@ -969,6 +977,8 @@ export async function getBookingConfirmationData(
       }),
       cancellationToken: booking.cancellationToken,
       themePresetId: mockProfile.bookingThemePresetId,
+      status: "confirmed" as const,
+      prepaymentRequired: false,
     };
   }
 
@@ -995,16 +1005,39 @@ export async function getBookingConfirmationData(
 
   const { data: bookingRow, error: bookingError } = await admin
     .from("bookings")
-    .select("id, profile_id, client_id, service_id, starts_at, ends_at, cancellation_token")
+    .select(
+      "id, profile_id, client_id, service_id, starts_at, ends_at, cancellation_token, status, prepayment_required",
+    )
     .eq("id", bookingId)
     .eq("profile_id", profileRow.id)
     .maybeSingle();
 
+  let resolvedBookingRow = bookingRow as Record<string, unknown> | null;
+
   if (bookingError) {
-    throw new Error("Не получилось загрузить запись.");
+    // Колонки предоплаты еще может не быть (миграция не прогнана) —
+    // перечитываем без них, чтобы страница подтверждения не падала целиком.
+    if (isSupabaseMissingColumnError(bookingError, "prepayment_required")) {
+      const fallback = await admin
+        .from("bookings")
+        .select(
+          "id, profile_id, client_id, service_id, starts_at, ends_at, cancellation_token, status",
+        )
+        .eq("id", bookingId)
+        .eq("profile_id", profileRow.id)
+        .maybeSingle();
+
+      if (fallback.error) {
+        throw new Error("Не получилось загрузить запись.");
+      }
+
+      resolvedBookingRow = fallback.data as Record<string, unknown> | null;
+    } else {
+      throw new Error("Не получилось загрузить запись.");
+    }
   }
 
-  if (!bookingRow) {
+  if (!resolvedBookingRow) {
     return null;
   }
 
@@ -1016,12 +1049,12 @@ export async function getBookingConfirmationData(
     admin
       .from("clients")
       .select("name")
-      .eq("id", bookingRow.client_id)
+      .eq("id", resolvedBookingRow.client_id)
       .maybeSingle(),
     admin
       .from("services")
       .select("title")
-      .eq("id", bookingRow.service_id)
+      .eq("id", resolvedBookingRow.service_id)
       .maybeSingle(),
     admin
       .from("profiles")
@@ -1039,19 +1072,25 @@ export async function getBookingConfirmationData(
   }
 
   return {
-    bookingId: String(bookingRow.id),
-    profileId: String(bookingRow.profile_id),
+    bookingId: String(resolvedBookingRow.id),
+    profileId: String(resolvedBookingRow.profile_id),
     clientName: String(clientRow.name),
     serviceTitle: String(serviceRow.title),
-    startsAtIso: String(bookingRow.starts_at),
-    endsAtIso: String(bookingRow.ends_at),
+    startsAtIso: String(resolvedBookingRow.starts_at),
+    endsAtIso: String(resolvedBookingRow.ends_at),
     masterName: String(masterRow?.full_name ?? ""),
     startsAtLabel: humanizeBookingDate({
-      startsAtIso: String(bookingRow.starts_at),
+      startsAtIso: String(resolvedBookingRow.starts_at),
       timezone: String(profileRow.timezone ?? "Europe/Simferopol"),
     }),
-    cancellationToken: String(bookingRow.cancellation_token ?? ""),
+    cancellationToken: String(resolvedBookingRow.cancellation_token ?? ""),
     themePresetId: normalizeBookingThemePresetId(profileRow.booking_theme_preset),
+    status: String(resolvedBookingRow.status ?? "confirmed") as
+      | "confirmed"
+      | "pending_payment"
+      | "cancelled_by_client"
+      | "cancelled_by_master",
+    prepaymentRequired: Boolean(resolvedBookingRow.prepayment_required),
   };
 }
 
@@ -1171,6 +1210,7 @@ export async function getBookingCancellationData(cancellationToken: string) {
       serviceDurationMinutes: service.durationMinutes,
       masterName: mockProfile.fullName,
       timezone: mockProfile.timezone,
+      lateCancelThresholdHours: mockProfile.lateCancelThresholdHours,
       startsAtLabel: humanizeBookingDate({
         startsAtIso: booking.startsAt,
         timezone: mockProfile.timezone,
@@ -1247,7 +1287,8 @@ export async function getBookingCancellationData(cancellationToken: string) {
   const status = String(cancellationBookingRow.status) as
     | "confirmed"
     | "cancelled_by_client"
-    | "cancelled_by_master";
+    | "cancelled_by_master"
+    | "pending_payment";
 
   const [availabilityResult, blockedResult, bookingResult] = await Promise.all([
     admin
@@ -1264,7 +1305,9 @@ export async function getBookingCancellationData(cancellationToken: string) {
       .from("bookings")
       .select(PUBLIC_BOOKING_COLUMNS)
       .eq("profile_id", cancellationProfileRow.id)
-      .eq("status", "confirmed")
+      // pending_payment резервирует слот под предоплату (Модуль 2) — должен
+      // блокировать слот при пересчёте свободного времени для переноса.
+      .in("status", ["confirmed", "pending_payment"])
       .neq("id", cancellationBookingRow.id)
       .order("starts_at"),
   ]);
@@ -1287,6 +1330,7 @@ export async function getBookingCancellationData(cancellationToken: string) {
     serviceDurationMinutes: Number(cancellationServiceRow.duration_minutes),
     masterName: String(cancellationProfileRow.full_name),
     timezone,
+    lateCancelThresholdHours: mappedProfile.lateCancelThresholdHours,
     startsAtLabel: humanizeBookingDate({
       startsAtIso: String(cancellationBookingRow.starts_at),
       timezone,

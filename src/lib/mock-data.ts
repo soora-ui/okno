@@ -38,6 +38,7 @@ export type Profile = {
   cancellationNoticeHours: number;
   clientReminderHours: number;
   masterReminderHours: number;
+  lateCancelThresholdHours: number;
   joinedAt: string;
   workspaceId: string;
   workspaceName: string;
@@ -48,6 +49,8 @@ export type Profile = {
   referralCode: string | null;
   referredBy: string | null;
 };
+
+export type PrepaymentType = "none" | "fixed" | "percent";
 
 export type Service = {
   id: string;
@@ -61,6 +64,8 @@ export type Service = {
   // Через сколько недель стоит напомнить клиенту про повторный визит. Мастер
   // настраивает это per-услуге; null — не предлагать напоминание.
   repeatIntervalWeeks: number | null;
+  prepaymentType: PrepaymentType;
+  prepaymentValue: number;
 };
 
 export type ServiceManual = {
@@ -78,7 +83,15 @@ export type ServiceManual = {
 export type BookingStatus =
   | "confirmed"
   | "cancelled_by_client"
-  | "cancelled_by_master";
+  | "cancelled_by_master"
+  | "pending_payment";
+
+export type VisitStatus =
+  | "pending"
+  | "completed"
+  | "no_show"
+  | "cancelled_late"
+  | "cancelled_ok";
 
 export type Client = {
   id: string;
@@ -104,6 +117,9 @@ export type Booking = {
   cancellationTokenExpiresAt: string;
   createdAt: string;
   cancelledAt: string | null;
+  visitStatus: VisitStatus;
+  visitStatusSetAt: string | null;
+  prepaymentRequired: boolean;
 };
 
 export type AvailabilityRule = {
@@ -191,6 +207,7 @@ export const profile: Profile = {
   cancellationNoticeHours: 2,
   clientReminderHours: 24,
   masterReminderHours: 2,
+  lateCancelThresholdHours: 24,
   joinedAt: "2026-03-01T10:00:00.000Z",
   workspaceId: "workspace-1",
   workspaceName: "Алина Мороз",
@@ -213,6 +230,8 @@ export const services: Service[] = [
     isActive: true,
     sortOrder: 1,
     repeatIntervalWeeks: 3,
+    prepaymentType: "none",
+    prepaymentValue: 0,
   },
   {
     id: "svc-2",
@@ -224,6 +243,8 @@ export const services: Service[] = [
     isActive: true,
     sortOrder: 2,
     repeatIntervalWeeks: 4,
+    prepaymentType: "none",
+    prepaymentValue: 0,
   },
 ];
 
@@ -263,6 +284,9 @@ export const bookings: Booking[] = [
     cancellationTokenExpiresAt: "2026-04-03T06:30:00.000Z",
     createdAt: "2026-04-02T14:10:00.000Z",
     cancelledAt: null,
+    visitStatus: "pending",
+    visitStatusSetAt: null,
+    prepaymentRequired: false,
   },
   {
     id: "booking-2",
@@ -278,6 +302,9 @@ export const bookings: Booking[] = [
     cancellationTokenExpiresAt: "2026-04-03T10:00:00.000Z",
     createdAt: "2026-04-02T15:15:00.000Z",
     cancelledAt: null,
+    visitStatus: "pending",
+    visitStatusSetAt: null,
+    prepaymentRequired: false,
   },
 ];
 

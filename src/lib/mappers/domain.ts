@@ -46,6 +46,7 @@ export function mapProfile(row: Record<string, unknown>): Profile {
     cancellationNoticeHours: Number(row.cancellation_notice_hours ?? 2),
     clientReminderHours: Number(row.client_reminder_hours ?? 24),
     masterReminderHours: Number(row.master_reminder_hours ?? 2),
+    lateCancelThresholdHours: Number(row.late_cancel_threshold_hours ?? 24),
     joinedAt: String(row.created_at),
     workspaceId: String(row.workspace_id ?? row.id),
     workspaceName: String(row.workspace_name ?? row.full_name ?? "okno"),
@@ -84,6 +85,11 @@ export function mergeProfileMedia(
 }
 
 export function mapService(row: Record<string, unknown>) {
+  const prepaymentType =
+    row.prepayment_type === "fixed" || row.prepayment_type === "percent"
+      ? row.prepayment_type
+      : "none";
+
   return {
     id: String(row.id),
     profileId: String(row.profile_id),
@@ -97,6 +103,8 @@ export function mapService(row: Record<string, unknown>) {
       row.repeat_interval_weeks === null || row.repeat_interval_weeks === undefined
         ? null
         : Number(row.repeat_interval_weeks),
+    prepaymentType: prepaymentType as "none" | "fixed" | "percent",
+    prepaymentValue: Number(row.prepayment_value ?? 0),
   };
 }
 
@@ -134,10 +142,21 @@ export function mapClient(row: Record<string, unknown>) {
   };
 }
 
+const VISIT_STATUSES = [
+  "pending",
+  "completed",
+  "no_show",
+  "cancelled_late",
+  "cancelled_ok",
+] as const;
+
 export function mapBooking(row: Record<string, unknown>) {
   const source = (row.source === "manual" ? "manual" : "public_page") as
     | "manual"
     | "public_page";
+  const visitStatus = VISIT_STATUSES.includes(row.visit_status as (typeof VISIT_STATUSES)[number])
+    ? (row.visit_status as (typeof VISIT_STATUSES)[number])
+    : "pending";
 
   return {
     id: String(row.id),
@@ -147,7 +166,8 @@ export function mapBooking(row: Record<string, unknown>) {
     status: String(row.status) as
       | "confirmed"
       | "cancelled_by_client"
-      | "cancelled_by_master",
+      | "cancelled_by_master"
+      | "pending_payment",
     startsAt: String(row.starts_at),
     endsAt: String(row.ends_at),
     source,
@@ -156,6 +176,9 @@ export function mapBooking(row: Record<string, unknown>) {
     cancellationTokenExpiresAt: String(row.cancellation_token_expires_at ?? ""),
     createdAt: String(row.created_at),
     cancelledAt: row.cancelled_at ? String(row.cancelled_at) : null,
+    visitStatus,
+    visitStatusSetAt: row.visit_status_set_at ? String(row.visit_status_set_at) : null,
+    prepaymentRequired: Boolean(row.prepayment_required),
   };
 }
 

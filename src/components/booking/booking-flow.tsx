@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { BookingSlot, Service } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/mock-data";
+import { computePrepaymentAmount } from "@/lib/prepayment";
 
 type BookingFlowProps = {
   username: string;
@@ -276,6 +277,20 @@ export function BookingFlow({
     () => services.find((service) => service.id === serviceId),
     [serviceId, services],
   );
+  // Предоплата (Модуль 2, okno-tz-rating-prepayment.md): показываем сумму и
+  // явное предупреждение о невозвратности при неявке ДО того, как клиент
+  // нажмёт кнопку и уйдёт на оплату ЮKassa (ТЗ 2.7, второй пункт).
+  const prepaymentAmount = useMemo(() => {
+    if (!selectedService || selectedService.prepaymentType === "none") {
+      return 0;
+    }
+
+    return computePrepaymentAmount({
+      prepaymentType: selectedService.prepaymentType,
+      prepaymentValue: selectedService.prepaymentValue,
+      servicePrice: selectedService.price,
+    });
+  }, [selectedService]);
   const bookingSlots = useMemo(
     () => bookingSlotsByService[serviceId] ?? [],
     [bookingSlotsByService, serviceId],
@@ -385,7 +400,16 @@ export function BookingFlow({
       }
 
       const redirectUrl = String(payload.redirectUrl || `/${username}/confirm`);
-      if (redirectUrl.startsWith("http")) {
+      // Предоплата уводит клиента на домен ЮKassa — это внешний адрес, и
+      // router.push (клиентский переход) его не откроет. Полная навигация
+      // нужна и для внешних, и для собственных абсолютных ссылок.
+      const isExternalRedirect =
+        redirectUrl.startsWith("http") &&
+        !redirectUrl.startsWith(window.location.origin);
+
+      if (isExternalRedirect) {
+        window.location.href = redirectUrl;
+      } else if (redirectUrl.startsWith("http")) {
         const url = new URL(redirectUrl);
         router.push(`${url.pathname}${url.search}`);
       } else {
@@ -845,6 +869,13 @@ export function BookingFlow({
               <p className="mt-3 text-xs leading-6 text-muted">
                 Это демонстрационная запись. На финальном шаге откроется demo-подтверждение без сохранения в базу.
               </p>
+            ) : null}
+            {prepaymentAmount > 0 ? (
+              <div className="mt-3 rounded-[16px] bg-warning-soft px-3 py-2 text-xs leading-6 text-warning">
+                Для подтверждения записи нужна предоплата {formatCurrency(prepaymentAmount)} —
+                после отправки формы откроется страница оплаты ЮKassa. Предоплата не
+                возвращается при неявке на визит.
+              </div>
             ) : null}
           </div>
         ) : null}

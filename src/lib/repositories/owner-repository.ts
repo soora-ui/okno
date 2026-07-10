@@ -32,6 +32,7 @@ const PROFILE_COLUMNS = [
   "cancellation_notice_hours",
   "client_reminder_hours",
   "master_reminder_hours",
+  "late_cancel_threshold_hours",
   "created_at",
   "workspace_id",
   "workspace_name",
@@ -58,6 +59,8 @@ const SERVICE_COLUMNS = [
   "is_active",
   "sort_order",
   "repeat_interval_weeks",
+  "prepayment_type",
+  "prepayment_value",
 ].join(",");
 
 const SERVICE_MANUAL_COLUMNS = [
@@ -86,6 +89,9 @@ const BOOKING_COLUMNS = [
   "cancellation_token_expires_at",
   "created_at",
   "cancelled_at",
+  "visit_status",
+  "visit_status_set_at",
+  "prepayment_required",
 ].join(",");
 
 const CLIENT_COLUMNS = [

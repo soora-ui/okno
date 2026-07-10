@@ -8,6 +8,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { buildReliabilityBadge, computeReliabilityAggregate } from "@/lib/client-reliability";
 import { getClientsData } from "@/lib/data";
 import type { Booking, Client, Service } from "@/lib/mock-data";
 
@@ -154,6 +155,13 @@ function buildClientDirectoryItems(input: {
       .join(" ")
       .toLowerCase();
 
+    // Рейтинг надёжности (Модуль 1, okno-tz-rating-prepayment.md) — считается
+    // приватно, только по bookings этого мастера, из visit_status визитов
+    // этого клиента.
+    const reliability = buildReliabilityBadge(
+      computeReliabilityAggregate(clientBookings.map((booking) => booking.visitStatus)),
+    );
+
     return {
       id: client.id,
       name: client.name,
@@ -170,6 +178,7 @@ function buildClientDirectoryItems(input: {
       preferredServices,
       history,
       searchText,
+      reliability,
     } satisfies ClientDirectoryItem;
   });
 

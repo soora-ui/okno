@@ -167,7 +167,7 @@ export function isCancellationAllowed(input: {
   startsAtIso: string;
   cancellationTokenExpiresAt: string | null;
   timezone: string;
-  status: "confirmed" | "cancelled_by_client" | "cancelled_by_master";
+  status: "confirmed" | "cancelled_by_client" | "cancelled_by_master" | "pending_payment";
 }) {
   if (input.status !== "confirmed") {
     return false;

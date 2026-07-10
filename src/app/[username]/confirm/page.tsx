@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { AddToCalendar } from "@/components/booking/add-to-calendar";
 import { SiteShell } from "@/components/layout/site-shell";
 import { TipForm } from "@/components/booking/tip-form";
@@ -39,6 +39,25 @@ export default async function ConfirmPage({
     requestHeaders.get("user-agent"),
   );
 
+  // Предоплата (Модуль 2, okno-tz-rating-prepayment.md): клиент возвращается
+  // сюда сразу после ЮKassa, вебхук мог еще не долететь. Показываем статус
+  // по факту записи, а не всегда "подтверждена".
+  const isPendingPayment = booking.status === "pending_payment";
+  const isCancelled =
+    booking.status === "cancelled_by_client" || booking.status === "cancelled_by_master";
+
+  const heading = isPendingPayment
+    ? "Ждём подтверждения оплаты"
+    : isCancelled
+      ? "Запись отменена"
+      : "Запись подтверждена";
+
+  const description = isPendingPayment
+    ? `${booking.clientName}, мы получили запрос на оплату предоплаты. Как только ЮKassa подтвердит платёж, запись станет подтверждённой — обнови страницу через минуту.`
+    : isCancelled
+      ? `${booking.clientName}, эта запись больше не активна. Если это неожиданно — свяжись с мастером.`
+      : `${booking.clientName}, запись принята. Сохрани это время, чтобы не потерять его.`;
+
   return (
     <SiteShell compact hideGuestMenu resolveAuth={false}>
       <div
@@ -53,25 +72,38 @@ export default async function ConfirmPage({
           }}
         >
           <Card className="space-y-6 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success-soft">
-              <CheckCircle2 size={28} className="text-success" />
+            <div
+              className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full ${
+                isCancelled ? "bg-danger-soft" : isPendingPayment ? "bg-warning-soft" : "bg-success-soft"
+              }`}
+            >
+              {isCancelled ? (
+                <XCircle size={28} className="text-danger" />
+              ) : isPendingPayment ? (
+                <Clock size={28} className="text-warning" />
+              ) : (
+                <CheckCircle2 size={28} className="text-success" />
+              )}
             </div>
             <div className="space-y-3">
-              <h1 className="text-4xl font-semibold text-ink">Запись подтверждена</h1>
-              <p className="text-sm leading-7 text-ink-soft">
-                {booking.clientName}, запись принята. Сохрани это время, чтобы не потерять его.
-              </p>
+              <h1 className="text-4xl font-semibold text-ink">{heading}</h1>
+              <p className="text-sm leading-7 text-ink-soft">{description}</p>
             </div>
             <div className="rounded-[28px] bg-panel p-5 text-left">
               <p className="font-medium text-ink">{booking.serviceTitle}</p>
               <p className="mt-2 text-sm text-ink-soft">{booking.startsAtLabel}</p>
+              {isPendingPayment ? (
+                <p className="mt-3 text-xs uppercase tracking-[0.16em] text-warning">
+                  Слот придержан на 15 минут под оплату
+                </p>
+              ) : null}
             </div>
             {booking.bookingId ? (
               <AddToCalendar bookingId={booking.bookingId} platform={calendarPlatform} />
             ) : null}
             <TipForm bookingId={booking.bookingId} />
             <div className="flex flex-wrap justify-center gap-3">
-              {cancelToken ? (
+              {cancelToken && !isCancelled ? (
                 <ButtonLink href={`/cancel/${cancelToken}`} variant="secondary">
                   Перенести или отменить
                 </ButtonLink>
