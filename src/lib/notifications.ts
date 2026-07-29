@@ -35,25 +35,6 @@ export async function sendPhoneVerificationSms(input: {
   return { ok: result.ok, skipped: false as const };
 }
 
-export async function sendGiftCertificateCodeSms(input: {
-  phone: string;
-  masterName: string;
-  amount: number;
-  code: string;
-  expiresAtLabel: string;
-}) {
-  if (!isSmsConfigured) {
-    return { ok: false as const, skipped: true as const };
-  }
-
-  const result = await sendSms({
-    phone: input.phone,
-    message: `okno: сертификат на ${input.amount} руб. к ${input.masterName}. Код: ${input.code}. Действует до ${input.expiresAtLabel}.`,
-  });
-
-  return { ok: result.ok, skipped: false as const };
-}
-
 export async function sendMasterTelegramNotification(input: {
   chatId: string | null;
   clientName: string;
@@ -137,6 +118,34 @@ export async function sendMasterReminderTelegram(input: {
         body: JSON.stringify({
           chat_id: input.chatId,
           text: `Напоминание: скоро визит. ${input.clientName}, ${input.serviceTitle}, ${input.startsAtLabel}.`,
+        }),
+      },
+    );
+
+    return { ok: response.ok, skipped: false as const };
+  } catch {
+    return { ok: false as const, skipped: false as const };
+  }
+}
+
+// Мастер отозвал доступ ЮKassa напрямую в личном кабинете ЮKassa, а не через
+// кнопку «Отключить» в okno (okno-tz-yookassa-oauth.md, edge case). Платёж по
+// его токену начал падать с 401/403 — просим переподключиться, иначе клиенты
+// не смогут вносить предоплату.
+export async function notifyMasterYooKassaRevoked(input: { chatId: string | null }) {
+  if (!isTelegramConfigured || !input.chatId) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.telegram.org/bot${env.telegramBotToken}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: input.chatId,
+          text: "ЮKassa отключена: доступ к твоему магазину отозван. Клиенты не могут внести предоплату — переподключи ЮKassa в настройках okno.",
         }),
       },
     );

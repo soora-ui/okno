@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { pluralizeRu } from "@/lib/utils";
 import { getDashboardData } from "@/lib/data";
 
 export default async function ArchivePage() {
@@ -56,7 +57,12 @@ export default async function ArchivePage() {
             </div>
             <p className="text-sm text-muted">
               {archivedBookings.length > 0
-                ? `${archivedBookings.length} завершенных визитов`
+                ? pluralizeRu(
+                    archivedBookings.length,
+                    "завершённый визит",
+                    "завершённых визита",
+                    "завершённых визитов",
+                  )
                 : "Пока без прошедших записей"}
             </p>
           </div>

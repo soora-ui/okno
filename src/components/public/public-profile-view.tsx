@@ -392,7 +392,7 @@ export function PublicProfileView({
               </div>
             </section>
           ) : null
-        ) : (
+        ) : hasPortfolioWorks ? (
           <section
             id="works"
             data-demo-id="works"
@@ -446,17 +446,9 @@ export function PublicProfileView({
                   ))}
                 </div>
               </>
-            ) : (
-              <div
-                className="rounded-[28px] border border-dashed border-line p-6 text-sm leading-7 text-muted"
-                style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
-              >
-                Здесь появятся примеры работ. Мастер добавит их из кабинета, чтобы
-                показать стиль и уровень.
-              </div>
-            )}
+            ) : null}
           </section>
-        )}
+        ) : null}
 
         {guidedDemo ? <DemoStoryChapter step={publicDemoStorySteps[3]} /> : null}
 
@@ -486,7 +478,7 @@ export function PublicProfileView({
             {services.map((service, index) => (
               <Reveal key={service.id} variant="fade-up" delay={(index % 2) * 0.1}>
                 <article
-                  className="card-hover group relative overflow-hidden rounded-[32px] border border-line p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
+                  className="card-hover group relative flex h-full flex-col overflow-hidden rounded-[32px] border border-line p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
                   style={{
                     backgroundColor:
                       index % 2 === 0
@@ -547,7 +539,7 @@ export function PublicProfileView({
             className="relative mt-16 rounded-[40px] grid gap-6 lg:grid-cols-[1.05fr_0.95fr]"
           >
           <Reveal variant="fade-up">
-            <div className="rounded-[36px] border border-transparent bg-[linear-gradient(145deg,#23241f_0%,#343730_100%)] p-6 text-white shadow-[0_30px_90px_rgba(35,36,31,0.18)] sm:p-8">
+            <div className="h-full rounded-[36px] border border-transparent bg-[linear-gradient(145deg,#23241f_0%,#343730_100%)] p-6 text-white shadow-[0_30px_90px_rgba(35,36,31,0.18)] sm:p-8">
               <p className="text-sm uppercase tracking-[0.24em] text-white/60">
                 Как всё устроено
               </p>
@@ -581,7 +573,7 @@ export function PublicProfileView({
           </Reveal>
 
           <Reveal variant="fade-up" delay={0.2}>
-            <div className="space-y-6 rounded-[36px] border border-line bg-glass p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8">
+            <div className="h-full space-y-6 rounded-[36px] border border-line bg-glass p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8">
               <div className="space-y-3">
                 <p className="text-sm uppercase tracking-[0.24em] text-muted">
                   Что важно знать

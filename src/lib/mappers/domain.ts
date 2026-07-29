@@ -13,6 +13,21 @@ import {
   normalizeAccountStatus,
   normalizeWorkspaceKind,
 } from "@/lib/workspace";
+import { isPlanId } from "@/config/plans";
+import type { SubscriptionTier } from "@/lib/mock-data";
+
+// Раньше всё, кроме "pro", схлопывалось в "free" — с тарифной сеткой это
+// стирало бы solo-plus и studio. Пропускаем известные идентификаторы тарифов,
+// legacy-значение "pro" и всё остальное считаем отсутствием оплаченного тарифа.
+function normalizeSubscriptionTier(value: unknown): SubscriptionTier {
+  const tier = String(value ?? "");
+
+  if (isPlanId(tier)) {
+    return tier;
+  }
+
+  return tier === "pro" ? "pro" : "free";
+}
 
 export function mapProfile(row: Record<string, unknown>): Profile {
   const media = mapProfileMedia(row);
@@ -34,7 +49,7 @@ export function mapProfile(row: Record<string, unknown>): Profile {
     portfolioWorks: media.portfolioWorks,
     bookingThemePresetId: normalizeBookingThemePresetId(row.booking_theme_preset),
     bookingPageSettings: normalizeBookingPageSettings(row.booking_page_settings),
-    subscriptionTier: row.subscription_tier === "pro" ? "pro" : "free",
+    subscriptionTier: normalizeSubscriptionTier(row.subscription_tier),
     subscriptionUntil: row.subscription_until
       ? String(row.subscription_until)
       : null,
@@ -211,6 +226,7 @@ export function mapGiftCertificate(row: Record<string, unknown>) {
     profileId: String(row.profile_id),
     code: String(row.code),
     amount: Number(row.amount),
+    remainingAmount: Number(row.remaining_amount ?? row.amount),
     serviceId: row.service_id ? String(row.service_id) : null,
     status: (["pending", "paid", "active", "redeemed", "expired", "canceled"].includes(status)
       ? status
@@ -239,8 +255,7 @@ export type MappedNotificationEvent = {
     | "sms_reminder_client"
     | "telegram_reminder_master"
     | "telegram_new_booking"
-    | "sms_repeat_visit_reminder"
-    | "sms_certificate_code";
+    | "sms_repeat_visit_reminder";
   status: "sent" | "failed" | "processing" | "cancelled" | "queued";
   target: string;
   createdAt: string;
@@ -259,9 +274,7 @@ export function mapNotificationEvent(row: Record<string, unknown>): MappedNotifi
             ? "telegram_reminder_master"
             : row.type === "sms_repeat_visit_reminder"
               ? "sms_repeat_visit_reminder"
-              : row.type === "sms_certificate_code"
-                ? "sms_certificate_code"
-                : "telegram_new_booking",
+              : "telegram_new_booking",
     status:
       row.status === "sent"
         ? "sent"

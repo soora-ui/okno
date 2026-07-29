@@ -19,6 +19,8 @@ import {
   subheadlineMaxLength,
 } from "@/lib/booking-page-settings";
 import { getCurrentAuthProfile } from "@/lib/data";
+import { getMasterYooKassaAccount } from "@/lib/payments/yookassa-oauth";
+import { hasCapability } from "@/lib/subscription";
 import { validatePrepaymentSetting } from "@/lib/prepayment";
 import {
   buildPortfolioWorksFromPaths,
@@ -557,23 +559,28 @@ export async function updateGiftCertificateSettingsAction(
     .filter(Boolean) ?? [];
 
   const parsed = giftCertificateSettingsFormSchema.safeParse({
-    giftCertificatesEnabled: formData.get("giftCertificatesEnabled") ?? "off",
     denominations: denominationsRaw,
+    noExpiry: formData.get("noExpiry") ?? "off",
+    expiryDate: formData.get("expiryDate") ?? "",
   });
 
   if (!parsed.success) {
+    const expiryIssue = parsed.error.issues.find((issue) => issue.path.includes("expiryDate"));
     return {
       success: false,
-      message: `Проверь номиналы: от 1 до ${maxGiftCertificateDenominations} значений, каждое в разумных пределах.`,
+      message:
+        expiryIssue?.message ??
+        `Проверь номиналы: от 1 до ${maxGiftCertificateDenominations} значений, каждое в разумных пределах.`,
     };
   }
 
   const nextSettings = {
     ...profile.bookingPageSettings,
-    giftCertificatesEnabled: parsed.data.giftCertificatesEnabled,
     giftCertificateDenominations: Array.from(new Set(parsed.data.denominations)).sort(
       (a, b) => a - b,
     ),
+    giftCertificateNoExpiry: parsed.data.noExpiry,
+    giftCertificateExpiryDate: parsed.data.noExpiry ? null : parsed.data.expiryDate || null,
   };
 
   const supabase = await createSupabaseServerClient();
@@ -607,7 +614,6 @@ export async function updateGiftCertificateSettingsAction(
     targetType: "profile",
     targetId: profile.id,
     metadata: {
-      enabled: parsed.data.giftCertificatesEnabled,
       denominations: nextSettings.giftCertificateDenominations,
     },
   });
@@ -615,6 +621,85 @@ export async function updateGiftCertificateSettingsAction(
   return {
     success: true,
     message: "Настройки сертификатов сохранены.",
+  };
+}
+
+// Включение/выключение продажи сертификатов — отдельное действие от
+// updateGiftCertificateSettingsAction (okno-tz-certificates-ui-flow.md,
+// hard-gate). Мастер физически не может включить продажу без
+// сгенерированного дизайна: фронтовый disabled-тумблер — это UX-подсказка,
+// а настоящая защита — эта серверная проверка (иначе гейт обходится прямым
+// запросом к экшену).
+export async function updateCertificateSalesEnabledAction(input: { enabled: boolean }) {
+  if (!isSupabaseConfigured) {
+    return {
+      success: false,
+      message: "Для настройки продажи сертификатов нужно подключение к Supabase.",
+    };
+  }
+
+  const profile = await requireProfile();
+  if (!profile) {
+    return { success: false, message: "Сессия истекла. Войди заново." };
+  }
+
+  if (input.enabled) {
+    const admin = createSupabaseAdminClient();
+    const { data: templateRow, error: templateError } = await admin
+      .from("certificate_templates")
+      .select("id")
+      .eq("profile_id", profile.id)
+      .maybeSingle();
+
+    if (templateError) {
+      logError("Failed to check certificate template before enabling sales", {
+        profileId: profile.id,
+        error: templateError,
+      });
+      return { success: false, message: "Не получилось проверить дизайн сертификата." };
+    }
+
+    if (!templateRow) {
+      return {
+        success: false,
+        message: "Нужен дизайн сертификата, чтобы включить продажу.",
+      };
+    }
+  }
+
+  const nextSettings = {
+    ...profile.bookingPageSettings,
+    giftCertificatesEnabled: input.enabled,
+  };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ booking_page_settings: nextSettings })
+    .eq("id", profile.id);
+
+  if (error) {
+    logError("Failed to update certificate sales enabled flag", { profileId: profile.id, error });
+    return {
+      success: false,
+      message: `Не получилось сохранить настройку.${error.message ? ` ${error.message}` : ""}`,
+    };
+  }
+
+  revalidateProfilePaths(profile.username);
+  revalidatePath(`/${profile.username}/book`);
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "gift_certificate_sales.updated",
+    targetType: "profile",
+    targetId: profile.id,
+    metadata: { enabled: input.enabled },
+  });
+
+  return {
+    success: true,
+    message: input.enabled ? "Продажа сертификатов включена." : "Продажа сертификатов выключена.",
   };
 }
 
@@ -761,6 +846,27 @@ export async function createServiceAction(
   }
 
   const supabase = await createSupabaseServerClient();
+
+  if (parsed.data.prepaymentType !== "none") {
+    // Гейт тарифа проверяем до магазина: предоплата входит в «Соло.
+    // Расширенный» и «Студия», а форму можно отправить и в обход интерфейса.
+    if (!hasCapability(profile, "prepayment")) {
+      return {
+        success: false,
+        message:
+          "Предоплата входит в тарифы «Соло. Расширенный» и «Студия и барбершоп». Подключить можно во вкладке «Аккаунт».",
+      };
+    }
+
+    const yookassaAccount = await getMasterYooKassaAccount(supabase, profile.id);
+    if (!yookassaAccount || yookassaAccount.status !== "enabled") {
+      return {
+        success: false,
+        message: "Сначала подключи ЮKassa во вкладке «Запись», потом можно включить предоплату.",
+      };
+    }
+  }
+
   const { error } = await supabase.from("services").insert({
     profile_id: profile.id,
     title: parsed.data.title,
@@ -846,6 +952,27 @@ export async function updateServiceAction(
         : formData.get("isActive") === "on";
 
   const supabase = await createSupabaseServerClient();
+
+  if (parsed.data.prepaymentType !== "none") {
+    // Гейт тарифа проверяем до магазина: предоплата входит в «Соло.
+    // Расширенный» и «Студия», а форму можно отправить и в обход интерфейса.
+    if (!hasCapability(profile, "prepayment")) {
+      return {
+        success: false,
+        message:
+          "Предоплата входит в тарифы «Соло. Расширенный» и «Студия и барбершоп». Подключить можно во вкладке «Аккаунт».",
+      };
+    }
+
+    const yookassaAccount = await getMasterYooKassaAccount(supabase, profile.id);
+    if (!yookassaAccount || yookassaAccount.status !== "enabled") {
+      return {
+        success: false,
+        message: "Сначала подключи ЮKassa во вкладке «Запись», потом можно включить предоплату.",
+      };
+    }
+  }
+
   const { error } = await supabase
     .from("services")
     .update({

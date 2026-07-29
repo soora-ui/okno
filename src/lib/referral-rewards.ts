@@ -4,6 +4,7 @@ import { referralBonusDays } from "@/lib/referral";
 import { logError } from "@/lib/observability/logger";
 import { writeAuditLog } from "@/lib/observability/audit";
 import { isSupabaseMissingTableError } from "@/lib/supabase/auth-errors";
+import { isPlanId } from "@/config/plans";
 
 // Серверная часть реферальной программы (использует Supabase admin-клиент и
 // server-only логирование) — держим отдельно от src/lib/referral.ts, чтобы
@@ -67,10 +68,20 @@ export async function applyReferralRewardForFirstPayment(
       currentUntil && currentUntil > DateTime.now() ? currentUntil : DateTime.now();
     const newUntil = base.plus({ days: referralBonusDays }).toUTC().toISO();
 
+    // Тариф пригласившего не трогаем, если он уже оплачен: раньше здесь стояло
+    // subscription_tier: "pro", и бонус понижал мастера со «Студии» до старого
+    // единственного тарифа — то есть отбирал оплаченный доступ. Бонус только
+    // добавляет дни. Тем, у кого оплаченного тарифа нет, начисляем базовый.
+    const referrerPlanId = isPlanId(referrerProfile.subscription_tier)
+      ? referrerProfile.subscription_tier
+      : referrerProfile.subscription_tier === "pro"
+        ? "solo-plus"
+        : "solo-basic";
+
     const { error: updateError } = await supabase
       .from("profiles")
       .update({
-        subscription_tier: "pro",
+        subscription_tier: referrerPlanId,
         subscription_until: newUntil,
       })
       .eq("id", rewardRow.referrer_profile_id);

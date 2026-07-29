@@ -37,6 +37,10 @@ function getAllowedDevOrigins() {
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: getAllowedDevOrigins(),
+  // @resvg/resvg-js грузит нативный .node-биндинг через рантайм-require по
+  // платформе — Turbopack не умеет разместить это как ES-модуль-чанк
+  // (см. рендер сертификатов, src/lib/certificates/render.ts).
+  serverExternalPackages: ["@resvg/resvg-js"],
   experimental: {
     staleTimes: {
       dynamic: 30,

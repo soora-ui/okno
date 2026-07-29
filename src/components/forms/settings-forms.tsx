@@ -18,9 +18,17 @@ import { saveServiceManualAction } from "@/app/actions/service-manuals";
 import { startProSubscriptionAction } from "@/app/actions/subscription";
 import {
   formatSubscriptionUntil,
-  hasActivePro,
-  proPlan,
+  planPeriodDays,
+  resolveSubscription,
 } from "@/lib/subscription";
+import {
+  type PlanId,
+  calculatePlanPriceRub,
+  extraSeatPriceRub,
+  formatPlanPrice,
+  getPlan,
+  pricingPlans,
+} from "@/config/plans";
 import {
   commentFieldModeLabels,
   commentFieldModes,
@@ -266,24 +274,14 @@ export function GiftCertificateSettingsForm({ profile }: { profile: Profile }) {
     initialState,
   );
   const settings = profile.bookingPageSettings;
-  const [enabled, setEnabled] = useState(settings.giftCertificatesEnabled);
   const [denominationsText, setDenominationsText] = useState(
     settings.giftCertificateDenominations.join(", "),
   );
+  const [noExpiry, setNoExpiry] = useState(settings.giftCertificateNoExpiry);
+  const [expiryDate, setExpiryDate] = useState(settings.giftCertificateExpiryDate ?? "");
 
   return (
     <form action={action} className="space-y-4">
-      <label className="flex items-center gap-3 text-sm font-medium text-ink">
-        <input
-          type="checkbox"
-          name="giftCertificatesEnabled"
-          value="on"
-          defaultChecked={enabled}
-          onChange={(event) => setEnabled(event.target.checked)}
-          className="h-5 w-5 rounded border-line"
-        />
-        Продавать подарочные сертификаты на публичной странице
-      </label>
       <Input
         label="Номиналы, руб."
         name="denominations"
@@ -292,6 +290,37 @@ export function GiftCertificateSettingsForm({ profile }: { profile: Profile }) {
         placeholder={`Например: ${defaultGiftCertificateDenominations.join(", ")}`}
         hint={`Через запятую, от ${giftCertificateMinAmount} до ${giftCertificateMaxAmount} руб., максимум ${maxGiftCertificateDenominations} значений.`}
       />
+      <div className="space-y-2">
+        <label className="flex items-center gap-3 text-sm font-medium text-ink">
+          <input
+            type="checkbox"
+            name="noExpiry"
+            value="on"
+            checked={noExpiry}
+            onChange={(event) => {
+              setNoExpiry(event.target.checked);
+              if (event.target.checked) {
+                setExpiryDate("");
+              }
+            }}
+            className="h-5 w-5 rounded border-line"
+          />
+          Без срока действия
+        </label>
+        <Input
+          label="Или срок действия до"
+          name="expiryDate"
+          type="date"
+          value={expiryDate}
+          onChange={(event) => {
+            setExpiryDate(event.target.value);
+            if (event.target.value) {
+              setNoExpiry(false);
+            }
+          }}
+          hint="Применяется к сертификатам, выпущенным после сохранения настроек — уже проданные сохраняют прежний срок."
+        />
+      </div>
       <FormMessage message={state.message} success={state.success} />
       <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
     </form>
@@ -401,10 +430,36 @@ export function AvailabilitySettingsForm({
   );
 }
 
-export function SubscriptionSettingsForm({ profile }: { profile: Profile }) {
+export function SubscriptionSettingsForm({
+  profile,
+  activeSeats = 0,
+}: {
+  profile: Profile;
+  activeSeats?: number;
+}) {
   const [state, action] = useActionState(startProSubscriptionAction, initialState);
-  const isPro = hasActivePro(profile);
-  const untilLabel = formatSubscriptionUntil(profile.subscriptionUntil);
+  const access = resolveSubscription(profile);
+  const currentPlan = access.planId ? getPlan(access.planId) : null;
+  const untilLabel = formatSubscriptionUntil(access.activeUntil);
+  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(
+    access.planId ?? "solo-basic",
+  );
+
+  const statusTitle = currentPlan
+    ? `Тариф «${currentPlan.title}»`
+    : access.isTrial
+      ? "Пробный период"
+      : "Тариф не подключён";
+
+  const statusHint = currentPlan
+    ? untilLabel
+      ? `Активен до ${untilLabel}`
+      : "Активен бессрочно"
+    : access.isTrial
+      ? untilLabel
+        ? `Бесплатный доступ до ${untilLabel}, дальше нужен тариф`
+        : "Бесплатный доступ к полному сервису"
+      : "Публичная запись у клиентов не работает, пока тариф не оплачен";
 
   return (
     <div className="space-y-4">
@@ -412,36 +467,72 @@ export function SubscriptionSettingsForm({ profile }: { profile: Profile }) {
         <div className="flex items-center gap-3">
           <Sparkles size={18} className="text-accent-deep" />
           <div>
-            <p className="text-sm font-semibold text-ink">
-              {isPro ? `Тариф ${proPlan.title}` : "Бесплатный тариф"}
-            </p>
-            <p className="mt-1 text-xs text-ink-soft">
-              {isPro
-                ? untilLabel
-                  ? `Активен до ${untilLabel}`
-                  : "Активен"
-                : "AI-консультация и другие PRO-функции недоступны"}
-            </p>
+            <p className="text-sm font-semibold text-ink">{statusTitle}</p>
+            <p className="mt-1 text-xs text-ink-soft">{statusHint}</p>
           </div>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs ${
-            isPro ? "bg-success-soft text-success" : "bg-surface text-muted"
+            access.isActive ? "bg-success-soft text-success" : "bg-surface text-muted"
           }`}
         >
-          {isPro ? "PRO" : "Free"}
+          {currentPlan ? currentPlan.title : access.isTrial ? "Пробный" : "Нет доступа"}
         </span>
       </div>
 
-      <p className="text-sm leading-6 text-ink-soft">
-        {proPlan.title} открывает AI-консультацию по услугам и снимает лимит записей.
-        Оплата разовая, доступ на {proPlan.periodDays} дней — {proPlan.priceRub} ₽.
-      </p>
+      <form action={action} className="space-y-3">
+        <div className="space-y-2">
+          {pricingPlans.map((plan) => {
+            const total = calculatePlanPriceRub(plan.id, activeSeats);
+            const paidSeats = Math.max(0, activeSeats - plan.includedSeats);
 
-      <form action={action}>
+            return (
+              <label
+                key={plan.id}
+                className={`flex cursor-pointer items-start gap-3 rounded-[18px] border p-4 transition ${
+                  selectedPlanId === plan.id
+                    ? "border-accent-deep bg-panel"
+                    : "border-line"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="planId"
+                  value={plan.id}
+                  checked={selectedPlanId === plan.id}
+                  onChange={() => setSelectedPlanId(plan.id)}
+                  className="mt-1"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-sm font-semibold text-ink">{plan.title}</span>
+                    <span className="text-sm font-semibold text-ink">
+                      {formatPlanPrice(total)} / {planPeriodDays} дней
+                    </span>
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-ink-soft">
+                    {plan.description}
+                  </span>
+                  {paidSeats > 0 ? (
+                    <span className="mt-1 block text-xs leading-5 text-muted">
+                      Включает доплату за {paidSeats} сотрудников сверх{" "}
+                      {plan.includedSeats}: {formatPlanPrice(plan.priceRub)} +{" "}
+                      {paidSeats} × {formatPlanPrice(extraSeatPriceRub)}
+                    </span>
+                  ) : null}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+
+        <p className="text-xs leading-5 text-muted">
+          Оплата разовая за {planPeriodDays} дней, автосписания нет — продлевать нужно вручную.
+        </p>
+
         <FormMessage message={state.message} success={state.success} />
         <SubmitButton
-          idleLabel={isPro ? `Продлить ${proPlan.title}` : `Подключить ${proPlan.title}`}
+          idleLabel={currentPlan ? "Продлить или сменить тариф" : "Подключить тариф"}
           pendingLabel="Открываю оплату..."
         />
       </form>
@@ -453,10 +544,12 @@ export function ServicesSettingsForm({
   services,
   manualsByServiceId = {},
   hasProAccess = false,
+  isYooKassaConnected = false,
 }: {
   services: Service[];
   manualsByServiceId?: Record<string, ServiceManualSummary>;
   hasProAccess?: boolean;
+  isYooKassaConnected?: boolean;
 }) {
   const [createState, createAction] = useActionState(createServiceAction, initialState);
 
@@ -469,6 +562,7 @@ export function ServicesSettingsForm({
             service={service}
             manual={manualsByServiceId[service.id]}
             hasProAccess={hasProAccess}
+            isYooKassaConnected={isYooKassaConnected}
           />
         ))}
       </div>
@@ -493,7 +587,7 @@ export function ServicesSettingsForm({
           hint="Если заполнено, клиент сможет отметить напоминание о повторном визите при записи."
           required={false}
         />
-        <PrepaymentFields />
+        <PrepaymentFields isYooKassaConnected={isYooKassaConnected} />
         <input type="hidden" name="sortOrder" value={String(services.length + 1)} />
         <FormMessage message={createState.message} success={createState.success} />
         <SubmitButton idleLabel="Добавить" pendingLabel="Добавляю..." />
@@ -506,10 +600,12 @@ function ServiceEditor({
   service,
   manual,
   hasProAccess,
+  isYooKassaConnected,
 }: {
   service: Service;
   manual?: ServiceManualSummary;
   hasProAccess: boolean;
+  isYooKassaConnected: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [state, action] = useActionState(updateServiceAction, initialState);
@@ -591,6 +687,7 @@ function ServiceEditor({
           <PrepaymentFields
             defaultType={service.prepaymentType}
             defaultValue={service.prepaymentValue}
+            isYooKassaConnected={isYooKassaConnected}
           />
           <FormMessage message={state.message} success={state.success} />
           <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
@@ -625,7 +722,8 @@ function ServiceManualEditor({
           <div>
             <h4 className="text-sm font-semibold text-ink">AI-консультация</h4>
             <p className="mt-1 text-xs text-ink-soft">
-              Доступно на тарифе {proPlan.title} — подключи его во вкладке «Аккаунт».
+              Входит в тарифы «Соло. Расширенный» и «Студия и барбершоп» — подключить
+              можно во вкладке «Аккаунт».
             </p>
           </div>
         </div>
@@ -728,11 +826,30 @@ const prepaymentTypeOptions = (
 function PrepaymentFields({
   defaultType = "none",
   defaultValue = 0,
+  isYooKassaConnected = false,
 }: {
   defaultType?: "none" | "fixed" | "percent";
   defaultValue?: number;
+  isYooKassaConnected?: boolean;
 }) {
   const [prepaymentType, setPrepaymentType] = useState(defaultType);
+
+  // Без подключенной и активной ЮKassa включить предоплату нельзя — деньги
+  // некуда проводить (okno-tz-yookassa-oauth.md). Сервер перепроверяет то же
+  // самое в createServiceAction/updateServiceAction, это лишь UI-подсказка.
+  if (!isYooKassaConnected) {
+    return (
+      <div className="space-y-2 rounded-[18px] border border-dashed border-line p-3">
+        <p className="text-sm font-medium text-ink">Предоплата: выключена</p>
+        <p className="text-sm leading-6 text-ink-soft">
+          Чтобы клиенты могли вносить предоплату за эту услугу, сначала подключи ЮKassa —
+          блок «Приём предоплаты» над списком услуг.
+        </p>
+        <input type="hidden" name="prepaymentType" value="none" />
+        <input type="hidden" name="prepaymentValue" value="0" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 rounded-[18px] border border-dashed border-line p-3">

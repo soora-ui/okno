@@ -65,13 +65,14 @@ export function normalizeCertificateCodeInput(raw: string): string {
     .replace(/[^A-Z0-9-]/g, "");
 }
 
-export const certificateValidityDays = 365;
-
 export const giftCertificatePurchaseSchema = z.object({
   username: z.string().trim().min(1),
   amount: z.coerce.number().int().min(giftCertificateMinAmount).max(giftCertificateMaxAmount),
   serviceId: z.string().optional().default(""),
-  purchaserContact: z.string().trim().min(5).max(120),
+  // Больше не используется для доставки (сертификат — это PDF-скачивание,
+  // не SMS-код), контакт остаётся опциональным полем для связи на случай
+  // спора с мастером.
+  purchaserContact: z.string().trim().max(120).optional().default(""),
 });
 
 export const redeemCertificateCodeSchema = z.object({

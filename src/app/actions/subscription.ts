@@ -7,7 +7,14 @@ import { env, isSupabaseConfigured, isYooKassaConfigured } from "@/lib/env";
 import { writeAuditLog } from "@/lib/observability/audit";
 import { logError } from "@/lib/observability/logger";
 import { createYooKassaPayment } from "@/lib/payments/yookassa";
-import { proPlan } from "@/lib/subscription";
+import { planPeriodDays } from "@/lib/subscription";
+import {
+  type PlanId,
+  calculatePlanPriceRub,
+  getPlan,
+  isPlanId,
+} from "@/config/plans";
+import { countActiveWorkspaceSeats } from "@/lib/repositories/team-repository";
 import { isSupabaseMissingTableError } from "@/lib/supabase/auth-errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -19,16 +26,16 @@ export type SubscriptionActionState = {
 const migrationHint =
   "В базе ещё нет таблицы платежей. Прогони миграцию 202606180002_pro_subscription.sql и попробуй ещё раз.";
 
-// Старт оплаты PRO: создаём pending-платёж у себя и в ЮKassa, затем уводим
-// мастера на страницу оплаты ЮKassa. Активирует PRO уже вебхук — после того
-// как ЮKassa подтвердит успешную оплату.
+// Старт оплаты тарифа: создаём pending-платёж у себя и в ЮKassa, затем уводим
+// мастера на страницу оплаты. Активирует тариф уже вебхук — после того как
+// ЮKassa подтвердит успешную оплату.
 export async function startProSubscriptionAction(
   _prevState: SubscriptionActionState,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<SubscriptionActionState> {
-  // useActionState всегда передаёт (prevState, formData); кнопке оплаты они не
-  // нужны — вся информация берётся из текущего профиля.
-  void _formData;
+  const requestedPlan = formData.get("planId");
+  const planId: PlanId = isPlanId(requestedPlan) ? requestedPlan : "solo-basic";
+  const plan = getPlan(planId);
 
   if (!isSupabaseConfigured) {
     return {
@@ -54,17 +61,24 @@ export async function startProSubscriptionAction(
   const supabase = await createSupabaseServerClient();
   const idempotenceKey = randomUUID();
 
+  // Доплата за сотрудников считается на момент оплаты: тариф «Студия» включает
+  // три места, всё сверх — по 350 ₽. Количество берём из активных участников
+  // рабочего пространства, чтобы мастер не оплатил меньше, чем занял.
+  const activeSeats = await countActiveWorkspaceSeats(supabase, profile.workspaceId);
+  const amountRub = calculatePlanPriceRub(planId, activeSeats);
+
   const { data: paymentRow, error: insertError } = await supabase
     .from("subscription_payments")
     .insert({
       profile_id: profile.id,
       provider: "yookassa",
-      plan: proPlan.id,
-      amount: proPlan.priceRub,
+      plan: planId,
+      amount: amountRub,
       currency: "RUB",
-      period_days: proPlan.periodDays,
+      period_days: planPeriodDays,
       status: "pending",
       idempotence_key: idempotenceKey,
+      metadata: { activeSeats, includedSeats: plan.includedSeats },
     })
     .select("id")
     .single();
@@ -84,14 +98,14 @@ export async function startProSubscriptionAction(
 
   try {
     const payment = await createYooKassaPayment({
-      amountRub: proPlan.priceRub,
-      description: `okno ${proPlan.title} — подписка на ${proPlan.periodDays} дней`,
+      amountRub,
+      description: `okno «${plan.title}» — подписка на ${planPeriodDays} дней`,
       returnUrl: `${env.appUrl}/settings?subscription=processing`,
       idempotenceKey,
       metadata: {
         profileId: profile.id,
         paymentRowId: paymentRow.id,
-        plan: proPlan.id,
+        plan: planId,
       },
     });
 
@@ -128,7 +142,7 @@ export async function startProSubscriptionAction(
     eventType: "subscription.payment.started",
     targetType: "subscription_payment",
     targetId: paymentRow.id,
-    metadata: { plan: proPlan.id, amount: proPlan.priceRub },
+    metadata: { plan: planId, amount: amountRub, activeSeats },
   });
 
   if (!confirmationUrl) {

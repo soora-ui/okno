@@ -15,6 +15,7 @@ import {
   canManageWorkspace,
   isTeamWorkspaceKind,
 } from "@/lib/workspace";
+import { hasCapability } from "@/lib/subscription";
 
 export type TeamActionState = {
   success: boolean;
@@ -170,6 +171,17 @@ export async function createTeamMemberAction(
     return {
       success: false,
       message: "Создавать сотрудников может только администратор студии.",
+    };
+  }
+
+  // Тип рабочего пространства «студия» выбирается при регистрации бесплатно,
+  // поэтому одной проверки isTeamWorkspaceKind мало — сотрудники входят в
+  // тариф «Студия и барбершоп» и в пробный период.
+  if (!hasCapability(profile, "team")) {
+    return {
+      success: false,
+      message:
+        "Сотрудники входят в тариф «Студия и барбершоп». Подключить его можно в настройках, вкладка «Аккаунт».",
     };
   }
 

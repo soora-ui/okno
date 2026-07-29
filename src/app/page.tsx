@@ -1,9 +1,14 @@
 import {
   ArrowRight,
+  BellRing,
+  Bot,
   BriefcaseBusiness,
   CalendarDays,
   CheckCircle2,
+  CreditCard,
+  Gift,
   MessageSquareText,
+  ShieldCheck,
   Sparkles,
   Users2,
 } from "lucide-react";
@@ -20,12 +25,45 @@ import {
   landingDemoPublicPageHref,
   landingDemoServices,
 } from "@/lib/landing-demo";
-import { pricingPlans } from "@/lib/mock-data";
+import { extraSeat, formatPlanPrice, pricingPlans } from "@/config/plans";
 
 const valueProps = [
   "Мастер запускается за 3 шага и получает ссылку сразу",
   "Можно создать кабинет мастера, студии, салона или барбершопа",
   "Клиент записывается без регистрации, капчи и лишних экранов",
+];
+
+const features = [
+  {
+    icon: CreditCard,
+    title: "Предоплата за услугу",
+    text: "Слот держится 15 минут под оплату. Деньги идут напрямую в вашу ЮKassa, мимо сервиса.",
+  },
+  {
+    icon: Gift,
+    title: "Подарочные сертификаты",
+    text: "Номиналы задаёте сами, дизайн генерируется один раз. Погашение — сканером QR в кабинете, можно частями.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Рейтинг надёжности клиента",
+    text: "Считается по вашим же отметкам «пришёл» и «не пришёл». Виден только вам и никуда больше не уходит.",
+  },
+  {
+    icon: Bot,
+    title: "AI-консультант по услугам",
+    text: "Отвечает клиентам строго по мануалу, который написали вы. На вопрос вне мануала говорит, что не знает.",
+  },
+  {
+    icon: BellRing,
+    title: "Напоминания и отмена по ссылке",
+    text: "Клиенту уходит SMS со ссылкой на самостоятельную отмену, мастеру — уведомление в Telegram.",
+  },
+  {
+    icon: Users2,
+    title: "Приглашения мастеров",
+    text: "Позвали мастера по своей ссылке, он оплатил первый месяц — вам +30 дней подписки.",
+  },
 ];
 
 const comparisons = [
@@ -68,7 +106,7 @@ export default function HomePage() {
               </Reveal>
               <Reveal variant="blur" delay={0.3}>
                 <p className="max-w-2xl text-lg leading-8 text-ink-soft">
-                  `okno` помогает частным мастерам, салонам и небольшим командам перестать
+                  okno помогает частным мастерам, салонам и небольшим командам перестать
                   вести запись вручную. У мастера появляется порядок, у администратора общая
                   картина, у клиента понятный путь к записи.
                 </p>
@@ -88,7 +126,7 @@ export default function HomePage() {
             <div className="grid gap-3 sm:grid-cols-3">
               {valueProps.map((item, index) => (
                 <Reveal key={item} variant="fade-up" delay={index * 0.1}>
-                  <Card className="rounded-[24px] p-4">
+                  <Card className="h-full rounded-[24px] p-4">
                     <p className="text-sm leading-6 text-ink-soft">{item}</p>
                   </Card>
                 </Reveal>
@@ -144,7 +182,7 @@ export default function HomePage() {
           <div className="grid gap-6 lg:grid-cols-2">
             {comparisons.map((comparison, index) => (
               <Reveal key={comparison.title} variant="fade-up" delay={index * 0.1}>
-                <Card>
+                <Card className="h-full">
                   <h3 className="text-xl font-semibold text-ink">
                     {comparison.title}
                   </h3>
@@ -192,7 +230,7 @@ export default function HomePage() {
               },
             ].map((item, index) => (
               <Reveal key={item.title} variant="fade-up" delay={index * 0.1}>
-                <Card>
+                <Card className="h-full">
                   <item.icon size={28} className="text-accent-deep" />
                   <h3 className="mt-6 text-xl font-semibold text-ink">
                     {item.title}
@@ -208,7 +246,7 @@ export default function HomePage() {
 
         <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
           <Reveal variant="fade-up">
-            <Card className="space-y-4">
+            <Card className="h-full space-y-4">
               <div className="flex items-center gap-3">
                 <Users2 size={20} className="text-accent-deep" />
                 <h3 className="text-xl font-semibold text-ink">
@@ -228,7 +266,7 @@ export default function HomePage() {
 
           <Reveal variant="fade-up" delay={0.2}>
             <Card
-              className="space-y-4 border-transparent text-white"
+              className="h-full space-y-4 border-transparent text-white"
               style={{
                 background:
                   "linear-gradient(135deg, #23241f 0%, #35362f 100%)",
@@ -257,23 +295,51 @@ export default function HomePage() {
         <section className="space-y-8">
           <Reveal variant="fade-up">
             <SectionTitle
-              eyebrow="Тарифы"
-              title="Бесплатного тарифа хватает для работы, а платный снимает лимиты."
-              description="Понятные лимиты и честные условия. Платить можно, когда почувствуете, что нужно больше."
+              eyebrow="Что уже работает"
+              title="Не только запись: деньги, напоминания и подстраховка от неявок."
+              description="Всё перечисленное работает в сервисе сегодня, а не значится в планах."
             />
           </Reveal>
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {features.map((feature, index) => (
+              <Reveal key={feature.title} variant="fade-up" delay={(index % 3) * 0.1}>
+                <Card className="h-full">
+                  <feature.icon size={24} className="text-accent-deep" />
+                  <h3 className="mt-5 text-lg font-semibold text-ink">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-6 text-ink-soft">
+                    {feature.text}
+                  </p>
+                </Card>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-8">
+          <Reveal variant="fade-up">
+            <SectionTitle
+              eyebrow="Тарифы"
+              title="Первый месяц бесплатно, дальше — от 690 ₽."
+              description="Тариф зависит от того, работаете вы один или собираете команду."
+            />
+          </Reveal>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {pricingPlans.map((plan, index) => (
-              <Reveal key={plan.title} variant="fade-up" delay={index * 0.1}>
+              <Reveal key={plan.id} variant="fade-up" delay={index * 0.1}>
                 <Card
-                  className={plan.title === "okno Pro" ? "bg-panel" : ""}
+                  className={`flex h-full flex-col ${plan.highlighted ? "bg-panel" : ""}`}
                 >
                   <p className="text-sm uppercase tracking-[0.24em] text-ink-soft">
                     {plan.title}
                   </p>
-                  <h3 className="mt-3 text-4xl font-semibold text-ink">
-                    {plan.price}
-                  </h3>
+                  <div className="mt-3 flex items-baseline gap-2">
+                    <h3 className="text-4xl font-semibold text-ink">
+                      {formatPlanPrice(plan.priceRub)}
+                    </h3>
+                    <span className="text-sm text-muted">{plan.period}</span>
+                  </div>
                   <p className="mt-3 text-base leading-7 text-ink-soft">
                     {plan.description}
                   </p>
@@ -289,6 +355,16 @@ export default function HomePage() {
               </Reveal>
             ))}
           </div>
+          <Reveal variant="fade-up">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-[24px] border border-line px-6 py-5">
+              <p className="text-sm leading-6 text-ink-soft">
+                {extraSeat.description}
+              </p>
+              <p className="text-lg font-semibold text-ink">
+                {extraSeat.price} {extraSeat.period}
+              </p>
+            </div>
+          </Reveal>
         </section>
       </div>
     </SiteShell>

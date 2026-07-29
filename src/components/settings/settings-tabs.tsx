@@ -15,10 +15,12 @@ import {
   UserRound,
   Wrench,
 } from "lucide-react";
+import type { CertificateTemplateSummary } from "@/lib/data";
 import type { AvailabilityRule, Profile, Service } from "@/lib/mock-data";
+import type { MasterYooKassaAccount } from "@/lib/payments/yookassa-oauth";
 import type { ReferralInviteSummary } from "@/lib/referral";
 import type { ServiceManualSummary } from "@/lib/service-manuals";
-import { hasActivePro } from "@/lib/subscription";
+import { hasCapability } from "@/lib/subscription";
 import { formatPublicProfileLink, publicLinkHost } from "@/lib/site";
 import { Card } from "@/components/ui/card";
 import {
@@ -26,12 +28,19 @@ import {
   AvailabilitySettingsForm,
   BookingPageSettingsForm,
   BookingPreferencesForm,
-  GiftCertificateSettingsForm,
   ProfileSettingsForm,
   ServicesSettingsForm,
   SubscriptionSettingsForm,
 } from "@/components/forms/settings-forms";
 import { ReferralSettings } from "@/components/settings/referral-settings";
+import { YooKassaConnectSection } from "@/components/settings/yookassa-connect-section";
+import {
+  RecordSectionNav,
+  type RecordSection,
+  type SectionStatus,
+} from "@/components/settings/record-section-nav";
+import { getCertificateSectionStatus } from "@/components/settings/certificate-section";
+import { RECORD_TAB_SECTIONS } from "@/config/recordTabSections";
 import { ButtonLink } from "@/components/ui/button";
 
 const BookingThemeSettings = dynamic(
@@ -45,6 +54,18 @@ const BookingThemeSettings = dynamic(
         <div className="h-[34rem] animate-pulse rounded-[24px] border border-line bg-panel" />
         <div className="h-[34rem] animate-pulse rounded-[24px] border border-line bg-panel" />
       </div>
+    ),
+  },
+);
+
+const CertificateSection = dynamic(
+  () =>
+    import("@/components/settings/certificate-section").then(
+      (mod) => mod.CertificateSection,
+    ),
+  {
+    loading: () => (
+      <div className="h-[26rem] animate-pulse rounded-[24px] border border-line bg-panel" />
     ),
   },
 );
@@ -63,15 +84,101 @@ export function SettingsTabs({
   availabilityRules,
   serviceManuals = {},
   referralInvites = [],
+  certificateTemplate = null,
+  yookassaAccount = null,
+  activeSeats = 0,
 }: {
   profile: Profile;
   services: Service[];
   availabilityRules: AvailabilityRule[];
   serviceManuals?: Record<string, ServiceManualSummary>;
   referralInvites?: ReferralInviteSummary[];
+  certificateTemplate?: CertificateTemplateSummary | null;
+  yookassaAccount?: MasterYooKassaAccount | null;
+  // Активные сотрудники рабочего пространства — от них считается доплата
+  // за места сверх включённых в тариф.
+  activeSeats?: number;
 }) {
   const [activeTab, setActiveTab] =
     useState<(typeof tabs)[number]["id"]>("profile");
+
+  const canTakePrepayment = hasCapability(profile, "prepayment");
+
+  const recordSectionContent: Record<string, React.ReactNode> = {
+    "booking-params": (
+      <Card className="space-y-4">
+        <div className="flex items-center gap-3">
+          <SlidersHorizontal size={18} className="text-warning" />
+          <h2 className="text-xl font-semibold text-ink">Параметры записи</h2>
+        </div>
+        <BookingPreferencesForm profile={profile} />
+      </Card>
+    ),
+    "booking-page": (
+      <Card className="space-y-4">
+        <div className="flex items-center gap-3">
+          <LayoutTemplate size={18} className="text-accent-deep" />
+          <h2 className="text-xl font-semibold text-ink">
+            Витрина страницы записи
+          </h2>
+        </div>
+        <p className="text-sm leading-6 text-ink-soft">
+          Заголовок и подзаголовок помогают клиенту быстрее понять, к кому он
+          записывается. Поле комментария можно подстроить под свой процесс.
+        </p>
+        <BookingPageSettingsForm profile={profile} />
+      </Card>
+    ),
+    certificates: (
+      <CertificateSection profile={profile} certificateTemplate={certificateTemplate} />
+    ),
+    telegram: (
+      <Card className="space-y-4">
+        <div className="flex items-center gap-3">
+          <BellRing size={18} className="text-success" />
+          <h2 className="text-xl font-semibold text-ink">
+            Telegram-уведомления
+          </h2>
+        </div>
+        <div className="rounded-[18px] bg-panel p-4">
+          <p className="text-sm font-medium text-ink">
+            {profile.telegramChatId ? "Бот подключен" : "Бот не подключен"}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-ink-soft">
+            Подключи Telegram, чтобы получать уведомления о новых записях и будущие
+            напоминания о визитах мастера.
+          </p>
+        </div>
+      </Card>
+    ),
+    "color-palette": (
+      <Card className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Palette size={18} className="text-accent-deep" />
+          <h2 className="text-xl font-semibold text-ink">
+            Цвет клиентских страниц
+          </h2>
+        </div>
+        <BookingThemeSettings profile={profile} services={services} />
+      </Card>
+    ),
+  };
+
+  const recordSectionStatus: Record<string, SectionStatus> = {
+    "booking-params": "none",
+    "booking-page": "none",
+    certificates: getCertificateSectionStatus(profile, certificateTemplate),
+    telegram: profile.telegramChatId ? "complete" : "none",
+    "color-palette": "none",
+  };
+
+  const recordTabSections: RecordSection[] = RECORD_TAB_SECTIONS.map((section) => ({
+    id: section.id,
+    label: section.label,
+    icon: section.icon,
+    status: recordSectionStatus[section.id],
+    content: recordSectionContent[section.id],
+  }));
 
   return (
     <div className="space-y-6">
@@ -139,88 +246,41 @@ export function SettingsTabs({
       ) : null}
 
       {activeTab === "services" ? (
-        <Card className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Wrench size={18} className="text-warning" />
-            <h2 className="text-xl font-semibold text-ink">Услуги</h2>
-          </div>
-          <ServicesSettingsForm
-            services={services}
-            manualsByServiceId={serviceManuals}
-            hasProAccess={hasActivePro(profile)}
-          />
-        </Card>
+        <div className="space-y-6">
+          {canTakePrepayment ? (
+            <YooKassaConnectSection account={yookassaAccount} />
+          ) : (
+            <Card className="space-y-2">
+              <div className="flex items-center gap-3">
+                <Wrench size={18} className="text-muted" />
+                <h2 className="text-xl font-semibold text-ink">Приём предоплаты</h2>
+              </div>
+              <p className="text-sm leading-6 text-ink-soft">
+                Предоплата входит в тарифы «Соло. Расширенный» и «Студия и барбершоп».
+                Подключить его можно во вкладке «Аккаунт».
+              </p>
+            </Card>
+          )}
+
+          <Card className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Wrench size={18} className="text-warning" />
+              <h2 className="text-xl font-semibold text-ink">Услуги</h2>
+            </div>
+            <ServicesSettingsForm
+              services={services}
+              manualsByServiceId={serviceManuals}
+              hasProAccess={hasCapability(profile, "aiConsultation")}
+              isYooKassaConnected={
+                canTakePrepayment && yookassaAccount?.status === "enabled"
+              }
+            />
+          </Card>
+        </div>
       ) : null}
 
       {activeTab === "booking" ? (
-        <div className="space-y-6">
-          <Card className="space-y-4">
-            <div className="flex items-center gap-3">
-              <SlidersHorizontal size={18} className="text-warning" />
-              <h2 className="text-xl font-semibold text-ink">
-                Параметры записи
-              </h2>
-            </div>
-            <BookingPreferencesForm profile={profile} />
-          </Card>
-
-          <Card className="space-y-4">
-            <div className="flex items-center gap-3">
-              <LayoutTemplate size={18} className="text-accent-deep" />
-              <h2 className="text-xl font-semibold text-ink">
-                Витрина страницы записи
-              </h2>
-            </div>
-            <p className="text-sm leading-6 text-ink-soft">
-              Заголовок и подзаголовок помогают клиенту быстрее понять, к кому он
-              записывается. Поле комментария можно подстроить под свой процесс.
-            </p>
-            <BookingPageSettingsForm profile={profile} />
-          </Card>
-
-          <Card className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Palette size={18} className="text-accent-deep" />
-              <h2 className="text-xl font-semibold text-ink">
-                Цвет клиентских страниц
-              </h2>
-            </div>
-            <BookingThemeSettings profile={profile} services={services} />
-          </Card>
-
-          <Card className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Gift size={18} className="text-accent-deep" />
-              <h2 className="text-xl font-semibold text-ink">
-                Подарочные сертификаты
-              </h2>
-            </div>
-            <p className="text-sm leading-6 text-ink-soft">
-              Клиенты смогут купить сертификат прямо на публичной странице и
-              оплатить его онлайн. Код сертификата придет покупателю по SMS
-              после оплаты.
-            </p>
-            <GiftCertificateSettingsForm profile={profile} />
-          </Card>
-
-          <Card className="space-y-4">
-            <div className="flex items-center gap-3">
-              <BellRing size={18} className="text-success" />
-              <h2 className="text-xl font-semibold text-ink">
-                Telegram-уведомления
-              </h2>
-            </div>
-            <div className="rounded-[18px] bg-panel p-4">
-              <p className="text-sm font-medium text-ink">
-                {profile.telegramChatId ? "Бот подключен" : "Бот не подключен"}
-              </p>
-              <p className="mt-2 text-sm leading-6 text-ink-soft">
-                Подключи Telegram, чтобы получать уведомления о новых записях и будущие
-                напоминания о визитах мастера.
-              </p>
-            </div>
-          </Card>
-        </div>
+        <RecordSectionNav sections={recordTabSections} />
       ) : null}
 
       {activeTab === "account" ? (
@@ -230,7 +290,7 @@ export function SettingsTabs({
               <Sparkles size={18} className="text-accent-deep" />
               <h2 className="text-xl font-semibold text-ink">Подписка</h2>
             </div>
-            <SubscriptionSettingsForm profile={profile} />
+            <SubscriptionSettingsForm profile={profile} activeSeats={activeSeats} />
           </Card>
 
           <Card className="space-y-4">
@@ -262,7 +322,7 @@ export function SettingsTabs({
           </Card>
 
           <Card className="space-y-4">
-            <h2 className="text-xl font-semibold text-[var(--color-danger, #b14f4f)]">
+            <h2 className="text-xl font-semibold text-[var(--color-danger,#b14f4f)]">
               Удалить аккаунт
             </h2>
             <p className="text-sm leading-6 text-ink-soft">

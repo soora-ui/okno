@@ -8,7 +8,6 @@ import {
   bookings,
   clients,
   notificationEvents,
-  pricingPlans,
   profile as mockProfile,
   type Profile,
   services as mockServices,
@@ -18,9 +17,12 @@ import {
   isCancellationAllowed,
 } from "@/lib/booking";
 import { buildAccountNotificationItems } from "@/lib/account-notifications";
+import { pricingPlans } from "@/config/plans";
 import { normalizeBookingThemePresetId } from "@/lib/booking-theme-presets";
+import { renderCertificateThumbnailPng } from "@/lib/certificates/render";
 import { ensureWorkRuntime, isDemoMode, isSupabaseConfigured } from "@/lib/env";
 import { getMockBookingConfirmation } from "@/lib/mock-booking-confirmations";
+import { logError } from "@/lib/observability/logger";
 import {
   mapAvailabilityRule,
   mapBlockedSlot,
@@ -34,6 +36,7 @@ import {
 } from "@/lib/mappers/domain";
 import type { ServiceManualSummary } from "@/lib/service-manuals";
 import {
+  getOwnerCertificateTemplateRow,
   getOwnerClientsRows,
   getOwnerDashboardRows,
   getOwnerNotificationRows,
@@ -43,9 +46,14 @@ import {
   getOwnerScheduleRows,
   getOwnerServiceManualRows,
   getOwnerSettingsRows,
+  getOwnerYooKassaAccountRow,
 } from "@/lib/repositories/owner-repository";
 import type { ReferralInviteSummary } from "@/lib/referral";
-import { getWorkspaceTeamRows } from "@/lib/repositories/team-repository";
+import type { MasterYooKassaAccount } from "@/lib/payments/yookassa-oauth";
+import {
+  countActiveWorkspaceSeats,
+  getWorkspaceTeamRows,
+} from "@/lib/repositories/team-repository";
 import { buildBookingSlotsForService } from "@/lib/slots";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -181,6 +189,7 @@ const PUBLIC_PROFILE_BASE_COLUMNS = [
   "booking_theme_preset",
   "booking_page_settings",
   "subscription_tier",
+  "subscription_until",
   "monthly_booking_limit",
   "booking_window_days",
   "slot_interval_minutes",
@@ -729,6 +738,56 @@ function mapReferralInvites(
   }));
 }
 
+export type CertificateTemplateSummary = {
+  id: string;
+  primaryColor: string;
+  secondaryColor: string;
+  logoPath: string | null;
+  studioName: string;
+  tagline: string;
+  contacts: string;
+  regenerationCount: number;
+  // Миниатюра A5 для карточки настроек (okno-tz-certificates-ui-flow.md,
+  // 2.2, состояние Б) — рендерится здесь же, на заглушечных данных, тем же
+  // satori/resvg-пайплайном, что и настоящий сертификат. null, если рендер
+  // не удался (не блокирует страницу настроек — просто нет превью).
+  previewPngBase64: string | null;
+};
+
+async function mapCertificateTemplate(
+  row: Record<string, unknown> | null,
+): Promise<CertificateTemplateSummary | null> {
+  if (!row) {
+    return null;
+  }
+
+  const htmlSource = typeof row.html_source === "string" ? row.html_source : "";
+  let previewPngBase64: string | null = null;
+
+  if (htmlSource) {
+    try {
+      previewPngBase64 = (await renderCertificateThumbnailPng(htmlSource)).toString("base64");
+    } catch (error) {
+      logError("Failed to render certificate template thumbnail", {
+        templateId: String(row.id),
+        error,
+      });
+    }
+  }
+
+  return {
+    id: String(row.id),
+    primaryColor: String(row.primary_color ?? "#1c1917"),
+    secondaryColor: String(row.secondary_color ?? "#f5f5f4"),
+    logoPath: row.logo_path ? String(row.logo_path) : null,
+    studioName: String(row.studio_name ?? ""),
+    tagline: String(row.tagline ?? ""),
+    contacts: String(row.contacts ?? ""),
+    regenerationCount: Number(row.regeneration_count ?? 0),
+    previewPngBase64,
+  };
+}
+
 export async function getSettingsData() {
   const authProfile = await getCurrentAuthProfile();
 
@@ -740,6 +799,9 @@ export async function getSettingsData() {
         availabilityRules,
         serviceManuals: {} as Record<string, ServiceManualSummary>,
         referralInvites: [] as ReferralInviteSummary[],
+        certificateTemplate: null as CertificateTemplateSummary | null,
+        yookassaAccount: null as MasterYooKassaAccount | null,
+        activeSeats: 0,
         source: "mock" as const,
       };
     }
@@ -754,25 +816,45 @@ export async function getSettingsData() {
       availabilityRules,
       serviceManuals: {} as Record<string, ServiceManualSummary>,
       referralInvites: [] as ReferralInviteSummary[],
+      certificateTemplate: null as CertificateTemplateSummary | null,
+      yookassaAccount: null as MasterYooKassaAccount | null,
+      activeSeats: 0,
       source: "mock" as const,
     };
   }
 
-  const [settingsData, profileMediaRow, serviceManualRows, referralRows] =
-    await Promise.all([
-      getOwnerSettingsRows({
-        profileId: authProfile.profile.id,
-      }),
-      getOwnerProfileMediaRow({
-        profileId: authProfile.profile.id,
-      }),
-      getOwnerServiceManualRows({
-        profileId: authProfile.profile.id,
-      }),
-      getOwnerReferralRows({
-        profileId: authProfile.profile.id,
-      }),
-    ]);
+  const [
+    settingsData,
+    profileMediaRow,
+    serviceManualRows,
+    referralRows,
+    certificateTemplateRow,
+    yookassaAccount,
+    activeSeats,
+  ] = await Promise.all([
+    getOwnerSettingsRows({
+      profileId: authProfile.profile.id,
+    }),
+    getOwnerProfileMediaRow({
+      profileId: authProfile.profile.id,
+    }),
+    getOwnerServiceManualRows({
+      profileId: authProfile.profile.id,
+    }),
+    getOwnerReferralRows({
+      profileId: authProfile.profile.id,
+    }),
+    getOwnerCertificateTemplateRow({
+      profileId: authProfile.profile.id,
+    }),
+    getOwnerYooKassaAccountRow({
+      profileId: authProfile.profile.id,
+    }),
+    countActiveWorkspaceSeats(
+      createSupabaseAdminClient(),
+      authProfile.profile.workspaceId,
+    ),
+  ]);
 
   return {
     profile: mergeProfileMedia(authProfile.profile, profileMediaRow),
@@ -785,6 +867,9 @@ export async function getSettingsData() {
       authProfile.profile.timezone,
     ),
     referralInvites: mapReferralInvites(referralRows),
+    certificateTemplate: await mapCertificateTemplate(certificateTemplateRow),
+    yookassaAccount,
+    activeSeats,
     source: "supabase" as const,
   };
 }

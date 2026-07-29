@@ -201,12 +201,14 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
             />
           </Card>
 
-          <EmptyState
-            title="Если расписания пока нет"
-            description="Новый мастер чаще всего сначала видит пустой экран. Здесь важно не пугать, а сразу вести к настройке рабочих часов."
-            ctaLabel="Настроить рабочие часы"
-            ctaHref="/settings"
-          />
+          {availabilityRules.length === 0 ? (
+            <EmptyState
+              title="Рабочие часы пока не заданы"
+              description="Пока в расписании нет ни одного рабочего дня, клиенты не увидят свободного времени на странице записи."
+              ctaLabel="Настроить рабочие часы"
+              ctaHref="/settings"
+            />
+          ) : null}
         </div>
       </div>
     </div>

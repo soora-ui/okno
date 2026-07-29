@@ -4,6 +4,8 @@ import { z } from "zod";
 import { env, isSupportAssistantConfigured } from "@/lib/env";
 import {
   buildSupportSystemPrompt,
+  supportAnswerTool,
+  supportAnswerToolName,
   supportAssistantMaxHistoryMessages,
   supportAssistantMaxUserMessageLength,
 } from "@/lib/support-assistant/prompt";
@@ -16,6 +18,14 @@ import {
 const supportChatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string().trim().min(1).max(supportAssistantMaxUserMessageLength),
+});
+
+// Ответ модели приходит аргументами инструмента, поэтому валидируем его так
+// же строго, как пользовательский ввод: пустой reply или мусор в suggestions
+// не должны утечь в виджет.
+const supportAnswerSchema = z.object({
+  reply: z.string().trim().min(1),
+  suggestions: z.array(z.string().trim().min(1).max(80)).max(4).optional(),
 });
 
 const supportChatRequestSchema = z.object({
@@ -120,8 +130,14 @@ export async function POST(request: Request) {
 
     const response = await client.messages.create({
       model: "claude-sonnet-5",
-      max_tokens: 1024,
+      // Ответы поддержки короткие по регламенту (1–3 предложения либо до 5
+      // шагов), запас нужен только на длинную инструкцию.
+      max_tokens: 600,
       system: systemPrompt,
+      tools: [supportAnswerTool],
+      // Ответ обязан прийти структурой: свободный текст сломал бы кнопки
+      // уточняющих вариантов в виджете.
+      tool_choice: { type: "tool", name: supportAnswerToolName },
       messages: [
         ...history.map((entry) => ({
           role: entry.role,
@@ -138,14 +154,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const textBlock = response.content.find((block) => block.type === "text");
-    const reply = textBlock && "text" in textBlock ? textBlock.text : "";
+    const toolBlock = response.content.find(
+      (block) => block.type === "tool_use" && block.name === supportAnswerToolName,
+    );
 
-    if (!reply) {
+    const answer =
+      toolBlock && toolBlock.type === "tool_use"
+        ? supportAnswerSchema.safeParse(toolBlock.input)
+        : null;
+
+    if (!answer?.success) {
       return NextResponse.json({ error: GENERIC_ERROR_MESSAGE }, { status: 502 });
     }
 
-    return NextResponse.json({ reply });
+    return NextResponse.json({
+      reply: answer.data.reply,
+      suggestions: answer.data.suggestions ?? [],
+    });
   } catch (error) {
     // Не логируем и не пробрасываем пользователю тело ошибки API (может
     // содержать фрагменты system prompt или служебные детали) — только

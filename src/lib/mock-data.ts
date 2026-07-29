@@ -8,8 +8,12 @@ import {
   type BookingThemePresetId,
 } from "@/lib/booking-theme-presets";
 import type { AccountRole, AccountStatus, WorkspaceKind } from "@/lib/workspace";
+import type { PlanId } from "@/config/plans";
 
-export type SubscriptionTier = "free" | "pro";
+// В базе subscription_tier хранит либо идентификатор тарифа, либо "free" —
+// «оплаченного тарифа нет» (мастер в пробном периоде или после его окончания).
+// Значение "pro" осталось от единственной старой подписки, см. src/lib/subscription.ts.
+export type SubscriptionTier = "free" | "pro" | PlanId;
 
 export type Profile = {
   id: string;
@@ -349,31 +353,6 @@ export const bookingSlots: BookingSlot[] = [
   { date: "4 апреля", value: "2026-04-04", times: ["09:00", "11:30", "13:00", "15:30"] },
   { date: "5 апреля", value: "2026-04-05", times: ["10:00", "12:00", "14:30", "17:00"] },
   { date: "6 апреля", value: "2026-04-06", times: ["09:30", "11:00", "13:30", "16:00"] },
-];
-
-export const pricingPlans = [
-  {
-    title: "Бесплатно",
-    price: "0 ₽",
-    description: "Для старта и первых клиентов без давления и скрытых ограничений.",
-    features: [
-      "До 50 записей в месяц",
-      "Публичная страница мастера",
-      "Онлайн-запись без регистрации",
-      "SMS клиенту и Telegram мастеру",
-    ],
-  },
-  {
-    title: "okno Pro",
-    price: "690 ₽",
-    description: "Когда клиентов становится больше и нужно больше свободы.",
-    features: [
-      "Без лимита записей",
-      "Приоритетные напоминания",
-      "Глубже настройка брендинга",
-      "Подготовка к автосообщениям и AI-функциям",
-    ],
-  },
 ];
 
 export const formatCurrency = (value: number) =>

@@ -116,3 +116,71 @@ export async function getYooKassaPayment(
 
   return parsePayment((await response.json()) as YooKassaApiResponse);
 }
+
+// Предоплата за услугу (okno-tz-yookassa-oauth.md) идёт напрямую в магазин
+// мастера через его личный OAuth-токен — Bearer вместо платформенной пары
+// shopId/secretKey. Ошибка со статусом 401/403 означает, что мастер отозвал
+// доступ на стороне ЮKassa напрямую (не через кнопку «Отключить») —
+// вызывающий код должен пометить аккаунт revoked.
+export class YooKassaAuthError extends Error {}
+
+export async function createYooKassaPaymentWithToken(
+  accessToken: string,
+  input: {
+    amountRub: number;
+    description: string;
+    returnUrl: string;
+    idempotenceKey: string;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<YooKassaPayment> {
+  const response = await fetch(`${API_BASE}/payments`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotence-Key": input.idempotenceKey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      amount: { value: input.amountRub.toFixed(2), currency: "RUB" },
+      capture: true,
+      confirmation: { type: "redirect", return_url: input.returnUrl },
+      description: input.description,
+      metadata: input.metadata ?? {},
+    }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new YooKassaAuthError("Токен мастера отозван или недействителен.");
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`ЮKassa вернула ошибку ${response.status}: ${text}`);
+  }
+
+  return parsePayment((await response.json()) as YooKassaApiResponse);
+}
+
+export async function getYooKassaPaymentWithToken(
+  accessToken: string,
+  paymentId: string,
+): Promise<YooKassaPayment> {
+  const response = await fetch(
+    `${API_BASE}/payments/${encodeURIComponent(paymentId)}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+
+  if (response.status === 401 || response.status === 403) {
+    throw new YooKassaAuthError("Токен мастера отозван или недействителен.");
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`ЮKassa вернула ошибку ${response.status}: ${text}`);
+  }
+
+  return parsePayment((await response.json()) as YooKassaApiResponse);
+}

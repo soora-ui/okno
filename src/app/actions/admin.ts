@@ -96,9 +96,11 @@ export async function grantProAction(
   const subscriptionUntil =
     days === null ? null : DateTime.now().plus({ days }).toUTC().toISO();
 
+  // Ручная выдача из админки даёт максимальный тариф: она нужна для поддержки
+  // и компенсаций, и урезанный доступ в этой роли только плодит обращения.
   const { error: updateError } = await supabase
     .from("profiles")
-    .update({ subscription_tier: "pro", subscription_until: subscriptionUntil })
+    .update({ subscription_tier: "studio", subscription_until: subscriptionUntil })
     .eq("id", profile.id);
 
   if (updateError) {

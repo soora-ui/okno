@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Loader2, MessageCircle, Send, X } from "lucide-react";
 import { ClientPortal } from "@/components/ui/client-portal";
+import { supportFaqQuestions } from "@/lib/support-assistant/faq";
 import { cn } from "@/lib/utils";
 
 // Плавающий виджет AI-поддержки сервиса okno.business. Отвечает на вопросы
@@ -13,9 +14,40 @@ import { cn } from "@/lib/utils";
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
+  /**
+   * Варианты уточняющих вопросов от бота — приходят, когда вопрос был
+   * непонятен. Рисуются кнопками под сообщением, чтобы пользователь выбирал
+   * тему нажатием, а не переформулировал вопрос сам.
+   */
+  suggestions?: string[];
 };
 
 const MAX_MESSAGE_LENGTH = 2000;
+
+// Готовые вопросы кнопками — и на старте чата (частые вопросы), и под
+// ответом, когда бот не понял вопрос и предлагает варианты.
+function SuggestionChips({
+  items,
+  onSelect,
+}: {
+  items: string[];
+  onSelect: (question: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item) => (
+        <button
+          key={item}
+          type="button"
+          onClick={() => onSelect(item)}
+          className="rounded-full border border-line bg-white px-3 py-2 text-left text-xs leading-5 text-ink transition hover:bg-panel active:scale-[0.98]"
+        >
+          {item}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function SupportChatWidget() {
   const [open, setOpen] = useState(false);
@@ -31,15 +63,15 @@ export function SupportChatWidget() {
     });
   };
 
-  async function handleSend(event: React.FormEvent) {
-    event.preventDefault();
-    const trimmed = input.trim();
+  // Отправка вынесена из обработчика формы, потому что тот же путь
+  // используют кнопки частых вопросов и уточняющих вариантов.
+  async function sendMessage(text: string) {
+    const trimmed = text.trim();
     if (!trimmed || isSending) {
       return;
     }
 
-    const nextMessages: ChatMessage[] = [...messages, { role: "user", content: trimmed }];
-    setMessages(nextMessages);
+    setMessages((current) => [...current, { role: "user", content: trimmed }]);
     setInput("");
     setError(null);
     setIsSending(true);
@@ -51,12 +83,16 @@ export function SupportChatWidget() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
-          history: messages.slice(-12),
+          // В историю уходит только текст — suggestions нужны виджету, а не
+          // модели, и лишний раз тратить на них токены незачем.
+          history: messages
+            .slice(-12)
+            .map((entry) => ({ role: entry.role, content: entry.content })),
         }),
       });
 
       const data = (await response.json().catch(() => null)) as
-        | { reply?: string; error?: string }
+        | { reply?: string; suggestions?: string[]; error?: string }
         | null;
 
       if (!response.ok || !data?.reply) {
@@ -64,7 +100,14 @@ export function SupportChatWidget() {
         return;
       }
 
-      setMessages((current) => [...current, { role: "assistant", content: data.reply as string }]);
+      setMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          content: data.reply as string,
+          suggestions: data.suggestions?.length ? data.suggestions : undefined,
+        },
+      ]);
       scrollToBottom();
     } catch {
       setError("Не получилось связаться с поддержкой. Проверь интернет-соединение.");
@@ -72,6 +115,17 @@ export function SupportChatWidget() {
       setIsSending(false);
     }
   }
+
+  function handleSend(event: React.FormEvent) {
+    event.preventDefault();
+    void sendMessage(input);
+  }
+
+  // Кнопки показываем только под последним сообщением: варианты из старой
+  // переписки уже неактуальны и только засоряют чат.
+  const lastMessage = messages.at(-1);
+  const activeSuggestions =
+    !isSending && lastMessage?.role === "assistant" ? lastMessage.suggestions : undefined;
 
   return (
     <>
@@ -112,23 +166,29 @@ export function SupportChatWidget() {
 
             <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
               {messages.length === 0 ? (
-                <p className="text-sm leading-6 text-ink-soft">
-                  Привет! Спроси меня о тарифах, о том, как настроить страницу записи, подключить
-                  Telegram-уведомления или что-то ещё про работу с okno.business.
-                </p>
+                <div className="space-y-3">
+                  <p className="text-sm leading-6 text-ink-soft">
+                    Чем помочь?
+                  </p>
+                  <SuggestionChips items={supportFaqQuestions} onSelect={sendMessage} />
+                </div>
               ) : null}
 
               {messages.map((message, index) => (
                 <div
                   key={`${message.role}-${index}`}
                   className={cn(
-                    "max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-6",
+                    "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-6",
                     message.role === "user" ? "ml-auto bg-panel text-ink" : "bg-white text-ink-soft border border-line",
                   )}
                 >
                   {message.content}
                 </div>
               ))}
+
+              {activeSuggestions ? (
+                <SuggestionChips items={activeSuggestions} onSelect={sendMessage} />
+              ) : null}
 
               {isSending ? (
                 <div className="flex items-center gap-2 text-sm text-muted">

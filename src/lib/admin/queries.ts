@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseMissingTableError } from "@/lib/supabase/auth-errors";
+import { planIds } from "@/config/plans";
 
 // Все запросы идут через сервис-роль (обходит RLS): админка видит данные всей
 // платформы. Вызывать только из защищённых requirePlatformAdmin() контекстов.
@@ -73,7 +74,9 @@ export async function getPlatformMetrics(): Promise<PlatformMetrics> {
     supabase
       .from("profiles")
       .select("id", { count: "exact", head: true })
-      .eq("subscription_tier", "pro")
+      // Считаем любой оплаченный тариф, а не только legacy-значение "pro":
+      // после перехода на сетку мастера лежат под solo-basic/solo-plus/studio.
+      .in("subscription_tier", ["pro", ...planIds])
       .or(`subscription_until.is.null,subscription_until.gt.${nowIso}`),
     supabase
       .from("profiles")

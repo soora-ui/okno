@@ -277,7 +277,15 @@ input[type="number"] {
 }
 
 .page-enter {
-  animation: page-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* Без fill-mode: "to" совпадает с состоянием покоя (opacity:1,
+     transform:none), поэтому визуально ничего не меняется, зато после
+     420мс computed transform реально становится "none", а не матрицей
+     тождества. С "both"/"forwards" браузер держит transform как
+     matrix(1,0,0,1,0,0) даже после завершения анимации — это создаёт
+     containing block для потомков с position:fixed и ломает ЛЮБую
+     модалку/оверлей внутри PageTransition (см. certificate-design-modal,
+     portfolio-modal, certificate-scanner-modal). */
+  animation: page-enter 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {

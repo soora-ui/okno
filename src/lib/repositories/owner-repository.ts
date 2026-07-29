@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { getMasterYooKassaAccount } from "@/lib/payments/yookassa-oauth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   isNonFatalSupabaseSessionError,
@@ -547,4 +548,49 @@ export async function getOwnerReferralRows(input: { profileId: string }) {
     ...reward,
     referred_full_name: nameById.get(String(reward.referred_profile_id)) ?? "",
   }));
+}
+
+const CERTIFICATE_TEMPLATE_COLUMNS = [
+  "id",
+  "html_source",
+  "primary_color",
+  "secondary_color",
+  "logo_path",
+  "studio_name",
+  "tagline",
+  "contacts",
+  "regeneration_count",
+].join(",");
+
+// Если миграция 202607110001_certificate_templates_and_redemption.sql еще
+// не прогнана, отдаём null — раздел дизайна сертификата покажет исходное
+// состояние формы вместо падения страницы настроек.
+export async function getOwnerCertificateTemplateRow(input: { profileId: string }) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("certificate_templates")
+    .select(CERTIFICATE_TEMPLATE_COLUMNS)
+    .eq("profile_id", input.profileId)
+    .maybeSingle();
+
+  if (error) {
+    if (isSupabaseMissingTableError(error, "certificate_templates")) {
+      return null;
+    }
+
+    if (isRetryableSupabaseNetworkError(error)) {
+      throw new Error(
+        "Нет связи с кабинетом. Проверь подключение к Supabase и попробуй еще раз.",
+      );
+    }
+
+    return null;
+  }
+
+  return data as unknown as Row | null;
+}
+
+export async function getOwnerYooKassaAccountRow(input: { profileId: string }) {
+  const supabase = await createSupabaseServerClient();
+  return getMasterYooKassaAccount(supabase, input.profileId);
 }

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, BriefcaseBusiness, CalendarClock, MapPin, Users2 } from "lucide-react";
+import { pluralizeRu } from "@/lib/utils";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -161,7 +162,7 @@ export function TeamPublicProfileView({
                 <div className="flex flex-wrap items-center gap-3 text-base text-ink-soft sm:text-lg">
                   <span className="inline-flex items-center gap-2">
                     <Users2 size={18} />
-                    {members.length} {members.length === 1 ? "мастер" : "мастеров"}
+                    {pluralizeRu(members.length, "мастер", "мастера", "мастеров")}
                   </span>
                   <span className="hidden h-1.5 w-1.5 rounded-full bg-[var(--color-line)] sm:block" />
                   <span className="inline-flex items-center gap-2">
@@ -424,7 +425,7 @@ export function TeamPublicProfileView({
                 >
                   <Link
                     href={slot.href}
-                    className="block rounded-[28px] border border-line p-5 shadow-[0_10px_30px_rgba(35,36,31,0.04)] transition hover:-translate-y-0.5"
+                    className="block h-full rounded-[28px] border border-line p-5 shadow-[0_10px_30px_rgba(35,36,31,0.04)] transition hover:-translate-y-0.5"
                     style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
                   >
                     <p className="text-sm text-muted">{slot.memberName}</p>

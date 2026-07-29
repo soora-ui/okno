@@ -1,53 +1,219 @@
-// База знаний для AI-поддержки сервиса okno.business (НЕ путать с
+// Поиск по карте сервиса для AI-поддержки okno.business (НЕ путать с
 // AI-консультантом, который отвечает клиентам мастера по услугам —
-// см. src/app/actions/service-manuals.ts, если он появится в проекте).
+// см. src/lib/service-manuals.ts).
 //
-// Этот модуль отвечает на вопросы владельцев аккаунтов/мастеров о том, как
-// пользоваться самим сервисом: тарифы, запись, настройка публичной страницы
-// и т.д. MVP использует простой статический свод фактов, встраиваемый в
-// system prompt. Интерфейс `SupportKnowledgeSource` сделан так, чтобы
-// позже подменить статическую реализацию на настоящий retrieval (embeddings
-// + векторный поиск, например) без изменений в остальном коде фичи —
-// вызывающему коду (prompt.ts) достаточно того, что возвращает `getFacts()`.
+// Схема выдачи в промпт двухуровневая и это осознанный размен токенов:
+//   1. index — по строке на КАЖДУЮ тему карты (название + путь). Всегда
+//      целиком. Стоит копейки, но гарантирует, что бот никогда не скажет
+//      «такой функции нет» про существующую фичу — худший сорт ответа
+//      поддержки.
+//   2. topics — полные блоки (шаги, нюансы) только для тем, релевантных
+//      конкретному вопросу. Здесь и экономятся токены.
+//
+// Ранжирование — примитивное скоринговое совпадение подстрок, без эмбеддингов:
+// тем всего несколько десятков, а ключи в карте хранятся стемами («предоплат»),
+// что закрывает русскую морфологию достаточно точно для этой задачи. Интерфейс
+// `SupportKnowledgeSource` оставлен точкой расширения: когда тем станут сотни,
+// сюда подставляется векторный поиск без изменений в prompt.ts и роуте.
+
+import {
+  SUPPORT_SITEMAP,
+  getSupportTopic,
+  renderTopicDetails,
+  renderTopicIndexLine,
+  type SupportTopic,
+} from "@/lib/support-assistant/sitemap";
+
+export type SupportKnowledge = {
+  /** Строки индекса по всем темам карты — в промпт идут целиком. */
+  index: string[];
+  /** Подробные блоки по темам, релевантным вопросу. */
+  topics: SupportTopic[];
+};
 
 export type SupportKnowledgeSource = {
   /**
-   * Возвращает компактный список фактов о сервисе, которые нужно включить
-   * в system prompt. В упрощённом MVP всегда возвращает один и тот же
-   * статический набор. Настоящий retrieval мог бы принимать сюда текст
-   * вопроса пользователя и возвращать только релевантные факты.
+   * Возвращает знания для system prompt. Без запроса (или если ничего не
+   * совпало) отдаёт индекс и набор базовых тем — бот всё равно сможет
+   * сориентировать пользователя по разделам.
    */
-  getFacts: (query?: string) => Promise<string[]> | string[];
+  retrieve: (query?: string) => Promise<SupportKnowledge> | SupportKnowledge;
 };
 
-// Свод фактов о сервисе составлен вручную на основе того, что видно в коде
-// и на страницах pricing/register — тарифы, лимиты, ключевые фичи. Если
-// факты о сервисе изменятся (цены, лимиты, фичи), обнови этот список —
-// это единственный источник знаний бота на MVP-этапе.
-const STATIC_FACTS: string[] = [
-  "okno.business — сервис онлайн-записи для мастеров бьюти-сферы (парикмахеры, мастера маникюра, косметологи и т.д.).",
-  "Тариф «Бесплатно»: 0 ₽/мес, до 50 записей в месяц, публичная страница мастера, онлайн-запись без регистрации клиента, SMS клиенту и Telegram мастеру о новой записи.",
-  "Тариф «okno Pro»: 690 ₽ за 30 дней. Снимает лимит в 50 записей/месяц, даёт приоритетные напоминания, более глубокую настройку брендинга страницы записи, доступ к будущим AI-функциям.",
-  "Оплата PRO происходит через ЮKassa. Если ключи ЮKassa не настроены в проекте, кнопка оплаты неактивна, но остальной кабинет работает.",
-  "У каждого мастера есть публичная страница записи по адресу okno.business/username — её можно скопировать и отправить клиентам или разместить в соцсетях.",
-  "Клиент записывается на странице мастера без регистрации: выбирает услугу, дату и время из свободных слотов, указывает имя и телефон.",
-  "Мастер настраивает услуги (название, длительность, цена), расписание работы, буфер между записями и правила отмены в личном кабинете, в разделе «Настройки».",
-  "Публичную страницу записи можно кастомизировать: сменить тему оформления (несколько готовых цветовых пресетов), добавить фото/логотип, описание.",
-  "После записи клиент получает подтверждение по SMS, мастер получает уведомление в Telegram (если подключил Telegram-бота в настройках).",
-  "Мастер может заблокировать слоты (отпуск, перерыв) в разделе расписания, чтобы клиенты не могли на них записаться.",
-  "Для отмены записи клиент использует ссылку из SMS-подтверждения — она содержит персональный токен отмены.",
-  "Если у мастера бесплатный тариф и уже есть подтверждённая запись, приём новых записей может быть ограничен до перехода на PRO — лимит завязан на тариф.",
-  "Чтобы подключить Telegram-уведомления, мастер указывает свой Telegram chat ID в настройках — это делается через отдельного Telegram-бота сервиса.",
-  "Служба поддержки не может видеть номера телефонов клиентов мастера в открытом виде — они хранятся в зашифрованном виде.",
-];
+// Сколько тем разворачивать подробно. 6 прямых попаданий + связанные темы
+// дают ~1.5–2k токенов контекста — заметно меньше, чем вся карта целиком,
+// и при этом почти всегда содержат нужный ответ.
+const MAX_DIRECT_TOPICS = 5;
+const MAX_TOTAL_TOPICS = 8;
 
-export const staticSupportKnowledgeSource: SupportKnowledgeSource = {
-  getFacts: () => STATIC_FACTS,
-};
+// Отсечка слабых совпадений: тема проходит, только если набрала хотя бы такую
+// долю от лучшего результата. Без неё частотные слова («клиент», «запись»)
+// протаскивают половину карты — вопрос про отмену записи тянул за собой и
+// чаевые, и буфер между записями.
+const RELATIVE_SCORE_CUTOFF = 0.6;
 
-// Точка расширения на будущее: сюда можно завести реальный retrieval,
-// например поиск по векторной базе с документацией сервиса. Экспортируем
-// через переменную, а не напрямую константу, чтобы вызывающий код не был
-// завязан на конкретную реализацию.
+// Связанные темы разворачиваем только у самых точных попаданий — иначе
+// хвост слабых совпадений тащит свои связи и контекст распухает вдвое.
+const RELATED_EXPANSION_DEPTH = 2;
+
+// Что показать, когда вопрос ещё не задан или совсем не распознан.
+const FALLBACK_TOPIC_IDS = ["cabinet-structure", "settings-tabs", "pro-plan", "free-plan"];
+
+// Слова, которые есть почти в каждом вопросе и потому ничего не различают.
+const STOP_WORDS = new Set([
+  "как",
+  "где",
+  "что",
+  "это",
+  "для",
+  "мне",
+  "меня",
+  "могу",
+  "можно",
+  "нужно",
+  "надо",
+  "есть",
+  "быть",
+  "или",
+  "если",
+  "при",
+  "так",
+  "все",
+  "всё",
+  "они",
+  "она",
+  "оно",
+  "мой",
+  "моя",
+  "мои",
+  "тут",
+  "там",
+  "чтобы",
+  "сделать",
+  "настроить",
+  "включить",
+  "почему",
+  "какой",
+  "какая",
+  "какие",
+  "okno",
+  "окно",
+]);
+
+function normalize(text: string): string {
+  return text.toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я0-9\s]/gi, " ");
+}
+
+// Русские окончания режем грубым усечением: для скоринга по подстрокам
+// точность словоформы не нужна, достаточно общего корня.
+function stem(word: string): string {
+  return word.length > 5 ? word.slice(0, word.length - 2) : word;
+}
+
+function scoreTopic(topic: SupportTopic, normalizedQuery: string, words: string[]): number {
+  let score = 0;
+
+  // Ключи карты — самый надёжный сигнал: они подобраны под реальные
+  // формулировки пользователей («аванс», «депозит» → предоплата).
+  for (const keyword of topic.keywords) {
+    const parts = keyword.split(" ");
+    // Составной ключ матчим по частям, а не целой строкой: «удал аккаунт»
+    // должен срабатывать на «как удалить аккаунт», где между словами стоит
+    // окончание. Порядок слов при этом не важен — пользователи пишут
+    // и «цену поменять», и «поменять цену».
+    if (!parts.every((part) => normalizedQuery.includes(part))) {
+      continue;
+    }
+    // Составной ключ точнее одиночного («оплата заранее» против «тг»).
+    score += parts.length > 1 ? 6 : 4;
+  }
+
+  const haystack = normalize(`${topic.title} ${topic.path} ${topic.answer}`);
+  for (const word of words) {
+    const root = stem(word);
+    if (root.length < 3) {
+      continue;
+    }
+    if (haystack.includes(root)) {
+      score += 2;
+    }
+  }
+
+  return score;
+}
+
+function collectWithRelated(ranked: SupportTopic[]): SupportTopic[] {
+  const selected: SupportTopic[] = [];
+  const seen = new Set<string>();
+
+  const push = (topic: SupportTopic | undefined) => {
+    if (!topic || seen.has(topic.id) || selected.length >= MAX_TOTAL_TOPICS) {
+      return;
+    }
+    seen.add(topic.id);
+    selected.push(topic);
+  };
+
+  ranked.forEach(push);
+  // Один шаг по связям: вопрос про предоплату почти всегда упирается в
+  // ЮKassa, и лучше отдать её сразу, чем ловить второй круг переписки.
+  for (const topic of selected.slice(0, RELATED_EXPANSION_DEPTH)) {
+    topic.related?.forEach((id) => push(getSupportTopic(id)));
+  }
+
+  return selected;
+}
+
+function retrieve(query?: string): SupportKnowledge {
+  const index = SUPPORT_SITEMAP.map(renderTopicIndexLine);
+
+  const trimmed = query?.trim();
+  if (!trimmed) {
+    return {
+      index,
+      topics: FALLBACK_TOPIC_IDS.map(getSupportTopic).filter(
+        (topic): topic is SupportTopic => Boolean(topic),
+      ),
+    };
+  }
+
+  const normalizedQuery = normalize(trimmed);
+  const words = normalizedQuery
+    .split(/\s+/)
+    .filter((word) => word.length > 2 && !STOP_WORDS.has(word));
+
+  const scored = SUPPORT_SITEMAP.map((topic) => ({
+    topic,
+    score: scoreTopic(topic, normalizedQuery, words),
+  }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  const bestScore = scored[0]?.score ?? 0;
+  const ranked = scored
+    .filter((entry) => entry.score >= bestScore * RELATIVE_SCORE_CUTOFF)
+    .slice(0, MAX_DIRECT_TOPICS)
+    .map((entry) => entry.topic);
+
+  if (ranked.length === 0) {
+    // Совпадений нет — вопрос, скорее всего, размытый. Индекса хватит, чтобы
+    // бот предложил уточняющие варианты вместо выдумывания ответа.
+    return {
+      index,
+      topics: FALLBACK_TOPIC_IDS.map(getSupportTopic).filter(
+        (topic): topic is SupportTopic => Boolean(topic),
+      ),
+    };
+  }
+
+  return { index, topics: collectWithRelated(ranked) };
+}
+
+export const sitemapSupportKnowledgeSource: SupportKnowledgeSource = { retrieve };
+
+// Точка расширения: подменяется на настоящий retrieval (эмбеддинги, векторный
+// поиск) без изменений в вызывающем коде.
 export const supportKnowledgeSource: SupportKnowledgeSource =
-  staticSupportKnowledgeSource;
+  sitemapSupportKnowledgeSource;
+
+export { renderTopicDetails };

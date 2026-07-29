@@ -15,6 +15,9 @@ export const env = {
   jobsSecret: process.env.JOBS_SECRET,
   yookassaShopId: process.env.YOOKASSA_SHOP_ID,
   yookassaSecretKey: process.env.YOOKASSA_SECRET_KEY,
+  yookassaOAuthClientId: process.env.YOOKASSA_OAUTH_CLIENT_ID,
+  yookassaOAuthClientSecret: process.env.YOOKASSA_OAUTH_CLIENT_SECRET,
+  yookassaOAuthTokenEncryptionSecret: process.env.YOOKASSA_OAUTH_TOKEN_ENCRYPTION_SECRET,
   sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   sentryTracesSampleRate: process.env.SENTRY_TRACES_SAMPLE_RATE,
   sentryReplaysSessionSampleRate: process.env.SENTRY_REPLAYS_SESSION_SAMPLE_RATE,
@@ -34,6 +37,11 @@ export const isTelegramConfigured = Boolean(env.telegramBotToken);
 export const isJobsSecretConfigured = Boolean(env.jobsSecret);
 export const isYooKassaConfigured = Boolean(
   env.yookassaShopId && env.yookassaSecretKey,
+);
+export const isYooKassaOAuthConfigured = Boolean(
+  env.yookassaOAuthClientId &&
+    env.yookassaOAuthClientSecret &&
+    env.yookassaOAuthTokenEncryptionSecret,
 );
 export const isSentryConfigured = Boolean(env.sentryDsn);
 export const isSupportAssistantConfigured = Boolean(env.anthropicApiKey);

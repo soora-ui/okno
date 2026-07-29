@@ -10,6 +10,7 @@ import {
   manualMinLength,
   serviceManualFormSchema,
 } from "@/lib/service-manuals";
+import { hasCapability } from "@/lib/subscription";
 import { isSupabaseMissingTableError } from "@/lib/supabase/auth-errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -47,6 +48,17 @@ export async function saveServiceManualAction(
   const profile = await requireProfile();
   if (!profile) {
     return { success: false, message: "Сессия истекла. Войди заново." };
+  }
+
+  // Гейт на сервере, а не только в интерфейсе: редактор мануала спрятан для
+  // тарифов без AI-консультации, но сам server action до этого можно было
+  // вызвать напрямую и сохранить мануал в обход тарифа.
+  if (!hasCapability(profile, "aiConsultation")) {
+    return {
+      success: false,
+      message:
+        "AI-консультация входит в тарифы «Соло. Расширенный» и «Студия и барбершоп». Подключить можно в настройках, вкладка «Аккаунт».",
+    };
   }
 
   const confirmed = formData.get("confirmed") === "on";

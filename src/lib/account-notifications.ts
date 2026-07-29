@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import type { Profile } from "@/lib/mock-data";
 import type { MappedNotificationEvent } from "@/lib/mappers/domain";
+import { resolveSubscription } from "@/lib/subscription";
 
 export type AccountNotificationItem = {
   id: string;
@@ -24,11 +25,10 @@ export function buildAccountNotificationItems(input: {
   notificationEvents: MappedNotificationEvent[];
   monthlyBookingsUsed: number;
 }) {
-  const { profile, notificationEvents, monthlyBookingsUsed } = input;
-  const remainingBookings = Math.max(
-    0,
-    profile.monthlyBookingLimit - monthlyBookingsUsed,
-  );
+  const { profile, notificationEvents } = input;
+  // Лимит записей отменён вместе с бесплатным тарифом: предупреждаем не об
+  // остатке записей, а об окончании оплаченного периода или пробного месяца.
+  const subscription = resolveSubscription(profile);
   const stableSystemIso =
     DateTime.now()
       .setZone(profile.timezone)
@@ -47,9 +47,7 @@ export function buildAccountNotificationItems(input: {
             ? "Напоминание клиенту"
             : event.type === "sms_repeat_visit_reminder"
               ? "Напоминание о повторном визите"
-              : event.type === "sms_certificate_code"
-                ? "Сертификат отправлен"
-                : "Подтверждение отправлено",
+              : "Подтверждение отправлено",
     description:
       event.type === "telegram_new_booking"
         ? "Появилась новая запись. Проверь кабинет и, если нужно, свяжись с клиентом."
@@ -59,9 +57,7 @@ export function buildAccountNotificationItems(input: {
             ? `Напоминание о визите отправлено клиенту на ${event.target}.`
             : event.type === "sms_repeat_visit_reminder"
               ? `Напоминание о повторном визите отправлено клиенту на ${event.target}.`
-              : event.type === "sms_certificate_code"
-                ? `Код подарочного сертификата отправлен на ${event.target}.`
-                : `Подтверждение по записи отправлено на ${event.target}.`,
+              : `Подтверждение по записи отправлено на ${event.target}.`,
     href:
       event.type === "telegram_new_booking" || event.type === "telegram_reminder_master"
         ? "/dashboard#today-bookings"
@@ -91,17 +87,40 @@ export function buildAccountNotificationItems(input: {
     });
   }
 
-  if (remainingBookings <= 10) {
+  const accessDaysLeft = subscription.activeUntil
+    ? Math.max(
+        0,
+        Math.ceil(
+          DateTime.fromISO(subscription.activeUntil).diff(
+            DateTime.now(),
+            "days",
+          ).days,
+        ),
+      )
+    : null;
+
+  if (!subscription.isActive) {
     systemItems.push({
-      id: "system-limit",
-      title:
-        remainingBookings > 0 ? "Лимит скоро закончится" : "Лимит закончился",
+      id: "system-subscription",
+      title: subscription.isTrial ? "Пробный период закончился" : "Тариф не подключён",
       description:
-        remainingBookings > 0
-          ? `Осталось ${remainingBookings} записей в этом месяце. Посмотри тариф Pro, если нужно больше.`
-          : "Бесплатный лимит записей на этот месяц исчерпан. Перейди на Pro, чтобы продолжить.",
-      href: "/pricing",
-      tone: remainingBookings > 0 ? "warning" : "accent",
+        "Клиенты не могут записаться, пока тариф не оплачен. Выбрать тариф можно в настройках.",
+      href: "/settings?tab=account",
+      tone: "accent",
+      createdAt: stableSystemIso,
+      createdAtLabel: "Сегодня",
+    });
+  } else if (accessDaysLeft !== null && accessDaysLeft <= 5) {
+    systemItems.push({
+      id: "system-subscription",
+      title: subscription.isTrial
+        ? "Пробный период скоро закончится"
+        : "Тариф скоро закончится",
+      description: subscription.isTrial
+        ? `Бесплатный доступ действует ещё ${accessDaysLeft} дн. Дальше нужен тариф, иначе запись остановится.`
+        : `Оплаченный период заканчивается через ${accessDaysLeft} дн. Автосписания нет — продли вручную.`,
+      href: "/settings?tab=account",
+      tone: "warning",
       createdAt: stableSystemIso,
       createdAtLabel: "Сегодня",
     });

@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buildReliabilityBadge, computeReliabilityAggregate } from "@/lib/client-reliability";
 import { getClientsData } from "@/lib/data";
+import { hasCapability } from "@/lib/subscription";
 import type { Booking, Client, Service } from "@/lib/mock-data";
 
 function formatVisitMoment(startsAt: string, timezone: string) {
@@ -210,7 +211,10 @@ export default async function ClientsPage() {
       </div>
 
       <Card className="space-y-5">
-        <ClientDirectory items={clientItems} />
+        <ClientDirectory
+          items={clientItems}
+          showReliability={hasCapability(profile, "clientReliability")}
+        />
       </Card>
 
       {clients.length === 0 ? (

@@ -1,6 +1,9 @@
+import { DateTime } from "luxon";
 import type { BookingSlot, Profile, Service } from "@/lib/mock-data";
 import { defaultBookingThemePresetId } from "@/lib/booking-theme-presets";
 import { defaultBookingPageSettings } from "@/lib/booking-page-settings";
+
+const landingDemoTimezone = "Europe/Simferopol";
 
 export const landingDemoPublicPageHref = "/demo/public-page";
 export const landingDemoBookHref = "/demo/public-page/book";
@@ -106,13 +109,25 @@ export const landingDemoServices: Service[] = [
   },
 ];
 
-const landingDemoSlots: BookingSlot[] = [
-  { date: "14 апреля", value: "2026-04-14", times: ["10:00", "11:30", "14:00", "18:30"] },
-  { date: "15 апреля", value: "2026-04-15", times: ["09:30", "12:30", "15:00", "17:30"] },
-  { date: "16 апреля", value: "2026-04-16", times: ["10:30", "13:00", "16:00"] },
-  { date: "17 апреля", value: "2026-04-17", times: ["11:00", "14:30", "18:00"] },
-  { date: "18 апреля", value: "2026-04-18", times: ["10:00", "12:00", "15:30"] },
+// Слоты демо-страницы считаются от текущей даты: захардкоженные даты со временем
+// протухают, и посетитель видит в «ближайших окнах» прошедшие дни.
+const landingDemoSlotTimes = [
+  ["10:00", "11:30", "14:00", "18:30"],
+  ["09:30", "12:30", "15:00", "17:30"],
+  ["10:30", "13:00", "16:00"],
+  ["11:00", "14:30", "18:00"],
+  ["10:00", "12:00", "15:30"],
 ];
+
+const landingDemoSlots: BookingSlot[] = landingDemoSlotTimes.map((times, index) => {
+  const day = DateTime.now().setZone(landingDemoTimezone).plus({ days: index + 1 });
+
+  return {
+    date: day.setLocale("ru").toFormat("d MMMM"),
+    value: day.toISODate() ?? "",
+    times,
+  };
+});
 
 export const landingDemoBookingSlotsByService: Record<string, BookingSlot[]> =
   Object.fromEntries(

@@ -6,10 +6,29 @@ import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { getSettingsData } from "@/lib/data";
 import { canManageWorkspace, isTeamWorkspaceKind } from "@/lib/workspace";
 
+const yookassaOAuthNotices: Record<string, { text: string; tone: "success" | "warning" }> = {
+  connected: {
+    text: "ЮKassa подключена. Предоплата клиентов теперь идёт напрямую в твой магазин.",
+    tone: "success",
+  },
+  connected_test: {
+    text: "Подключен тестовый магазин ЮKassa. Реальные платежи клиентов через него не пройдут — подключи боевой магазин, когда будешь готов принимать предоплату.",
+    tone: "warning",
+  },
+  error: {
+    text: "Не получилось подключить ЮKassa. Попробуй еще раз или напиши в поддержку.",
+    tone: "warning",
+  },
+  not_configured: {
+    text: "Подключение ЮKassa пока недоступно на платформе.",
+    tone: "warning",
+  },
+};
+
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ subscription?: string }>;
+  searchParams: Promise<{ subscription?: string; yookassa?: string }>;
 }) {
   const [data, query] = await Promise.all([getSettingsData(), searchParams]);
 
@@ -17,12 +36,21 @@ export default async function SettingsPage({
     redirect("/login");
   }
 
-  const { availabilityRules, profile, services, serviceManuals, referralInvites } =
-    data;
+  const {
+    availabilityRules,
+    profile,
+    services,
+    serviceManuals,
+    referralInvites,
+    certificateTemplate,
+    yookassaAccount,
+    activeSeats,
+  } = data;
   const showWorkspaceAdminLink =
     canManageWorkspace(profile.accountRole) &&
     isTeamWorkspaceKind(profile.workspaceKind);
   const showSubscriptionNotice = query.subscription === "processing";
+  const yookassaNotice = query.yookassa ? yookassaOAuthNotices[query.yookassa] : undefined;
 
   return (
     <div className="space-y-6 py-4">
@@ -40,6 +68,12 @@ export default async function SettingsPage({
             ЮKassa подтверждает платёж — обычно это занимает несколько секунд. Обнови
             страницу: как только оплата пройдёт, тариф во вкладке «Аккаунт» станет PRO.
           </p>
+        </Card>
+      ) : null}
+
+      {yookassaNotice ? (
+        <Card className={yookassaNotice.tone === "success" ? "bg-success-soft" : "bg-warning-soft"}>
+          <p className="text-sm leading-6 text-ink">{yookassaNotice.text}</p>
         </Card>
       ) : null}
 
@@ -63,6 +97,9 @@ export default async function SettingsPage({
         availabilityRules={availabilityRules}
         serviceManuals={serviceManuals}
         referralInvites={referralInvites}
+        certificateTemplate={certificateTemplate}
+        yookassaAccount={yookassaAccount}
+        activeSeats={activeSeats}
       />
     </div>
   );

@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 import { z } from "zod";
 
 /**
@@ -30,6 +31,12 @@ export type BookingPageSettings = {
   commentFieldMode: CommentFieldMode;
   giftCertificatesEnabled: boolean;
   giftCertificateDenominations: number[];
+  // Срок действия сертификатов: либо бессрочно (по умолчанию), либо
+  // конкретная дата — поля взаимоисключающие. Уже выпущенные сертификаты
+  // хранят expires_at, вычисленный на момент покупки из этих настроек, и
+  // не меняются при последующей смене настроек мастером.
+  giftCertificateNoExpiry: boolean;
+  giftCertificateExpiryDate: string | null;
 };
 
 export const defaultBookingPageSettings: BookingPageSettings = {
@@ -39,6 +46,8 @@ export const defaultBookingPageSettings: BookingPageSettings = {
   commentFieldMode: "optional",
   giftCertificatesEnabled: false,
   giftCertificateDenominations: defaultGiftCertificateDenominations,
+  giftCertificateNoExpiry: true,
+  giftCertificateExpiryDate: null,
 };
 
 const denominationSchema = z.coerce
@@ -58,18 +67,48 @@ export type BookingPageSettingsFormInput = z.infer<
   typeof bookingPageSettingsFormSchema
 >;
 
-// Форма настроек сертификатов отправляется отдельно от остальной витрины
-// (свой раздел в кабинете), но живет в том же JSONB-блоке.
-export const giftCertificateSettingsFormSchema = z.object({
-  giftCertificatesEnabled: z
-    .union([z.literal("on"), z.literal("off"), z.boolean()])
-    .transform((value) => value === "on" || value === true)
-    .default(false),
-  denominations: z
-    .array(denominationSchema)
-    .min(1)
-    .max(maxGiftCertificateDenominations),
-});
+const boolCheckboxSchema = z
+  .union([z.literal("on"), z.literal("off"), z.boolean()])
+  .transform((value) => value === "on" || value === true);
+
+// Форма базовых настроек сертификатов (номиналы + срок действия) —
+// отправляется отдельно от остальной витрины (свой раздел в кабинете), но
+// живет в том же JSONB-блоке. Включение продажи (giftCertificatesEnabled)
+// сюда намеренно не входит — это отдельное действие
+// (updateCertificateSalesEnabledAction в actions/settings.ts) с
+// собственной серверной проверкой на наличие дизайна шаблона (см.
+// okno-tz-certificates-ui-flow.md, hard-gate).
+//
+// noExpiry/expiryDate — взаимоисключающие поля (чекбокс "без срока
+// действия" по умолчанию включён). Не доверяем клиентской JS-логике,
+// которая снимает чекбокс при выборе даты, — .refine ниже принудительно
+// приводит их к согласованному виду на сервере.
+export const giftCertificateSettingsFormSchema = z
+  .object({
+    denominations: z
+      .array(denominationSchema)
+      .min(1)
+      .max(maxGiftCertificateDenominations),
+    noExpiry: boolCheckboxSchema.default(true),
+    expiryDate: z.string().trim().optional().default(""),
+  })
+  .transform((data) => {
+    const hasExpiryDate = data.expiryDate.length > 0;
+    return {
+      ...data,
+      noExpiry: hasExpiryDate ? false : data.noExpiry,
+    };
+  })
+  .refine(
+    (data) => {
+      if (data.noExpiry || !data.expiryDate) {
+        return true;
+      }
+      const parsed = DateTime.fromISO(data.expiryDate);
+      return parsed.isValid && parsed > DateTime.now();
+    },
+    { message: "Дата окончания действия должна быть в будущем.", path: ["expiryDate"] },
+  );
 
 /** Lenient parse of whatever sits in the JSONB column. */
 const storedSchema = z
@@ -79,6 +118,8 @@ const storedSchema = z
     commentFieldMode: z.enum(commentFieldModes).optional(),
     giftCertificatesEnabled: z.boolean().optional(),
     giftCertificateDenominations: z.array(denominationSchema).optional(),
+    giftCertificateNoExpiry: z.boolean().optional(),
+    giftCertificateExpiryDate: z.string().nullable().optional(),
   })
   .partial();
 
@@ -100,6 +141,12 @@ export function normalizeBookingPageSettings(raw: unknown): BookingPageSettings 
     ? Array.from(new Set(data.giftCertificateDenominations)).sort((a, b) => a - b)
     : defaultGiftCertificateDenominations;
 
+  // Согласованность на чтение: если в строке (например, после ручной
+  // правки в БД) есть дата окончания, "без срока действия" не может быть
+  // истинным одновременно — дата побеждает.
+  const expiryDate = data.giftCertificateExpiryDate?.trim() || null;
+  const noExpiry = expiryDate ? false : (data.giftCertificateNoExpiry ?? true);
+
   return {
     schemaVersion: 1,
     headline: (data.headline ?? "").trim().slice(0, headlineMaxLength),
@@ -107,6 +154,8 @@ export function normalizeBookingPageSettings(raw: unknown): BookingPageSettings 
     commentFieldMode: data.commentFieldMode ?? defaultBookingPageSettings.commentFieldMode,
     giftCertificatesEnabled: data.giftCertificatesEnabled ?? false,
     giftCertificateDenominations: denominations.slice(0, maxGiftCertificateDenominations),
+    giftCertificateNoExpiry: noExpiry,
+    giftCertificateExpiryDate: noExpiry ? null : expiryDate,
   };
 }
 

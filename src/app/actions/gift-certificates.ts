@@ -2,11 +2,13 @@
 
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
-import { DateTime } from "luxon";
 import { env, isSupabaseConfigured, isYooKassaConfigured } from "@/lib/env";
 import { normalizeBookingPageSettings } from "@/lib/booking-page-settings";
 import {
-  certificateValidityDays,
+  generateCertificateToken,
+  hashCertificateToken,
+} from "@/lib/certificate-verification";
+import {
   generateGiftCertificateCode,
   giftCertificatePurchaseSchema,
 } from "@/lib/gift-certificates";
@@ -101,9 +103,20 @@ export async function purchaseGiftCertificateAction(
     }
   }
 
+  const { data: templateRow } = await admin
+    .from("certificate_templates")
+    .select("id")
+    .eq("profile_id", profileRow.id)
+    .maybeSingle();
+
   const code = generateGiftCertificateCode();
   const idempotenceKey = randomUUID();
-  const expiresAt = DateTime.now().plus({ days: certificateValidityDays }).toUTC().toISO();
+  const token = generateCertificateToken();
+  const tokenHash = hashCertificateToken(token);
+  // Срок действия — снэпшот текущих настроек мастера на момент покупки
+  // (ТЗ: "уже выпущенные сертификаты сохраняют условия, действовавшие на
+  // момент выпуска"), не общая константа.
+  const expiresAt = settings.giftCertificateNoExpiry ? null : settings.giftCertificateExpiryDate;
 
   const { data: certificateRow, error: insertError } = await admin
     .from("gift_certificates")
@@ -111,7 +124,10 @@ export async function purchaseGiftCertificateAction(
       profile_id: profileRow.id,
       code,
       amount: parsed.data.amount,
+      remaining_amount: parsed.data.amount,
       service_id: parsed.data.serviceId || null,
+      template_id: templateRow?.id ?? null,
+      token_hash: tokenHash,
       status: "pending",
       purchaser_contact: parsed.data.purchaserContact,
       provider: "yookassa",
@@ -139,7 +155,10 @@ export async function purchaseGiftCertificateAction(
     const payment = await createYooKassaPayment({
       amountRub: parsed.data.amount,
       description: `okno: подарочный сертификат на ${parsed.data.amount} руб. — ${profileRow.full_name}`,
-      returnUrl: `${env.appUrl}/${parsed.data.username}?certificate=processing`,
+      // certificateId + ct(token) в возвратном URL — единственный способ
+      // покупателя (без аккаунта) доказать право на скачивание PDF после
+      // оплаты; тот же токен зашит в QR-код на самом сертификате.
+      returnUrl: `${env.appUrl}/${parsed.data.username}?certificate=${certificateRow.id}&ct=${token}`,
       idempotenceKey,
       metadata: {
         kind: "gift_certificate",

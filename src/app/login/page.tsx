@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, MessageCircleMore, Users2 } from "lucide-react";
+import { BriefcaseBusiness, Users2 } from "lucide-react";
 import { SiteShell } from "@/components/layout/site-shell";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -68,10 +68,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 Работает в своем личном кабинете и видит только свои записи, услуги и клиентов.
               </p>
             </div>
-          </div>
-          <div className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-line bg-surface px-5 py-3 text-sm font-medium text-ink">
-            <MessageCircleMore size={16} className="mr-2" />
-            Войти через Telegram
           </div>
           <ButtonLink href="/register" variant="ghost" className="w-full px-0">
             Создать аккаунт

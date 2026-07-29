@@ -11,6 +11,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { BookingCard } from "@/components/dashboard/booking-card";
+import { CertificateScannerModal } from "@/components/dashboard/certificate-scanner-modal";
 import { ManualBookingForm } from "@/components/forms/booking-operations";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -18,20 +19,17 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getDashboardData } from "@/lib/data";
 import { canManageWorkspace, isTeamWorkspaceKind } from "@/lib/workspace";
+import { pluralizeRu } from "@/lib/utils";
+import { formatSubscriptionUntil, resolveSubscription } from "@/lib/subscription";
+import { getPlan } from "@/config/plans";
 
 function pluralizeActiveBookings(count: number) {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-
-  if (mod10 === 1 && mod100 !== 11) {
-    return `${count} активная запись`;
-  }
-
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-    return `${count} активные записи`;
-  }
-
-  return `${count} активных записей`;
+  return pluralizeRu(
+    count,
+    "активная запись",
+    "активные записи",
+    "активных записей",
+  );
 }
 
 export default async function DashboardPage() {
@@ -45,27 +43,25 @@ export default async function DashboardPage() {
   const showWorkspaceAdminLink =
     canManageWorkspace(profile.accountRole) &&
     isTeamWorkspaceKind(profile.workspaceKind);
-  const remainingBookings = Math.max(
-    0,
-    profile.monthlyBookingLimit - profile.monthlyBookingsUsed,
-  );
-  const remainingPercent =
-    profile.monthlyBookingLimit > 0
-      ? Math.max(
-          0,
-          Math.min(
-            100,
-            (remainingBookings / profile.monthlyBookingLimit) * 100,
-          ),
-        )
-      : 0;
-  const progressTone =
-    remainingPercent > 60
-      ? "var(--color-success)"
-      : remainingPercent > 25
-        ? "var(--color-warning)"
-        : "#c96b5c";
   const now = DateTime.now().setZone(profile.timezone);
+  // Лимита записей больше нет: доступ определяется тарифом или пробным
+  // периодом. Здесь показываем, сколько дней доступа осталось.
+  const subscription = resolveSubscription(profile);
+  const subscriptionPlan = subscription.planId ? getPlan(subscription.planId) : null;
+  const accessUntilLabel = formatSubscriptionUntil(subscription.activeUntil);
+  const daysLeft = subscription.activeUntil
+    ? Math.max(
+        0,
+        Math.ceil(
+          DateTime.fromISO(subscription.activeUntil).diff(now, "days").days,
+        ),
+      )
+    : null;
+  const accessTone = !subscription.isActive
+    ? "#c96b5c"
+    : daysLeft !== null && daysLeft <= 5
+      ? "var(--color-warning)"
+      : "var(--color-success)";
   const todayKey = now.toFormat("yyyy-MM-dd");
   const confirmedBookings = bookings
     .filter((booking) => booking.status === "confirmed")
@@ -142,12 +138,7 @@ export default async function DashboardPage() {
         <Card className="flex flex-wrap items-center justify-between gap-4 bg-panel">
           <div className="space-y-1">
             <p className="text-sm font-semibold text-ink">
-              У вас {unmarkedPastVisitsCount}{" "}
-              {unmarkedPastVisitsCount === 1
-                ? "визит"
-                : unmarkedPastVisitsCount >= 2 && unmarkedPastVisitsCount <= 4
-                  ? "визита"
-                  : "визитов"}{" "}
+              У вас {pluralizeRu(unmarkedPastVisitsCount, "визит", "визита", "визитов")}{" "}
               без отметки
             </p>
             <p className="text-sm leading-6 text-ink-soft">
@@ -287,29 +278,47 @@ export default async function DashboardPage() {
             <div className="flex items-center gap-2">
               <Sparkles size={18} />
               <p className="text-sm uppercase tracking-[0.24em] text-white/60">
-                Остаток тарифа
+                {subscriptionPlan
+                  ? "Тариф"
+                  : subscription.isTrial
+                    ? "Пробный период"
+                    : "Доступ"}
               </p>
             </div>
             <p className="text-4xl font-semibold text-white">
-              {remainingBookings} записи
+              {subscriptionPlan
+                ? subscriptionPlan.title
+                : subscription.isTrial
+                  ? daysLeft !== null
+                    ? pluralizeRu(daysLeft, "день", "дня", "дней")
+                    : "Активен"
+                  : "Не подключён"}
             </p>
             <p className="text-sm leading-7 text-white/70">
-              Из {profile.monthlyBookingLimit} бесплатных записей в этом месяце использовано{" "}
-              {profile.monthlyBookingsUsed}. Переход на Pro можно показать заранее и без
-              навязчивости.
-            </p>
-            <p className="text-xs uppercase tracking-[0.18em] text-white/50">
-              Осталось {Math.round(remainingPercent)}% лимита
+              {subscription.isActive
+                ? accessUntilLabel
+                  ? subscription.isTrial
+                    ? `Бесплатный доступ ко всем возможностям до ${accessUntilLabel}. Дальше нужен тариф.`
+                    : `Оплачен до ${accessUntilLabel}. Автосписания нет — продлевать нужно вручную.`
+                  : "Доступ активен бессрочно."
+                : "Публичная запись у клиентов не работает. Подключи тариф в настройках."}
             </p>
             <div className="h-2 overflow-hidden rounded-full bg-white/15">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
-                  width: `${remainingPercent}%`,
-                  background: progressTone,
+                  width: subscription.isActive ? "100%" : "8%",
+                  background: accessTone,
                 }}
               />
             </div>
+            <ButtonLink
+              href="/settings?tab=account"
+              variant="secondary"
+              className="w-fit bg-surface text-ink"
+            >
+              {subscriptionPlan ? "Продлить или сменить тариф" : "Открыть тарифы"}
+            </ButtonLink>
           </Card>
 
           <Card className="space-y-4">
@@ -325,8 +334,8 @@ export default async function DashboardPage() {
               </div>
             </div>
             <div className="rounded-[20px] bg-panel px-4 py-3 text-sm text-ink-soft">
-              В этом месяце вручную добавлено {manualBookingsThisMonth}{" "}
-              {manualBookingsThisMonth === 1 ? "запись" : manualBookingsThisMonth >= 2 && manualBookingsThisMonth <= 4 ? "записи" : "записей"}.
+              В этом месяце вручную добавлено{" "}
+              {pluralizeRu(manualBookingsThisMonth, "запись", "записи", "записей")}.
             </div>
             <ManualBookingForm
               services={services}
@@ -334,6 +343,8 @@ export default async function DashboardPage() {
               defaultDate={now.toISODate() ?? ""}
             />
           </Card>
+
+          <CertificateScannerModal />
 
           <Card className="space-y-4">
             <div className="space-y-1">

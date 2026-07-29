@@ -14,6 +14,16 @@ export const acceptedImageMimeTypes = [
   "image/avif",
 ] as const;
 
+// Логотип для шаблона сертификата (okno-tz-certificates.md) допускает SVG —
+// avatar/portfolio его не поддерживают, поэтому отдельный список, а не
+// добавка в acceptedImageMimeTypes.
+export const acceptedLogoMimeTypes = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/svg+xml",
+] as const;
+
 export const maxAvatarFileSizeBytes = 8 * 1024 * 1024;
 export const maxPortfolioFileSizeBytes = 8 * 1024 * 1024;
 export const maxAvatarUploadFileSizeBytes = 1.5 * 1024 * 1024;
@@ -23,6 +33,19 @@ export const maxPortfolioImageDimension = 1800;
 export const imageCompressionMimeType = "image/webp";
 export const imageCompressionQuality = 0.82;
 export const maxPortfolioWorks = 15;
+
+// Логотип должен остаться чётким при печати на 300 DPI — не сжимаем так
+// агрессивно, как аватар. SVG не проходит через canvas-компрессию (canvas
+// не умеет безопасно растеризовать SVG без потери векторности), поэтому
+// для SVG отдельный, более жёсткий потолок сырого размера.
+export const maxCertificateLogoFileSizeBytes = 5 * 1024 * 1024;
+export const maxCertificateLogoUploadFileSizeBytes = 1.5 * 1024 * 1024;
+export const maxCertificateLogoSvgFileSizeBytes = 500 * 1024;
+export const maxCertificateLogoImageDimension = 2000;
+
+export function isAcceptedLogoMimeType(type: string) {
+  return acceptedLogoMimeTypes.includes(type as (typeof acceptedLogoMimeTypes)[number]);
+}
 
 const publicSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -84,7 +107,7 @@ function getFileExtension(fileName: string, mimeType: string) {
 
 export function buildProfileMediaStoragePath(input: {
   ownerId: string;
-  kind: "avatar" | "portfolio";
+  kind: "avatar" | "portfolio" | "certificate-logo";
   file: File;
 }) {
   const extension = getFileExtension(input.file.name, input.file.type);
@@ -94,7 +117,7 @@ export function buildProfileMediaStoragePath(input: {
 export function isOwnedProfileMediaPath(
   path: string,
   ownerId: string,
-  kind?: "avatar" | "portfolio",
+  kind?: "avatar" | "portfolio" | "certificate-logo",
 ) {
   const segments = path.split("/");
 

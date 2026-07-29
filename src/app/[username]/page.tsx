@@ -9,15 +9,17 @@ const USERNAME_PATTERN = /^[a-z0-9-]+$/;
 
 type Props = {
   params: Promise<{ username: string }>;
+  searchParams: Promise<{ certificate?: string; ct?: string }>;
 };
 
-export default async function PublicProfilePage({ params }: Props) {
+export default async function PublicProfilePage({ params, searchParams }: Props) {
   const { username } = await params;
   if (!USERNAME_PATTERN.test(username)) notFound();
 
-  const [data, authProfile] = await Promise.all([
+  const [data, authProfile, query] = await Promise.all([
     getPublicPageData(username),
     getCurrentAuthProfile(),
+    searchParams,
   ]);
   const homeHref = authProfile
     ? getDefaultAccountRoute({
@@ -48,6 +50,8 @@ export default async function PublicProfilePage({ params }: Props) {
             masterName={data.profile.fullName}
             denominations={data.profile.bookingPageSettings.giftCertificateDenominations}
             services={data.services}
+            returnedCertificateId={query.certificate}
+            returnedCertificateToken={query.ct}
           />
         </div>
       ) : null}

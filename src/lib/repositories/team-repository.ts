@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isRetryableSupabaseNetworkError } from "@/lib/supabase/auth-errors";
 
@@ -20,6 +21,7 @@ const TEAM_PROFILE_COLUMNS = [
   "telegram_chat_id",
   "booking_theme_preset",
   "subscription_tier",
+  "subscription_until",
   "monthly_booking_limit",
   "booking_window_days",
   "slot_interval_minutes",
@@ -82,6 +84,32 @@ const TEAM_CLIENT_COLUMNS = [
   "created_at",
   "last_booking_at",
 ].join(",");
+
+// Сколько мест занято в рабочем пространстве: считаем активных сотрудников
+// (account_role = 'staff'). Администратор места не занимает — он и есть
+// владелец тарифа. Отключённые сотрудники не считаются и не оплачиваются.
+// Под этот запрос есть индекс profiles_workspace_id_account_status_idx.
+export async function countActiveWorkspaceSeats(
+  client: SupabaseClient,
+  workspaceId: string,
+): Promise<number> {
+  if (!workspaceId) {
+    return 0;
+  }
+
+  const { count, error } = await client
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId)
+    .eq("account_role", "staff")
+    .eq("account_status", "active");
+
+  if (error) {
+    throw new Error("Не получилось посчитать сотрудников рабочего пространства.");
+  }
+
+  return count ?? 0;
+}
 
 export async function getWorkspaceTeamRows(input: { workspaceId: string }) {
   const admin = createSupabaseAdminClient();

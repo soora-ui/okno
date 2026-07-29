@@ -50,9 +50,8 @@ export function ReferralSettings({
       <div className="flex items-center gap-3 rounded-[18px] bg-panel px-4 py-3">
         <Gift size={18} className="shrink-0 text-accent-deep" />
         <p className="text-sm leading-6 text-ink-soft">
-          Приглашай других мастеров: за каждого, кто оплатит первый месяц{" "}
-          {"okno Pro"}, ты получишь <strong>+{referralBonusDays} дней PRO</strong>{" "}
-          бесплатно.
+          Приглашай других мастеров: за каждого, кто оплатит первый месяц подписки,
+          ты получишь <strong>+{referralBonusDays} дней PRO</strong> бесплатно.
         </p>
       </div>
 

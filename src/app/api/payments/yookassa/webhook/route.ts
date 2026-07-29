@@ -1,14 +1,21 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { isYooKassaConfigured } from "@/lib/env";
-import { certificateValidityDays } from "@/lib/gift-certificates";
 import { logError, logWarn } from "@/lib/observability/logger";
 import { writeAuditLog } from "@/lib/observability/audit";
-import { processNotificationQueue } from "@/lib/notification-queue";
-import { getYooKassaPayment, type YooKassaPayment } from "@/lib/payments/yookassa";
+import {
+  getYooKassaPayment,
+  getYooKassaPaymentWithToken,
+  YooKassaAuthError,
+  type YooKassaPayment,
+} from "@/lib/payments/yookassa";
 import { isYooKassaIp } from "@/lib/payments/yookassa-ips";
+import { decryptOAuthToken, markMasterYooKassaAccountRevoked } from "@/lib/payments/yookassa-oauth";
+import { notifyMasterYooKassaRevoked } from "@/lib/notifications";
 import { getClientIp } from "@/lib/public-booking-guards";
 import { applyReferralRewardForFirstPayment } from "@/lib/referral-rewards";
+import { type PlanId, isPlanId } from "@/config/plans";
+import { planPeriodDays } from "@/lib/subscription";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -107,7 +114,7 @@ async function handleSubscriptionPayment(input: {
 
   const { data: paymentRow, error: rowError } = await supabase
     .from("subscription_payments")
-    .select("id, profile_id, period_days, status")
+    .select("id, profile_id, period_days, status, plan")
     .eq("provider_payment_id", paymentId)
     .maybeSingle();
 
@@ -147,11 +154,33 @@ async function handleSubscriptionPayment(input: {
     .eq("status", "succeeded");
   const isFirstSuccessfulPayment = (priorSucceededCount ?? 0) === 0;
 
-  const periodDays = Number(paymentRow.period_days ?? 30);
-  const subscriptionUntil = DateTime.now()
-    .plus({ days: periodDays })
-    .toUTC()
-    .toISO();
+  const periodDays = Number(paymentRow.period_days ?? planPeriodDays);
+
+  // Тариф берём из оплаченной строки, а не хардкодим: мастер мог купить любой
+  // из трёх. Неизвестное значение (старые платежи с plan='pro') трактуем как
+  // «Соло. Расширенный» — столько доступа они и оплачивали.
+  const paidPlanId: PlanId = isPlanId(paymentRow.plan)
+    ? paymentRow.plan
+    : "solo-plus";
+
+  // Продлеваем от большей из дат: оплата в середине оплаченного периода не
+  // должна сжигать остаток. Раньше здесь всегда стоял now(), из-за чего раннее
+  // продление отнимало у мастера уже оплаченные дни. Реферальный бонус
+  // (src/lib/referral-rewards.ts) считает так же.
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("subscription_until")
+    .eq("id", paymentRow.profile_id)
+    .maybeSingle();
+
+  const currentUntil = currentProfile?.subscription_until
+    ? DateTime.fromISO(String(currentProfile.subscription_until))
+    : null;
+  const base =
+    currentUntil?.isValid && currentUntil > DateTime.now()
+      ? currentUntil
+      : DateTime.now();
+  const subscriptionUntil = base.plus({ days: periodDays }).toUTC().toISO();
 
   await supabase
     .from("subscription_payments")
@@ -161,7 +190,7 @@ async function handleSubscriptionPayment(input: {
   const { error: profileError } = await supabase
     .from("profiles")
     .update({
-      subscription_tier: "pro",
+      subscription_tier: paidPlanId,
       subscription_until: subscriptionUntil,
     })
     .eq("id", paymentRow.profile_id);
@@ -263,7 +292,7 @@ async function handleGiftCertificatePayment(input: {
 
   const { data: certificateRow, error: rowError } = await supabase
     .from("gift_certificates")
-    .select("id, profile_id, status, code, amount, purchaser_contact, expires_at")
+    .select("id, profile_id, status, code, amount")
     .eq("provider_payment_id", paymentId)
     .maybeSingle();
 
@@ -295,15 +324,13 @@ async function handleGiftCertificatePayment(input: {
     return NextResponse.json({ ok: true, status: "already_active" });
   }
 
-  const expiresAt =
-    certificateRow.expires_at ??
-    DateTime.now().plus({ days: certificateValidityDays }).toUTC().toISO();
-
+  // expires_at уже вычислен и записан в момент покупки (снэпшот настроек
+  // мастера на тот момент, см. purchaseGiftCertificateAction) — здесь
+  // ничего не пересчитываем, null означает "без срока действия".
   await supabase
     .from("gift_certificates")
     .update({
       status: "active",
-      expires_at: expiresAt,
       updated_at: new Date().toISOString(),
     })
     .eq("id", certificateRow.id);
@@ -317,68 +344,30 @@ async function handleGiftCertificatePayment(input: {
     metadata: { amount: certificateRow.amount },
   });
 
-  const { data: profileRow } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", certificateRow.profile_id)
-    .maybeSingle();
-  const masterName = String(profileRow?.full_name ?? "мастер");
-  const expiresAtLabel = DateTime.fromISO(expiresAt ?? "", { zone: "utc" })
-    .setLocale("ru")
-    .toFormat("d LLLL yyyy");
-
-  const purchaserContact = String(certificateRow.purchaser_contact ?? "");
-  const looksLikePhone = /^\+?\d[\d\s-]{7,}$/.test(purchaserContact);
-
-  if (looksLikePhone) {
-    const { data: notificationRow, error: notificationError } = await supabase
-      .from("notification_events")
-      .insert({
-        profile_id: certificateRow.profile_id,
-        type: "sms_certificate_code",
-        status: "queued",
-        target: purchaserContact,
-        payload: {
-          phone: purchaserContact,
-          masterName,
-          amount: certificateRow.amount,
-          code: certificateRow.code,
-          expiresAtLabel,
-        },
-      })
-      .select("id")
-      .single();
-
-    if (notificationError) {
-      logError("Webhook: failed to enqueue certificate code delivery", {
-        certificateId: certificateRow.id,
-        error: notificationError,
-      });
-    } else if (notificationRow) {
-      after(async () => {
-        await processNotificationQueue([String(notificationRow.id)]);
-      });
-    }
-  } else {
-    logWarn("Webhook: purchaser contact is not a phone number, skipping SMS delivery", {
-      certificateId: certificateRow.id,
-    });
-  }
+  // Доставка сертификата покупателю — не SMS/email, а скачивание PDF по
+  // возврату с оплаты (см. purchaseGiftCertificateAction: returnUrl несёт
+  // certificateId+токен) и по /api/certificates/[id]/download. Рендер PDF
+  // происходит лениво в самом download-роуте — вебхуку сырой токен
+  // недоступен (в БД хранится только его хэш), поэтому отрендерить QR
+  // здесь невозможно и не нужно.
 
   return NextResponse.json({ ok: true, status: "succeeded" });
 }
 
 // Подтверждение предоплаты по услуге (Модуль 2, okno-tz-rating-prepayment.md,
-// ТЗ 2.5). Идемпотентность: если prepayments.status уже 'paid', выходим сразу
-// — ЮKassa может слать вебхук повторно.
+// ТЗ 2.5; okno-tz-yookassa-oauth.md). Идемпотентность: если
+// prepayments.status уже 'paid', выходим сразу — ЮKassa может слать вебхук
+// повторно.
+//
+// Платёж создан в магазине мастера, а не платформы — перепроверяем его тем
+// же Bearer-токеном мастера (общий shopId платформы для предоплаты больше не
+// используется), см. master_yookassa_account_id на строке prepayments.
 async function handlePrepaymentWebhook(paymentId: string) {
   try {
-    const payment = await getYooKassaPayment(paymentId);
-
     const supabase = createSupabaseAdminClient();
     const { data: prepaymentRow, error: rowError } = await supabase
       .from("prepayments")
-      .select("id, booking_id, profile_id, status")
+      .select("id, booking_id, profile_id, status, master_yookassa_account_id")
       .eq("provider_payment_id", paymentId)
       .maybeSingle();
 
@@ -393,6 +382,54 @@ async function handlePrepaymentWebhook(paymentId: string) {
 
     if (prepaymentRow.status === "paid") {
       return NextResponse.json({ ok: true, status: "already_paid" });
+    }
+
+    if (!prepaymentRow.master_yookassa_account_id) {
+      logError("Webhook: prepayment row has no linked master YooKassa account", {
+        paymentId,
+        prepaymentId: prepaymentRow.id,
+      });
+      return NextResponse.json({ error: "Внутренняя ошибка." }, { status: 500 });
+    }
+
+    const { data: accountRow, error: accountError } = await supabase
+      .from("master_yookassa_accounts")
+      .select("access_token_encrypted")
+      .eq("id", prepaymentRow.master_yookassa_account_id)
+      .maybeSingle();
+
+    if (accountError || !accountRow) {
+      logError("Webhook: failed to load master YooKassa account for prepayment", {
+        paymentId,
+        error: accountError,
+      });
+      return NextResponse.json({ error: "Внутренняя ошибка." }, { status: 500 });
+    }
+
+    let payment: YooKassaPayment;
+    try {
+      const accessToken = decryptOAuthToken(String(accountRow.access_token_encrypted));
+      payment = await getYooKassaPaymentWithToken(accessToken, paymentId);
+    } catch (error) {
+      if (error instanceof YooKassaAuthError) {
+        // Мастер отозвал доступ напрямую в ЮKassa — синхронизируем статус и
+        // просим переподключиться, иначе следующие клиенты тоже не смогут
+        // внести предоплату.
+        await markMasterYooKassaAccountRevoked(supabase, String(prepaymentRow.profile_id));
+
+        const { data: profileRow } = await supabase
+          .from("profiles")
+          .select("telegram_chat_id")
+          .eq("id", prepaymentRow.profile_id)
+          .maybeSingle();
+        await notifyMasterYooKassaRevoked({
+          chatId: profileRow?.telegram_chat_id ? String(profileRow.telegram_chat_id) : null,
+        });
+
+        return NextResponse.json({ ok: true, status: "master_token_revoked" });
+      }
+
+      throw error;
     }
 
     if (payment.status === "canceled") {

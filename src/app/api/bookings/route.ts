@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
-import { env, isSupabaseConfigured, isYooKassaConfigured } from "@/lib/env";
+import { env, isSupabaseConfigured } from "@/lib/env";
 import { writeAuditLog } from "@/lib/observability/audit";
 import { logError } from "@/lib/observability/logger";
 import {
@@ -32,7 +32,12 @@ import {
   isPhoneVerificationRequired,
   isPhoneVerificationTokenValid,
 } from "@/lib/phone-verification";
-import { createYooKassaPayment } from "@/lib/payments/yookassa";
+import { createYooKassaPaymentWithToken, YooKassaAuthError } from "@/lib/payments/yookassa";
+import {
+  getActiveMasterYooKassaToken,
+  markMasterYooKassaAccountRevoked,
+} from "@/lib/payments/yookassa-oauth";
+import { notifyMasterYooKassaRevoked } from "@/lib/notifications";
 import { computePrepaymentAmount, prepaymentReservationMinutes } from "@/lib/prepayment";
 import {
   acquireBookingIdempotency,
@@ -48,7 +53,7 @@ import {
   isSupabaseMissingColumnError,
 } from "@/lib/supabase/auth-errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { hasActivePro } from "@/lib/subscription";
+import { resolveSubscription } from "@/lib/subscription";
 import { profile as mockProfile, services as mockServices } from "@/lib/mock-data";
 
 const bookingSchema = z.object({
@@ -256,13 +261,19 @@ export async function POST(request: Request) {
     return respondWithError(404, "Услуга не найдена.");
   }
 
-  let certificateRow: { id: string; amount: number } | null = null;
+  // Списание сертификата кодом при онлайн-записи — разово на полную цену
+  // услуги (без частичной оплаты долями, это отдельная задача вне текущего
+  // ТЗ про QR/сканирование). Баланс списывается через remaining_amount —
+  // тот же остаток, что использует сканирование сертификата мастером
+  // (/api/certificates/redeem), так что оба канала согласованно уменьшают
+  // один и тот же остаток.
+  let certificateRow: { id: string; writeOffAmount: number } | null = null;
 
   if (parsed.data.certificateCode.trim()) {
     const normalizedCode = normalizeCertificateCodeInput(parsed.data.certificateCode);
     const { data: certificateLookup, error: certificateError } = await admin
       .from("gift_certificates")
-      .select("id, status, amount, service_id, expires_at")
+      .select("id, status, remaining_amount, service_id, expires_at")
       .eq("profile_id", profileRow.id)
       .eq("code", normalizedCode)
       .maybeSingle();
@@ -300,38 +311,29 @@ export async function POST(request: Request) {
       return respondWithError(409, "Этот сертификат не подходит для выбранной услуги.");
     }
 
+    const writeOffAmount = Number(serviceRow.price);
+    if (Number(certificateLookup.remaining_amount) < writeOffAmount) {
+      return respondWithError(409, "Остатка на сертификате не хватает на эту услугу.");
+    }
+
     certificateRow = {
       id: String(certificateLookup.id),
-      amount: Number(certificateLookup.amount),
+      writeOffAmount,
     };
   }
 
-  // Free-tier cap: a master without active PRO can accept only 1 booking total.
-  // Existing bookings are left untouched — once a free master already has one
-  // confirmed booking, any further public booking (i.e. a new client) is
-  // blocked. PRO removes the cap.
-  if (
-    !hasActivePro({
-      subscriptionTier: String(profileRow.subscription_tier ?? "free"),
-      subscriptionUntil: (profileRow.subscription_until as string | null) ?? null,
-    })
-  ) {
-    const { count: confirmedBookings, error: bookingCountError } = await admin
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("profile_id", profileRow.id)
-      .eq("status", "confirmed");
+  // Запись принимается, пока у мастера есть доступ: оплаченный тариф либо
+  // непросроченный пробный период (30 дней от регистрации). Лимита на число
+  // записей внутри периода нет — раньше здесь стояла тестовая отсечка «одна
+  // запись на free-тарифе», она снята вместе с бесплатным тарифом.
+  const masterSubscription = resolveSubscription({
+    subscriptionTier: String(profileRow.subscription_tier ?? "free"),
+    subscriptionUntil: (profileRow.subscription_until as string | null) ?? null,
+    joinedAt: (profileRow.created_at as string | null) ?? null,
+  });
 
-    if (bookingCountError) {
-      return respondWithError(500, "Не получилось проверить лимит записей.");
-    }
-
-    if ((confirmedBookings ?? 0) >= 1) {
-      return respondWithError(
-        403,
-        "Мастер сейчас не принимает новые записи.",
-      );
-    }
+  if (!masterSubscription.isActive) {
+    return respondWithError(403, "Мастер сейчас не принимает новые записи.");
   }
 
   const startsAtIso = toUtcIsoFromLocalSlot({
@@ -469,26 +471,34 @@ export async function POST(request: Request) {
     clientRow = insertedClient;
   }
 
-  // Атомарно "бронируем" сертификат перед вставкой записи: conditional update
-  // на status = 'active' не даст двум параллельным запросам погасить один и
-  // тот же сертификат дважды. Если запись потом не создастся — возвращаем
-  // сертификат обратно в active.
+  // Атомарно "бронируем" сертификат перед вставкой записи — та же
+  // RPC-функция redeem_gift_certificate, что использует сканирование
+  // мастером (/api/certificates/redeem): один UPDATE с WHERE-условием на
+  // remaining_amount/status не даст двум параллельным запросам списать один
+  // и тот же остаток дважды. Если запись потом не создастся — возвращаем
+  // списанное обратно.
+  let claimedRemainingAmount: number | null = null;
+  let claimedBecameRedeemed = false;
+
   if (certificateRow) {
-    const { data: claimedCertificate, error: claimError } = await admin
-      .from("gift_certificates")
-      .update({ status: "redeemed", updated_at: new Date().toISOString() })
-      .eq("id", certificateRow.id)
-      .eq("status", "active")
-      .select("id")
+    const { data: claimResult, error: claimError } = await admin
+      .rpc("redeem_gift_certificate", {
+        p_certificate_id: certificateRow.id,
+        p_write_off_amount: certificateRow.writeOffAmount,
+      })
+      .select("remaining_amount, status")
       .maybeSingle();
 
     if (claimError) {
       return respondWithError(500, "Не получилось применить сертификат.");
     }
 
-    if (!claimedCertificate) {
+    if (!claimResult) {
       return respondWithError(409, "Этот сертификат уже использован.");
     }
+
+    claimedRemainingAmount = Number(claimResult.remaining_amount);
+    claimedBecameRedeemed = claimResult.status === "redeemed";
   }
 
   // Настраиваемая предоплата (Модуль 2 из okno-tz-rating-prepayment.md):
@@ -498,8 +508,14 @@ export async function POST(request: Request) {
   // в 202607090002_service_prepayment.sql). prepayment_required — снэпшот
   // на момент создания, не пересчитывается, если мастер потом поменяет
   // настройки услуги.
+  // Предоплата входит в «Соло. Расширенный» и «Студия». Если тариф мастера
+  // её больше не открывает (понизил тариф, не продлил), уже настроенная на
+  // услуге предоплата не применяется и запись создаётся обычной — деньги с
+  // клиента по неоплачиваемой возможности брать нельзя.
+  const canTakePrepayment = masterSubscription.capabilities.includes("prepayment");
   const servicePrepaymentType =
-    serviceRow.prepayment_type === "fixed" || serviceRow.prepayment_type === "percent"
+    canTakePrepayment &&
+    (serviceRow.prepayment_type === "fixed" || serviceRow.prepayment_type === "percent")
       ? (serviceRow.prepayment_type as "fixed" | "percent")
       : "none";
   const prepaymentRequired = servicePrepaymentType !== "none";
@@ -511,7 +527,17 @@ export async function POST(request: Request) {
       })
     : 0;
 
-  if (prepaymentRequired && !isYooKassaConfigured) {
+  // Предоплата идёт напрямую в магазин мастера через его OAuth-токен
+  // ЮKassa (okno-tz-yookassa-oauth.md) — без активного подключения
+  // предоплату не показываем клиенту вовсе, бронь без предоплаты не
+  // создаём (мастер сам не может включить предоплату не подключив ЮKassa,
+  // см. валидацию в createServiceAction/updateServiceAction; эта проверка —
+  // защита на случай, если он отключил её уже после того как задал услугу).
+  const masterYooKassaToken = prepaymentRequired
+    ? await getActiveMasterYooKassaToken(admin, profileRow.id)
+    : null;
+
+  if (prepaymentRequired && !masterYooKassaToken) {
     return respondWithError(
       503,
       "Предоплата у этого мастера временно недоступна. Свяжись с мастером напрямую.",
@@ -548,10 +574,15 @@ export async function POST(request: Request) {
     .single();
 
   if (bookingError || !bookingRow) {
-    if (certificateRow) {
+    if (certificateRow && claimedRemainingAmount !== null) {
       await admin
         .from("gift_certificates")
-        .update({ status: "active", updated_at: new Date().toISOString() })
+        .update({
+          remaining_amount: claimedRemainingAmount + certificateRow.writeOffAmount,
+          status: "active",
+          redeemed_at: claimedBecameRedeemed ? null : undefined,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", certificateRow.id);
     }
 
@@ -569,14 +600,26 @@ export async function POST(request: Request) {
     return respondWithError(500, "Не получилось создать запись.");
   }
 
-  if (certificateRow) {
-    await admin
-      .from("gift_certificates")
-      .update({
-        redeemed_at: new Date().toISOString(),
-        redeemed_booking_id: bookingRow.id,
-      })
-      .eq("id", certificateRow.id);
+  if (certificateRow && claimedRemainingAmount !== null) {
+    // redeemed_booking_id исторически значил "запись, погасившая сертификат
+    // целиком" — при частичном списании имеет смысл только когда остаток
+    // дошёл до нуля именно этой записью; полная история списаний (в том
+    // числе частичных) живёт в certificate_redemptions.
+    if (claimedBecameRedeemed) {
+      await admin
+        .from("gift_certificates")
+        .update({ redeemed_booking_id: bookingRow.id })
+        .eq("id", certificateRow.id);
+    }
+
+    await admin.from("certificate_redemptions").insert({
+      certificate_id: certificateRow.id,
+      profile_id: profileRow.id,
+      amount_written_off: certificateRow.writeOffAmount,
+      balance_after: claimedRemainingAmount,
+      channel: "public_booking",
+      booking_id: bookingRow.id,
+    });
   }
 
   if (prepaymentRequired) {
@@ -589,6 +632,7 @@ export async function POST(request: Request) {
         amount: prepaymentAmount,
         status: "pending",
         provider: "yookassa",
+        master_yookassa_account_id: masterYooKassaToken?.accountId ?? null,
         idempotence_key: idempotenceKey,
         expires_at: new Date(
           Date.now() + prepaymentReservationMinutes * 60_000,
@@ -607,7 +651,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      const payment = await createYooKassaPayment({
+      const payment = await createYooKassaPaymentWithToken(masterYooKassaToken!.accessToken, {
         amountRub: prepaymentAmount,
         description: `Предоплата: ${String(serviceRow.title)}, ${String(profileRow.full_name)}`,
         returnUrl: `${env.appUrl}/${parsed.data.username}/confirm?bookingId=${bookingRow.id}`,
@@ -667,6 +711,18 @@ export async function POST(request: Request) {
       });
       await admin.from("prepayments").update({ status: "failed" }).eq("id", prepaymentRow.id);
       await admin.from("bookings").delete().eq("id", bookingRow.id);
+
+      if (error instanceof YooKassaAuthError) {
+        // Мастер отозвал доступ на стороне ЮKassa напрямую, не через кнопку
+        // «Отключить» — синхронизируем статус и просим переподключиться.
+        await markMasterYooKassaAccountRevoked(admin, profileRow.id);
+        await notifyMasterYooKassaRevoked({ chatId: profileRow.telegram_chat_id ?? null });
+        return respondWithError(
+          503,
+          "Предоплата у этого мастера временно недоступна. Свяжись с мастером напрямую.",
+        );
+      }
+
       return respondWithError(
         502,
         "ЮKassa не приняла платёж предоплаты. Попробуй еще раз.",
@@ -814,7 +870,8 @@ export async function POST(request: Request) {
       targetId: certificateRow.id,
       metadata: {
         bookingId: String(bookingRow.id),
-        amount: certificateRow.amount,
+        amountWrittenOff: certificateRow.writeOffAmount,
+        channel: "public_booking",
       },
     });
   }

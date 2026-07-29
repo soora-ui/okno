@@ -69,9 +69,11 @@ function StatCard({
 function ClientDetailsModal({
   client,
   onClose,
+  showReliability = false,
 }: {
   client: ClientDirectoryItem | null;
   onClose: () => void;
+  showReliability?: boolean;
 }) {
   useEffect(() => {
     if (!client) {
@@ -116,10 +118,14 @@ function ClientDetailsModal({
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-2xl font-semibold text-ink sm:text-3xl">{client.name}</h2>
               <Badge tone="accent">{client.totalVisitsLabel}</Badge>
-              <ReliabilityBadgeChip reliability={client.reliability} />
+              {showReliability ? (
+                <ReliabilityBadgeChip reliability={client.reliability} />
+              ) : null}
             </div>
             <p className="text-sm text-ink-soft">{client.phoneMasked}</p>
-            <p className="text-xs text-muted">{client.reliability.detailLabel}</p>
+            {showReliability ? (
+              <p className="text-xs text-muted">{client.reliability.detailLabel}</p>
+            ) : null}
           </div>
           <Button variant="secondary" onClick={onClose} className="px-4">
             Закрыть
@@ -202,8 +208,11 @@ function ClientDetailsModal({
 
 export function ClientDirectory({
   items,
+  showReliability = false,
 }: {
   items: ClientDirectoryItem[];
+  // Рейтинг надёжности входит в «Соло. Расширенный» и «Студия и барбершоп».
+  showReliability?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -254,7 +263,9 @@ export function ClientDirectory({
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-2xl font-semibold text-ink">{client.name}</h2>
                     <Badge tone="accent">{client.totalVisitsLabel}</Badge>
-                    <ReliabilityBadgeChip reliability={client.reliability} />
+                    {showReliability ? (
+                      <ReliabilityBadgeChip reliability={client.reliability} />
+                    ) : null}
                   </div>
                   <p className="text-sm text-ink-soft">{client.phoneMasked}</p>
                 </div>
@@ -279,7 +290,7 @@ export function ClientDirectory({
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm leading-6 text-muted">
                   {client.history.length > 0
-                    ? `Открыть карточку: история, заметки и любимые услуги.`
+                    ? "Открыть карточку: история, заметки и любимые услуги."
                     : "Открыть карточку клиента и добавить первые заметки."}
                 </p>
                 <span className="text-sm font-medium text-ink">Открыть карточку</span>
@@ -297,6 +308,7 @@ export function ClientDirectory({
       <ClientDetailsModal
         client={selectedClient}
         onClose={() => setSelectedClientId(null)}
+        showReliability={showReliability}
       />
     </>
   );
