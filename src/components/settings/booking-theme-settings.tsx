@@ -39,7 +39,7 @@ export function BookingThemeSettings({
     <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
       <form
         action={action}
-        className="space-y-4 rounded-[24px] border border-line bg-surface p-5"
+        className="space-y-4 rounded-nested border border-line bg-surface p-5"
       >
         <input
           type="hidden"
@@ -61,7 +61,7 @@ export function BookingThemeSettings({
             <label
               key={preset.id}
               className={cn(
-                "cursor-pointer rounded-[22px] border p-4 transition",
+                "cursor-pointer rounded-panel border p-4 transition",
                 selectedPresetId === preset.id
                   ? "border-ink bg-panel"
                   : "border-line bg-surface hover:bg-panel",
@@ -82,13 +82,29 @@ export function BookingThemeSettings({
                     {preset.description}
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  {preset.swatches.map((swatch) => (
-                    <span
-                      key={swatch}
-                      className="h-5 w-5 rounded-full border border-black/5"
-                      style={{ backgroundColor: swatch }}
-                    />
+                {/* Два ряда кружков: пресет живёт парой, и по одному ряду
+                    непонятно, во что он превратится на тёмном телефоне. */}
+                <div className="shrink-0 space-y-1.5">
+                  {(
+                    [
+                      { key: "light", label: "Светлая", colors: preset.swatches },
+                      { key: "dark", label: "Тёмная", colors: preset.darkSwatches },
+                    ] as const
+                  ).map((row) => (
+                    <div key={row.key} className="flex items-center gap-2">
+                      <span className="w-14 text-right text-xs text-muted">
+                        {row.label}
+                      </span>
+                      <span className="flex gap-1.5">
+                        {row.colors.map((swatch, index) => (
+                          <span
+                            key={`${row.key}-${index}`}
+                            className="h-5 w-5 rounded-full border border-black/10"
+                            style={{ backgroundColor: swatch }}
+                          />
+                        ))}
+                      </span>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -100,19 +116,35 @@ export function BookingThemeSettings({
         <SubmitButton idleLabel="Сохранить пресет" pendingLabel="Сохраняю..." />
       </form>
 
-      <div className="space-y-3 rounded-[24px] border border-line bg-panel p-5">
+      <div className="space-y-3 rounded-nested border border-line bg-panel p-5">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-ink">Как это увидит клиент</p>
           <p className="text-sm leading-6 text-ink-soft">
             В предпросмотре показан основной экран записи. Этот же пресет мягко
-            применяется к профилю мастера и экрану подтверждения.
+            применяется к профилю мастера и экрану подтверждения. Клиент увидит
+            ту тему, которая стоит у него на устройстве, — поэтому здесь обе.
           </p>
         </div>
 
-        <BookingThemePreview
-          presetId={selectedPresetId}
-          serviceTitles={previewServices}
-        />
+        <div className="grid gap-4 lg:grid-cols-2">
+          {(
+            [
+              { mode: "light", label: "Светлая тема" },
+              { mode: "dark", label: "Тёмная тема" },
+            ] as const
+          ).map((variant) => (
+            <div key={variant.mode} className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted">
+                {variant.label}
+              </p>
+              <BookingThemePreview
+                presetId={selectedPresetId}
+                serviceTitles={previewServices}
+                mode={variant.mode}
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

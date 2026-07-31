@@ -97,7 +97,7 @@ export function RegisterForm({
               key={mode.value}
               type="button"
               onClick={() => setAccountMode(mode.value)}
-              className={`rounded-[24px] border px-4 py-4 text-left transition ${
+              className={`rounded-nested border px-4 py-4 text-left transition ${
                 accountMode === mode.value
                   ? "border-ink bg-panel shadow-sm"
                   : "border-line bg-surface hover:border-ink-soft"
@@ -200,7 +200,7 @@ export function RegisterForm({
         </div>
 
         {isSolo ? (
-          <div className="flex items-center gap-3 rounded-[18px] bg-panel px-4 py-3">
+          <div className="flex items-center gap-3 rounded-panel bg-panel px-4 py-3">
             <Link2 size={18} className="shrink-0 text-accent-deep" />
             <p className="truncate text-sm font-medium text-ink">
               {publicLinkHost}/{username || "ваша-ссылка"}

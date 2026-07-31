@@ -25,7 +25,7 @@ export function TipForm({ bookingId }: { bookingId: string }) {
     Number.isInteger(amount) && amount >= tipMinAmountRub && amount <= tipMaxAmountRub;
 
   return (
-    <div className="rounded-[28px] bg-panel p-5 text-left">
+    <div className="rounded-card bg-panel p-5 text-left">
       <div className="flex items-center gap-2">
         <HeartHandshake size={18} className="text-ink-soft" />
         <p className="font-medium text-ink">Оставить чаевые мастеру</p>
@@ -49,15 +49,15 @@ export function TipForm({ bookingId }: { bookingId: string }) {
               }}
               className="min-h-11 rounded-full border px-4 text-sm font-medium transition"
               style={{
-                borderColor: "var(--color-line, #d3c5b3)",
+                borderColor: "var(--color-line)",
                 backgroundColor:
                   !isCustom && selected === option
-                    ? "var(--ui-primary-bg, var(--color-ink, #23241f))"
-                    : "var(--ui-field-bg, #ffffff)",
+                    ? "var(--ui-primary-bg, var(--color-ink))"
+                    : "var(--ui-field-bg)",
                 color:
                   !isCustom && selected === option
-                    ? "var(--ui-primary-text, #ffffff)"
-                    : "var(--color-ink, #23241f)",
+                    ? "var(--ui-primary-text)"
+                    : "var(--color-ink)",
               }}
             >
               {option} ₽
@@ -75,11 +75,11 @@ export function TipForm({ bookingId }: { bookingId: string }) {
             placeholder={`от ${tipMinAmountRub} до ${tipMaxAmountRub}`}
             value={customAmount}
             onChange={(event) => setCustomAmount(event.target.value)}
-            className="min-h-12 rounded-2xl border px-4 text-[15px] outline-none transition"
+            className="min-h-12 rounded-field border px-4 text-sm outline-none transition"
             style={{
-              borderColor: "var(--color-line, #d3c5b3)",
-              backgroundColor: "var(--ui-field-bg, #ffffff)",
-              color: "var(--color-ink, #23241f)",
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--ui-field-bg)",
+              color: "var(--color-ink)",
             }}
           />
         </label>

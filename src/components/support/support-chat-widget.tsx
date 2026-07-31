@@ -133,10 +133,10 @@ export function SupportChatWidget() {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-label={open ? "Закрыть чат поддержки" : "Открыть чат поддержки"}
-        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-[0_16px_40px_rgba(28,31,27,0.25)] transition hover:-translate-y-0.5 active:scale-95"
+        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-ink transition hover:-translate-y-0.5 active:scale-95"
         style={{
-          backgroundColor: "var(--ui-primary-bg, var(--color-ink, #23241f))",
-          color: "var(--ui-primary-text, #ffffff)",
+          backgroundColor: "var(--ui-primary-bg, var(--color-ink))",
+          color: "var(--ui-primary-text)",
         }}
       >
         {open ? <X size={22} /> : <MessageCircle size={22} />}
@@ -147,7 +147,7 @@ export function SupportChatWidget() {
           <div
             role="dialog"
             aria-label="Чат поддержки okno.business"
-            className="fixed bottom-24 right-5 z-40 flex h-[min(560px,70vh)] w-[min(380px,92vw)] flex-col overflow-hidden rounded-[24px] border border-line bg-surface shadow-[0_24px_80px_rgba(28,31,27,0.18)]"
+            className="fixed bottom-24 right-5 z-40 flex h-[min(560px,70vh)] w-[min(380px,92vw)] flex-col overflow-hidden rounded-nested border border-line bg-surface shadow-ink"
           >
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <div>
@@ -178,7 +178,7 @@ export function SupportChatWidget() {
                 <div
                   key={`${message.role}-${index}`}
                   className={cn(
-                    "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-6",
+                    "max-w-[85%] whitespace-pre-wrap rounded-field px-3 py-2 text-sm leading-6",
                     message.role === "user" ? "ml-auto bg-panel text-ink" : "bg-white text-ink-soft border border-line",
                   )}
                 >
@@ -198,7 +198,7 @@ export function SupportChatWidget() {
               ) : null}
 
               {error ? (
-                <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <p className="rounded-field border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {error}
                 </p>
               ) : null}
@@ -217,7 +217,7 @@ export function SupportChatWidget() {
                 placeholder="Спроси про тарифы, настройку страницы записи..."
                 rows={1}
                 maxLength={MAX_MESSAGE_LENGTH}
-                className="min-h-11 flex-1 resize-none rounded-2xl border border-line bg-white px-3 py-2.5 text-sm text-ink outline-none focus:border-ink/40"
+                className="min-h-11 flex-1 resize-none rounded-field border border-line bg-white px-3 py-2.5 text-sm text-ink outline-none focus:border-ink/40"
               />
               <button
                 type="submit"
@@ -225,8 +225,8 @@ export function SupportChatWidget() {
                 aria-label="Отправить сообщение"
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition disabled:opacity-40"
                 style={{
-                  backgroundColor: "var(--ui-primary-bg, var(--color-ink, #23241f))",
-                  color: "var(--ui-primary-text, #ffffff)",
+                  backgroundColor: "var(--ui-primary-bg, var(--color-ink))",
+                  color: "var(--ui-primary-text)",
                 }}
               >
                 <Send size={18} />

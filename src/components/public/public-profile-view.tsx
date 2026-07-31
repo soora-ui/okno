@@ -30,7 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
-import { getBookingThemeStyle } from "@/lib/booking-theme-presets";
+import { bookingThemeAttr } from "@/lib/booking-theme-presets";
 import { formatCurrency } from "@/lib/mock-data";
 
 export function PublicProfileView({
@@ -52,11 +52,11 @@ export function PublicProfileView({
   const shortestDuration =
     services.length > 0 ? Math.min(...services.map((service) => service.durationMinutes)) : null;
 
-  const publicThemeStyle = getBookingThemeStyle(profile.bookingThemePresetId);
+  const publicThemeAttr = bookingThemeAttr(profile.bookingThemePresetId);
 
   return (
     <main
-      style={publicThemeStyle}
+      {...publicThemeAttr}
       className="relative min-h-screen overflow-x-hidden bg-[var(--color-background)] pb-28"
     >
       <div
@@ -74,7 +74,7 @@ export function PublicProfileView({
       >
         <header className="sticky top-4 z-30 mb-8">
           <div
-            className="flex items-center justify-between gap-4 rounded-full border px-4 py-3 shadow-[0_18px_50px_rgba(35,36,31,0.08)] backdrop-blur"
+            className="flex items-center justify-between gap-4 rounded-full border px-4 py-3 shadow-subtle backdrop-blur"
             style={{
               backgroundColor: "var(--public-surface-strong)",
               borderColor: "var(--public-edge)",
@@ -103,7 +103,7 @@ export function PublicProfileView({
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div
             data-demo-id="hero"
-            className="h-full space-y-6 rounded-[36px] border p-6 shadow-[0_32px_120px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8 lg:p-10"
+            className="h-full space-y-6 rounded-section border p-6 shadow-section backdrop-blur sm:p-8 lg:p-10"
             style={{
               backgroundColor: "var(--public-surface)",
               borderColor: "var(--public-edge)",
@@ -116,7 +116,7 @@ export function PublicProfileView({
                   <h1 className="min-w-0 flex-1 text-5xl font-semibold tracking-[-0.04em] text-ink sm:text-6xl">
                     {profile.fullName}
                   </h1>
-                  <div className="shrink-0 overflow-hidden rounded-full border border-white/90 bg-panel shadow-[0_14px_36px_rgba(35,36,31,0.12)]">
+                  <div className="shrink-0 overflow-hidden rounded-full border border-white/90 bg-panel shadow-subtle">
                     <Image
                       src={profile.avatarUrl}
                       alt={profile.fullName}
@@ -168,7 +168,7 @@ export function PublicProfileView({
                 <div
                   key={item.label}
                   className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm text-ink-soft"
-                  style={{ backgroundColor: "var(--ui-field-bg, #ffffff)" }}
+                  style={{ backgroundColor: "var(--ui-field-bg)" }}
                 >
                   <Icon size={16} className="text-accent-deep" />
                   <span>{item.label}</span>
@@ -203,8 +203,8 @@ export function PublicProfileView({
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div
-                className="rounded-[28px] border border-line p-5"
-                style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                className="rounded-card border border-line p-5"
+                style={{ backgroundColor: "var(--ui-card-bg)" }}
               >
                 <p className="text-sm text-muted">Цена от</p>
                 <p className="mt-2 text-2xl font-semibold text-ink">
@@ -212,8 +212,8 @@ export function PublicProfileView({
                 </p>
               </div>
               <div
-                className="rounded-[28px] border border-line p-5"
-                style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                className="rounded-card border border-line p-5"
+                style={{ backgroundColor: "var(--ui-card-bg)" }}
               >
                 <p className="text-sm text-muted">Длительность от</p>
                 <p className="mt-2 text-2xl font-semibold text-ink">
@@ -221,7 +221,7 @@ export function PublicProfileView({
                 </p>
               </div>
               <div
-                className="rounded-[28px] border border-line p-5"
+                className="rounded-card border border-line p-5"
                 style={{ backgroundColor: "var(--color-accent-soft)" }}
               >
                 <p className="text-sm text-muted">Свободные окна</p>
@@ -234,7 +234,7 @@ export function PublicProfileView({
 
           <div
             data-demo-id="slots"
-            className="relative h-full overflow-hidden rounded-[36px] border p-6 shadow-[0_32px_120px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8"
+            className="relative h-full overflow-hidden rounded-section border p-6 shadow-section backdrop-blur sm:p-8"
             style={{
               backgroundColor: "var(--public-surface-strong)",
               borderColor: "var(--public-edge)",
@@ -250,7 +250,7 @@ export function PublicProfileView({
             <div className="relative">
               {showDemoSections ? (
                 <div
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-ink shadow-[0_12px_32px_rgba(35,36,31,0.08)] backdrop-blur"
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-ink shadow-subtle backdrop-blur"
                   style={{ backgroundColor: "var(--public-surface-strong)" }}
                 >
                   <Sparkles size={16} className="text-accent-deep" />
@@ -277,8 +277,8 @@ export function PublicProfileView({
                       <a
                         key={`${slot.serviceId}-${slot.date}-${slot.time}`}
                         href={bookingHref}
-                        className="flex items-center justify-between gap-4 rounded-[28px] border border-line px-4 py-4 shadow-[0_10px_30px_rgba(35,36,31,0.04)] transition hover:-translate-y-0.5"
-                        style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                        className="flex items-center justify-between gap-4 rounded-card border border-line px-4 py-4 shadow-subtle transition hover:-translate-y-0.5"
+                        style={{ backgroundColor: "var(--ui-card-bg)" }}
                       >
                         <div className="min-w-0">
                           <p className="truncate text-base font-medium text-ink">
@@ -294,8 +294,8 @@ export function PublicProfileView({
                       <Link
                         key={`${slot.serviceId}-${slot.date}-${slot.time}`}
                         href={bookingHref}
-                        className="flex items-center justify-between gap-4 rounded-[28px] border border-line px-4 py-4 shadow-[0_10px_30px_rgba(35,36,31,0.04)] transition hover:-translate-y-0.5"
-                        style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                        className="flex items-center justify-between gap-4 rounded-card border border-line px-4 py-4 shadow-subtle transition hover:-translate-y-0.5"
+                        style={{ backgroundColor: "var(--ui-card-bg)" }}
                       >
                         <div className="min-w-0">
                           <p className="truncate text-base font-medium text-ink">
@@ -312,8 +312,8 @@ export function PublicProfileView({
                 </div>
               ) : (
                 <div
-                  className="mt-6 rounded-[28px] border border-line p-5"
-                  style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                  className="mt-6 rounded-card border border-line p-5"
+                  style={{ backgroundColor: "var(--ui-card-bg)" }}
                 >
                   <p className="text-sm leading-7 text-ink-soft">
                     {showDemoSections
@@ -333,7 +333,7 @@ export function PublicProfileView({
             <section
               id="works"
               data-demo-id="works"
-              className="relative mt-16 rounded-[40px] space-y-6"
+              className="relative mt-16 rounded-section space-y-6"
             >
               <Reveal variant="fade-up">
                 <div className="flex flex-wrap items-end justify-between gap-4">
@@ -366,8 +366,8 @@ export function PublicProfileView({
                     <button
                       type="button"
                       onClick={() => setIsPortfolioOpen(true)}
-                      className="card-hover group w-full overflow-hidden rounded-[32px] border border-line text-left shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
-                      style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                      className="card-hover group w-full overflow-hidden rounded-section border border-line text-left shadow-card"
+                      style={{ backgroundColor: "var(--ui-card-bg)" }}
                     >
                       <div className="relative aspect-[4/5] overflow-hidden">
                         <Image
@@ -396,7 +396,7 @@ export function PublicProfileView({
           <section
             id="works"
             data-demo-id="works"
-            className="relative mt-14 rounded-[40px] space-y-6"
+            className="relative mt-14 rounded-section space-y-6"
           >
             <Reveal variant="fade-up">
               <div className="max-w-2xl space-y-2">
@@ -429,8 +429,8 @@ export function PublicProfileView({
                       <button
                         type="button"
                         onClick={() => setIsPortfolioOpen(true)}
-                        className="card-hover group w-full overflow-hidden rounded-[32px] border border-line text-left shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
-                        style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                        className="card-hover group w-full overflow-hidden rounded-section border border-line text-left shadow-card"
+                        style={{ backgroundColor: "var(--ui-card-bg)" }}
                       >
                         <div className="relative aspect-[4/5] overflow-hidden">
                           <Image
@@ -455,7 +455,7 @@ export function PublicProfileView({
         <section
           id="services"
           data-demo-id="services"
-          className="relative mt-16 rounded-[40px] space-y-6"
+          className="relative mt-16 rounded-section space-y-6"
         >
           <Reveal variant="fade-up">
             <div className="max-w-2xl space-y-2">
@@ -478,11 +478,11 @@ export function PublicProfileView({
             {services.map((service, index) => (
               <Reveal key={service.id} variant="fade-up" delay={(index % 2) * 0.1}>
                 <article
-                  className="card-hover group relative flex h-full flex-col overflow-hidden rounded-[32px] border border-line p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
+                  className="card-hover group relative flex h-full flex-col overflow-hidden rounded-section border border-line p-6 shadow-card"
                   style={{
                     backgroundColor:
                       index % 2 === 0
-                        ? "var(--ui-card-bg, #ffffff)"
+                        ? "var(--ui-card-bg)"
                         : "var(--color-accent-soft)",
                   }}
                 >
@@ -536,10 +536,10 @@ export function PublicProfileView({
         {showDemoSections ? (
           <section
             data-demo-id="rules"
-            className="relative mt-16 rounded-[40px] grid gap-6 lg:grid-cols-[1.05fr_0.95fr]"
+            className="relative mt-16 rounded-section grid gap-6 lg:grid-cols-[1.05fr_0.95fr]"
           >
           <Reveal variant="fade-up">
-            <div className="h-full rounded-[36px] border border-transparent bg-[linear-gradient(145deg,#23241f_0%,#343730_100%)] p-6 text-white shadow-[0_30px_90px_rgba(35,36,31,0.18)] sm:p-8">
+            <div className="h-full rounded-section border border-transparent bg-[var(--gradient-ink)] p-6 text-white shadow-hover sm:p-8">
               <p className="text-sm uppercase tracking-[0.24em] text-white/60">
                 Как всё устроено
               </p>
@@ -558,7 +558,7 @@ export function PublicProfileView({
                   return (
                   <div
                     key={item.title}
-                    className="rounded-[28px] border border-white/10 bg-white/6 p-5"
+                    className="rounded-card border border-white/10 bg-white/6 p-5"
                   >
                     <div className="flex items-center gap-3">
                       <Icon size={20} className="text-[var(--color-accent)]" />
@@ -573,7 +573,7 @@ export function PublicProfileView({
           </Reveal>
 
           <Reveal variant="fade-up" delay={0.2}>
-            <div className="h-full space-y-6 rounded-[36px] border border-line bg-glass p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8">
+            <div className="h-full space-y-6 rounded-section border border-line bg-glass p-6 shadow-card backdrop-blur sm:p-8">
               <div className="space-y-3">
                 <p className="text-sm uppercase tracking-[0.24em] text-muted">
                   Что важно знать
@@ -584,7 +584,7 @@ export function PublicProfileView({
               </div>
 
               <div className="grid gap-4">
-                <div className="rounded-[28px] border border-line bg-panel p-5">
+                <div className="rounded-card border border-line bg-panel p-5">
                   <div className="flex items-center gap-3">
                     <MapPin size={18} className="text-accent-deep" />
                     <h3 className="text-lg font-medium text-ink">Локация и описание</h3>
@@ -595,7 +595,7 @@ export function PublicProfileView({
                   </p>
                 </div>
 
-                <div className="rounded-[28px] border border-line bg-surface p-5">
+                <div className="rounded-card border border-line bg-surface p-5">
                   <div className="flex items-center gap-3">
                     <ShieldCheck size={18} className="text-accent-deep" />
                     <h3 className="text-lg font-medium text-ink">Перенос и отмена</h3>
@@ -607,7 +607,7 @@ export function PublicProfileView({
                   </p>
                 </div>
 
-                <div className="rounded-[28px] border border-line bg-[rgba(238,247,240,0.92)] p-5">
+                <div className="rounded-card border border-line bg-[rgba(238,247,240,0.92)] p-5">
                   <div className="flex items-center gap-3">
                     <MessageCircleHeart size={18} className="text-accent-deep" />
                     <h3 className="text-lg font-medium text-ink">Подтверждение и напоминания</h3>
@@ -620,7 +620,7 @@ export function PublicProfileView({
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-dashed border-line px-5 py-4 text-sm text-muted">
+              <div className="rounded-card border border-dashed border-line px-5 py-4 text-sm text-muted">
                 Такую страницу не стыдно скинуть клиенту в мессенджер: крупные
                 фото, понятные услуги и запись в пару кликов.
               </div>
@@ -645,7 +645,7 @@ export function PublicProfileView({
         <ButtonLink
           href={bookingHref}
           documentNavigation={guidedDemo}
-          className="w-full justify-center gap-2 rounded-[22px] py-4 text-base shadow-[0_18px_50px_rgba(35,36,31,0.22)]"
+          className="w-full justify-center gap-2 rounded-panel py-4 text-base shadow-hover"
         >
           Записаться онлайн
           <ArrowRight size={18} />

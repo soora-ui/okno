@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
   defaultBookingThemePresetId,
-  getBookingThemeStyle,
+  bookingThemeAttr,
   type BookingThemePresetId,
 } from "@/lib/booking-theme-presets";
 import {
@@ -441,7 +441,7 @@ export function BookingFlow({
   ]);
 
   return (
-    <div style={getBookingThemeStyle(themePresetId)}>
+    <div {...bookingThemeAttr(themePresetId)}>
       <Card className="relative z-10 space-y-6">
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs text-muted">
@@ -452,7 +452,7 @@ export function BookingFlow({
                     "flex h-8 w-8 items-center justify-center rounded-full border text-xs",
                     index <= step
                       ? "border-ink bg-ink text-ink-contrast"
-                      : "border-line bg-[var(--ui-field-bg,#ffffff)] text-muted",
+                      : "border-line bg-[var(--ui-field-bg)] text-muted",
                   )}
                 >
                   {index < step ? <Check size={14} /> : index + 1}
@@ -477,10 +477,10 @@ export function BookingFlow({
                 type="button"
                 onClick={() => setServiceId(service.id)}
                 className={cn(
-                  "touch-manipulation rounded-[24px] border p-4 text-left transition active:scale-[0.99]",
+                  "touch-manipulation rounded-nested border p-4 text-left transition active:scale-[0.99]",
                   service.id === serviceId
                     ? "border-accent bg-accent-soft"
-                    : "border-line bg-[var(--ui-field-bg,#ffffff)] hover:bg-panel",
+                    : "border-line bg-[var(--ui-field-bg)] hover:bg-panel",
                 )}
               >
                 <div className="flex items-start justify-between gap-4">
@@ -490,7 +490,11 @@ export function BookingFlow({
                       {service.description}
                     </p>
                   </div>
-                  <div className="text-right text-sm text-ink-soft">
+                  {/* shrink-0 + nowrap: без них колонка сжималась до ширины
+                      самого числа и «150» отрывалось от «мин», из-за чего
+                      одинаковые по смыслу данные занимали от одной до трёх
+                      строк, а карточки получались разной высоты. */}
+                  <div className="shrink-0 whitespace-nowrap text-right text-sm text-ink-soft">
                     <p>{service.durationMinutes} мин</p>
                     <p>{formatCurrency(service.price)}</p>
                   </div>
@@ -525,10 +529,10 @@ export function BookingFlow({
                         >
                           <div
                             className={cn(
-                              "flex min-w-[78px] flex-col items-center rounded-[18px] border px-4 py-3 text-center transition",
+                              "flex min-w-[78px] flex-col items-center rounded-panel border px-4 py-3 text-center transition",
                               slot.value === dateValue
                                 ? "border-ink bg-ink text-ink-contrast"
-                                : "border-line bg-[var(--ui-field-bg,#ffffff)] text-ink",
+                                : "border-line bg-[var(--ui-field-bg)] text-ink",
                             )}
                           >
                             <p
@@ -572,10 +576,10 @@ export function BookingFlow({
                           </p>
                           <div
                             className={cn(
-                              "rounded-2xl border px-4 py-3 text-xl font-medium transition",
+                              "rounded-field border px-4 py-3 text-xl font-medium transition",
                               slot.value === dateValue
                                 ? "border-ink bg-ink text-ink-contrast"
-                                : "border-line bg-[var(--ui-field-bg,#ffffff)] text-ink hover:bg-panel",
+                                : "border-line bg-[var(--ui-field-bg)] text-ink hover:bg-panel",
                             )}
                           >
                             {dayNumber}
@@ -586,7 +590,7 @@ export function BookingFlow({
                   </div>
                 </>
               ) : (
-                <div className="rounded-[24px] border border-dashed border-line p-5 text-sm leading-6 text-muted">
+                <div className="rounded-nested border border-dashed border-line p-5 text-sm leading-6 text-muted">
                   На ближайшие дни свободного времени пока нет. Попробуй выбрать другую услугу или зайди позже.
                 </div>
               )}
@@ -605,10 +609,10 @@ export function BookingFlow({
                         type="button"
                         onClick={() => setTime(slotTime)}
                         className={cn(
-                          "touch-manipulation snap-start shrink-0 rounded-[18px] border px-5 py-3 text-center text-lg font-semibold transition active:scale-[0.99]",
+                          "touch-manipulation snap-start shrink-0 rounded-panel border px-5 py-3 text-center text-lg font-semibold transition active:scale-[0.99]",
                           slotTime === time
                             ? "border-ink bg-ink text-ink-contrast"
-                            : "border-line bg-[var(--ui-field-bg,#ffffff)] text-ink",
+                            : "border-line bg-[var(--ui-field-bg)] text-ink",
                         )}
                       >
                         {slotTime}
@@ -623,7 +627,7 @@ export function BookingFlow({
                         type="button"
                         onClick={() => setTime(slotTime)}
                         className={cn(
-                          "touch-manipulation rounded-[22px] px-4 py-4 text-center text-2xl font-medium transition active:scale-[0.99]",
+                          "touch-manipulation rounded-panel px-4 py-4 text-center text-2xl font-medium transition active:scale-[0.99]",
                           slotTime === time
                             ? "bg-ink text-ink-contrast"
                             : "bg-transparent text-ink hover:bg-panel",
@@ -635,7 +639,7 @@ export function BookingFlow({
                   </div>
                 </>
               ) : selectedDate ? (
-                <div className="rounded-[24px] border border-dashed border-line p-5 text-sm leading-6 text-muted">
+                <div className="rounded-nested border border-dashed border-line p-5 text-sm leading-6 text-muted">
                   На эту дату свободного времени уже нет.
                 </div>
               ) : null}
@@ -656,17 +660,17 @@ export function BookingFlow({
                 <label className="flex w-24 shrink-0 flex-col gap-2 text-sm">
                   <span
                     className="font-medium"
-                    style={{ color: "var(--color-ink, #23241f)" }}
+                    style={{ color: "var(--color-ink)" }}
                   >
                     Код
                   </span>
                   <span className="relative block">
                     <span
-                      className="flex min-h-12 items-center justify-between gap-1 rounded-2xl border px-3 text-[15px]"
+                      className="flex min-h-12 items-center justify-between gap-1 rounded-field border px-3 text-sm"
                       style={{
-                        borderColor: "var(--color-line, #d3c5b3)",
-                        backgroundColor: "var(--ui-field-bg, #ffffff)",
-                        color: "var(--color-ink, #23241f)",
+                        borderColor: "var(--color-line)",
+                        backgroundColor: "var(--ui-field-bg)",
+                        color: "var(--color-ink)",
                       }}
                     >
                       {countryCode}
@@ -770,7 +774,7 @@ export function BookingFlow({
                       </button>
                     </>
                   ) : (
-                    <div className="space-y-2 rounded-[20px] bg-panel p-4 text-sm leading-6 text-ink-soft">
+                    <div className="space-y-2 rounded-panel bg-panel p-4 text-sm leading-6 text-ink-soft">
                       <p>
                         Позвони с номера {fullPhone} на{" "}
                         <a
@@ -810,7 +814,7 @@ export function BookingFlow({
               ) : null}
               <p
                 className="text-xs"
-                style={{ color: "var(--color-muted, #656055)" }}
+                style={{ color: "var(--color-muted)" }}
               >
                 Нужен только для подтверждения записи и связи по визиту. Никакого спама.
               </p>
@@ -833,7 +837,7 @@ export function BookingFlow({
               />
             ) : null}
             {selectedService?.repeatIntervalWeeks ? (
-              <label className="flex items-start gap-3 rounded-[20px] border border-line bg-[var(--ui-field-bg,#ffffff)] p-4 text-sm leading-6 text-ink-soft">
+              <label className="flex items-start gap-3 rounded-panel border border-line bg-[var(--ui-field-bg)] p-4 text-sm leading-6 text-ink-soft">
                 <input
                   type="checkbox"
                   checked={wantsRepeatVisitReminder}
@@ -860,7 +864,7 @@ export function BookingFlow({
         ) : null}
 
         {step === steps.length - 1 ? (
-          <div className="rounded-[24px] bg-panel p-4 text-sm text-ink-soft">
+          <div className="rounded-nested bg-panel p-4 text-sm text-ink-soft">
             <p className="font-medium text-ink">Что вы выбрали</p>
             <p className="mt-2">
               {selectedService?.title} • {selectedDateLabel} • {time}
@@ -871,7 +875,7 @@ export function BookingFlow({
               </p>
             ) : null}
             {prepaymentAmount > 0 ? (
-              <div className="mt-3 rounded-[16px] bg-warning-soft px-3 py-2 text-xs leading-6 text-warning">
+              <div className="mt-3 rounded-field bg-warning-soft px-3 py-2 text-xs leading-6 text-warning">
                 Для подтверждения записи нужна предоплата {formatCurrency(prepaymentAmount)} —
                 после отправки формы откроется страница оплаты ЮKassa. Предоплата не
                 возвращается при неявке на визит.
@@ -881,7 +885,7 @@ export function BookingFlow({
         ) : null}
 
         {error ? (
-          <div className="rounded-[20px] bg-warning-soft px-4 py-3 text-sm text-warning">
+          <div className="rounded-panel bg-warning-soft px-4 py-3 text-sm text-warning">
             {error}
           </div>
         ) : null}
@@ -892,9 +896,16 @@ export function BookingFlow({
             step === steps.length - 1 ? "justify-center" : "justify-between",
           )}
         >
-          <Button variant="ghost" onClick={prevStep} disabled={step === 0}>
-            Назад
-          </Button>
+          {/* На первом шаге кнопка не просто неактивна, а не нужна вовсе:
+              выше в шапке уже есть «Назад», и два одинаковых элемента, один
+              из которых мёртвый, только сбивают. */}
+          {step > 0 ? (
+            <Button variant="ghost" onClick={prevStep}>
+              Назад
+            </Button>
+          ) : (
+            <span aria-hidden />
+          )}
           {step < steps.length - 1 ? (
             <Button
               onClick={nextStep}

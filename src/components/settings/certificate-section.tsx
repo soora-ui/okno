@@ -69,7 +69,7 @@ export function CertificateSection({
 
       <GiftCertificateSettingsForm profile={profile} />
 
-      <div className="overflow-hidden rounded-[20px] border border-line bg-panel p-4">
+      <div className="overflow-hidden rounded-panel border border-line bg-panel p-4">
         {hasTemplate ? (
           <div className="flex flex-wrap items-center gap-4">
             {certificateTemplate?.previewPngBase64 ? (
@@ -77,10 +77,10 @@ export function CertificateSection({
               <img
                 src={`data:image/png;base64,${certificateTemplate.previewPngBase64}`}
                 alt="Превью сертификата"
-                className="aspect-[35/24] w-36 shrink-0 rounded-[12px] border border-line bg-surface object-contain"
+                className="aspect-[35/24] w-36 shrink-0 rounded-tight border border-line bg-surface object-contain"
               />
             ) : (
-              <div className="flex aspect-[35/24] w-36 shrink-0 items-center justify-center rounded-[12px] border border-dashed border-line bg-surface text-xs text-muted">
+              <div className="flex aspect-[35/24] w-36 shrink-0 items-center justify-center rounded-tight border border-dashed border-line bg-surface text-xs text-muted">
                 Превью недоступно
               </div>
             )}
@@ -95,7 +95,7 @@ export function CertificateSection({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4 py-6 text-center">
-            <div className="flex aspect-[35/24] w-36 items-center justify-center rounded-[12px] border border-dashed border-line bg-surface text-xs text-muted">
+            <div className="flex aspect-[35/24] w-36 items-center justify-center rounded-tight border border-dashed border-line bg-surface text-xs text-muted">
               Нет превью сертификата
             </div>
             <Button onClick={() => setModalOpen(true)}>Давай создадим</Button>

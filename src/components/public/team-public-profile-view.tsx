@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
 import { getClosestSlots } from "@/components/public/public-profile-shared";
-import { getBookingThemeStyle } from "@/lib/booking-theme-presets";
+import { bookingThemeAttr } from "@/lib/booking-theme-presets";
 import { formatCurrency, type Service } from "@/lib/mock-data";
 import type { PublicPageData } from "@/lib/data";
 import { getWorkspaceKindLabel } from "@/lib/workspace";
@@ -117,7 +117,7 @@ export function TeamPublicProfileView({
 
   return (
     <main
-      style={getBookingThemeStyle(profile.bookingThemePresetId)}
+      {...bookingThemeAttr(profile.bookingThemePresetId)}
       className="relative min-h-screen overflow-x-hidden bg-[var(--color-background)] pb-28"
     >
       <div
@@ -131,7 +131,7 @@ export function TeamPublicProfileView({
       <div className="relative mx-auto max-w-7xl px-4 pb-16 pt-4 sm:px-6 lg:px-8">
         <header className="sticky top-4 z-30 mb-8">
           <div
-            className="flex items-center justify-between gap-4 rounded-full border px-4 py-3 shadow-[0_18px_50px_rgba(35,36,31,0.08)] backdrop-blur"
+            className="flex items-center justify-between gap-4 rounded-full border px-4 py-3 shadow-subtle backdrop-blur"
             style={{
               backgroundColor: "var(--public-surface-strong)",
               borderColor: "var(--public-edge)",
@@ -147,7 +147,7 @@ export function TeamPublicProfileView({
 
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div
-            className="h-full space-y-6 rounded-[36px] border p-6 shadow-[0_32px_120px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8 lg:p-10"
+            className="h-full space-y-6 rounded-section border p-6 shadow-section backdrop-blur sm:p-8 lg:p-10"
             style={{
               backgroundColor: "var(--public-surface)",
               borderColor: "var(--public-edge)",
@@ -179,21 +179,21 @@ export function TeamPublicProfileView({
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div
-                className="rounded-[28px] border border-line p-5"
-                style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                className="rounded-card border border-line p-5"
+                style={{ backgroundColor: "var(--ui-card-bg)" }}
               >
                 <p className="text-sm text-muted">Активные мастера</p>
                 <p className="mt-2 text-2xl font-semibold text-ink">{members.length}</p>
               </div>
               <div
-                className="rounded-[28px] border border-line p-5"
-                style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                className="rounded-card border border-line p-5"
+                style={{ backgroundColor: "var(--ui-card-bg)" }}
               >
                 <p className="text-sm text-muted">Услуги в команде</p>
                 <p className="mt-2 text-2xl font-semibold text-ink">{serviceCatalog.length}</p>
               </div>
               <div
-                className="rounded-[28px] border border-line p-5"
+                className="rounded-card border border-line p-5"
                 style={{ backgroundColor: "var(--color-accent-soft)" }}
               >
                 <p className="text-sm text-muted">Ближайшие окна</p>
@@ -217,13 +217,13 @@ export function TeamPublicProfileView({
           </div>
 
           <div
-            className="h-full space-y-6 rounded-[36px] border p-6 shadow-[0_32px_120px_rgba(35,36,31,0.08)] backdrop-blur sm:p-8"
+            className="h-full space-y-6 rounded-section border p-6 shadow-section backdrop-blur sm:p-8"
             style={{
               backgroundColor: "var(--public-surface-strong)",
               borderColor: "var(--public-edge)",
             }}
           >
-            <div className="inline-flex rounded-full border border-line bg-[var(--ui-card-bg,#ffffff)] p-1">
+            <div className="inline-flex rounded-full border border-line bg-[var(--ui-card-bg)] p-1">
               <button
                 type="button"
                 onClick={() => setSelectionMode("master")}
@@ -254,10 +254,10 @@ export function TeamPublicProfileView({
                         key={member.profile.id}
                         type="button"
                         onClick={() => setSelectedMemberId(member.profile.id)}
-                        className={`rounded-[28px] border p-4 text-left transition ${
+                        className={`rounded-card border p-4 text-left transition ${
                           member.profile.id === selectedMember?.profile.id
-                            ? "border-ink bg-[var(--ui-card-bg,#ffffff)]"
-                            : "border-line bg-transparent hover:bg-[var(--ui-card-bg,#ffffff)]"
+                            ? "border-ink bg-[var(--ui-card-bg)]"
+                            : "border-line bg-transparent hover:bg-[var(--ui-card-bg)]"
                         }`}
                       >
                         <div className="flex items-center gap-4">
@@ -288,10 +288,10 @@ export function TeamPublicProfileView({
                         key={service.id}
                         type="button"
                         onClick={() => setSelectedServiceId(service.id)}
-                        className={`rounded-[28px] border p-4 text-left transition ${
+                        className={`rounded-card border p-4 text-left transition ${
                           service.id === resolvedServiceId
-                            ? "border-ink bg-[var(--ui-card-bg,#ffffff)]"
-                            : "border-line bg-transparent hover:bg-[var(--ui-card-bg,#ffffff)]"
+                            ? "border-ink bg-[var(--ui-card-bg)]"
+                            : "border-line bg-transparent hover:bg-[var(--ui-card-bg)]"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
@@ -299,7 +299,7 @@ export function TeamPublicProfileView({
                             <p className="font-medium text-ink">{service.title}</p>
                             <p className="text-sm leading-6 text-ink-soft">{service.description}</p>
                           </div>
-                          <div className="text-right text-sm text-ink-soft">
+                          <div className="shrink-0 whitespace-nowrap text-right text-sm text-ink-soft">
                             <p>{service.durationMinutes} мин</p>
                             <p>{formatCurrency(service.price)}</p>
                           </div>
@@ -322,10 +322,10 @@ export function TeamPublicProfileView({
                           setSelectedCatalogKey(service.key);
                           setSelectedCatalogMemberId(service.memberIds[0] ?? "");
                         }}
-                        className={`rounded-[28px] border p-4 text-left transition ${
+                        className={`rounded-card border p-4 text-left transition ${
                           service.key === selectedCatalog?.key
-                            ? "border-ink bg-[var(--ui-card-bg,#ffffff)]"
-                            : "border-line bg-transparent hover:bg-[var(--ui-card-bg,#ffffff)]"
+                            ? "border-ink bg-[var(--ui-card-bg)]"
+                            : "border-line bg-transparent hover:bg-[var(--ui-card-bg)]"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
@@ -335,7 +335,7 @@ export function TeamPublicProfileView({
                               {service.description}
                             </p>
                           </div>
-                          <div className="text-right text-sm text-ink-soft">
+                          <div className="shrink-0 whitespace-nowrap text-right text-sm text-ink-soft">
                             <p>{service.durationMinutes} мин</p>
                             <p>{formatCurrency(service.price)}</p>
                           </div>
@@ -353,10 +353,10 @@ export function TeamPublicProfileView({
                         key={member.profile.id}
                         type="button"
                         onClick={() => setSelectedCatalogMemberId(member.profile.id)}
-                        className={`rounded-[28px] border p-4 text-left transition ${
+                        className={`rounded-card border p-4 text-left transition ${
                           member.profile.id === resolvedCatalogMemberId
-                            ? "border-ink bg-[var(--ui-card-bg,#ffffff)]"
-                            : "border-line bg-transparent hover:bg-[var(--ui-card-bg,#ffffff)]"
+                            ? "border-ink bg-[var(--ui-card-bg)]"
+                            : "border-line bg-transparent hover:bg-[var(--ui-card-bg)]"
                         }`}
                       >
                         <div className="flex items-center gap-4">
@@ -382,8 +382,8 @@ export function TeamPublicProfileView({
             )}
 
             <div
-              className="rounded-[28px] border border-line p-5"
-              style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+              className="rounded-card border border-line p-5"
+              style={{ backgroundColor: "var(--ui-card-bg)" }}
             >
               <p className="text-sm text-muted">Сейчас выбрано</p>
               <p className="mt-2 text-xl font-semibold text-ink">
@@ -425,8 +425,8 @@ export function TeamPublicProfileView({
                 >
                   <Link
                     href={slot.href}
-                    className="block h-full rounded-[28px] border border-line p-5 shadow-[0_10px_30px_rgba(35,36,31,0.04)] transition hover:-translate-y-0.5"
-                    style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                    className="block h-full rounded-card border border-line p-5 shadow-subtle transition hover:-translate-y-0.5"
+                    style={{ backgroundColor: "var(--ui-card-bg)" }}
                   >
                     <p className="text-sm text-muted">{slot.memberName}</p>
                     <p className="mt-2 text-xl font-semibold text-ink">{slot.serviceTitle}</p>
@@ -440,8 +440,8 @@ export function TeamPublicProfileView({
             </div>
           ) : (
             <div
-              className="rounded-[28px] border border-line p-6 text-sm leading-7 text-ink-soft"
-              style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+              className="rounded-card border border-line p-6 text-sm leading-7 text-ink-soft"
+              style={{ backgroundColor: "var(--ui-card-bg)" }}
             >
               Сейчас у команды нет открытых слотов на ближайшие дни. Откройте страницу
               конкретного мастера или проверьте расписание позже.
@@ -471,8 +471,8 @@ export function TeamPublicProfileView({
               return (
                 <Reveal key={member.profile.id} variant="fade-up" delay={(index % 3) * 0.1}>
                   <article
-                    className="h-full rounded-[32px] border border-line p-6 shadow-[0_24px_80px_rgba(35,36,31,0.08)]"
-                    style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                    className="h-full rounded-section border border-line p-6 shadow-card"
+                    style={{ backgroundColor: "var(--ui-card-bg)" }}
                   >
                     <div className="flex h-full flex-col gap-5">
                       <div className="flex items-center gap-4">

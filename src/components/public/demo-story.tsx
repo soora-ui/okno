@@ -8,11 +8,11 @@ export function DemoStoryIntro({
   steps: DemoStoryStep[];
 }) {
   return (
-    <section className="mb-10 overflow-hidden rounded-[40px] border border-line bg-glass shadow-[0_32px_120px_rgba(35,36,31,0.08)] backdrop-blur">
+    <section className="mb-10 overflow-hidden rounded-section border border-line bg-glass shadow-section backdrop-blur">
       <div className="grid gap-8 px-6 py-7 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-8">
         <div className="space-y-4">
           <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
-            Scroll Story
+            Как это видит клиент
           </p>
           <h2 className="max-w-3xl text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
             Прокрути страницу как клиент — пояснения будут появляться по ходу
@@ -23,7 +23,7 @@ export function DemoStoryIntro({
           {steps.slice(0, 2).map((step) => (
             <div
               key={step.id}
-              className="rounded-[28px] border border-line bg-panel p-4"
+              className="rounded-card border border-line bg-panel p-4"
             >
               <p className="text-[11px] uppercase tracking-[0.18em] text-muted">
                 {step.stepLabel}
@@ -46,7 +46,7 @@ export function DemoStoryChapter({
   const toneClasses =
     step.tone === "ink"
       ? {
-          shell: "border-transparent bg-[linear-gradient(145deg,#23241f_0%,#343730_100%)] text-white shadow-[0_30px_90px_rgba(35,36,31,0.18)]",
+          shell: "border-transparent bg-[var(--gradient-ink)] text-white shadow-hover",
           eyebrow: "text-white/60",
           description: "text-white/75",
           settings: "border-white/10 bg-white/8 text-white/75",
@@ -54,14 +54,14 @@ export function DemoStoryChapter({
         }
       : step.tone === "accent"
         ? {
-            shell: "border-accent bg-[rgba(238,247,240,0.9)] text-ink shadow-[0_24px_80px_rgba(35,36,31,0.08)]",
+            shell: "border-accent bg-[rgba(238,247,240,0.9)] text-ink shadow-card",
             eyebrow: "text-accent-deep",
             description: "text-ink-soft",
             settings: "border-white/70 bg-white/78 text-ink-soft",
             settingsLabel: "text-muted",
           }
         : {
-            shell: "border-white/80 bg-white/74 text-ink shadow-[0_24px_80px_rgba(35,36,31,0.08)]",
+            shell: "border-white/80 bg-white/74 text-ink shadow-card",
             eyebrow: "text-muted",
             description: "text-ink-soft",
             settings: "border-line bg-panel text-ink-soft",
@@ -80,7 +80,7 @@ export function DemoStoryChapter({
           </h3>
         </div>
 
-        <div className={`rounded-[36px] border p-6 sm:p-8 ${toneClasses.shell}`}>
+        <div className={`rounded-section border p-6 sm:p-8 ${toneClasses.shell}`}>
           <div className="space-y-6">
             <div className="space-y-4">
               <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -91,7 +91,7 @@ export function DemoStoryChapter({
               </p>
             </div>
 
-            <div className={`rounded-[28px] border p-5 ${toneClasses.settings}`}>
+            <div className={`rounded-card border p-5 ${toneClasses.settings}`}>
               <p className={`text-[11px] uppercase tracking-[0.18em] ${toneClasses.settingsLabel}`}>
                 Что настраивает мастер
               </p>
@@ -110,7 +110,7 @@ export function DemoStoryOutro({
   cleanHref?: string;
 }) {
   return (
-    <section className="mt-16 rounded-[40px] border border-line bg-glass px-6 py-7 shadow-[0_24px_80px_rgba(35,36,31,0.08)] backdrop-blur sm:px-8 sm:py-8">
+    <section className="mt-16 rounded-section border border-line bg-glass px-6 py-7 shadow-card backdrop-blur sm:px-8 sm:py-8">
       <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
         <div className="space-y-3">
           <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">

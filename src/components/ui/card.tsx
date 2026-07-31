@@ -24,10 +24,10 @@ export function Card({
       style={
         hasOwnBackground(className, style)
           ? style
-          : { backgroundColor: "var(--ui-card-bg, #ffffff)", ...style }
+          : { backgroundColor: "var(--ui-card-bg)", ...style }
       }
       className={cn(
-        "rounded-[28px] border border-line p-6 shadow-[0_24px_80px_rgba(28,31,27,0.08)]",
+        "rounded-card border border-line p-6 shadow-card",
         className,
       )}
     >

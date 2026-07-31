@@ -17,14 +17,14 @@ export default function Error({
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] px-4 py-10">
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 rounded-[32px] border border-[var(--color-line,#d7c7b2)] bg-surface p-8 shadow-[0_30px_80px_rgba(35,36,31,0.08)]">
-        <p className="text-sm uppercase tracking-[0.24em] text-[var(--color-muted,#76756d)]">
+      <div className="mx-auto flex max-w-3xl flex-col gap-4 rounded-section border border-[var(--color-line)] bg-surface p-8 shadow-card">
+        <p className="text-sm uppercase tracking-[0.24em] text-[var(--color-muted)]">
           Что-то пошло не так
         </p>
-        <h1 className="text-3xl font-semibold text-[var(--color-ink,#23241f)]">
+        <h1 className="text-3xl font-semibold text-[var(--color-ink)]">
           Не получилось загрузить экран
         </h1>
-        <p className="max-w-2xl text-base leading-7 text-[var(--color-ink-soft,#57554d)]">
+        <p className="max-w-2xl text-base leading-7 text-[var(--color-ink-soft)]">
           Мы уже записали ошибку. Попробуй обновить экран ещё раз.
           Если проблема повторяется — скорее всего, не работает внешний сервис
           или что-то не так на сервере.
@@ -35,8 +35,8 @@ export default function Error({
             onClick={() => unstable_retry()}
             className="inline-flex min-h-12 items-center justify-center rounded-full px-6 text-sm font-medium transition-transform hover:-translate-y-0.5"
             style={{
-              backgroundColor: "var(--ui-primary-bg, var(--color-ink, #23241f))",
-              color: "var(--ui-primary-text, #ffffff)",
+              backgroundColor: "var(--ui-primary-bg, var(--color-ink))",
+              color: "var(--ui-primary-text)",
             }}
           >
             Попробовать снова
@@ -45,8 +45,8 @@ export default function Error({
             href="/"
             className="inline-flex min-h-12 items-center justify-center rounded-full border px-6 text-sm font-medium"
             style={{
-              borderColor: "var(--color-line, #d7c7b2)",
-              color: "var(--color-ink, #23241f)",
+              borderColor: "var(--color-line)",
+              color: "var(--color-ink)",
               backgroundColor: "#fff",
             }}
           >

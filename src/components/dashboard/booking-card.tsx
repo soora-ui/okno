@@ -28,7 +28,7 @@ export function BookingCard({
   );
 
   return (
-    <div className="w-full max-w-full rounded-[24px] border border-line p-4">
+    <div className="w-full max-w-full rounded-nested border border-line p-4">
       <div className="grid w-full max-w-full gap-4 sm:grid-cols-[minmax(0,1fr)_15rem] sm:items-start">
         <div className="min-w-0 space-y-1">
           <p className="font-medium text-ink">{client?.name}</p>

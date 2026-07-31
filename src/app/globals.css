@@ -2,7 +2,11 @@
 
 :root {
   color-scheme: light;
-  --font-manrope: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+  /* --font-manrope-loaded приходит из next/font (src/app/layout.tsx) и уже
+     содержит метрически подогнанный фолбэк. Локальные имена оставлены на
+     случай, если шрифт не догрузился. */
+  --font-manrope:
+    var(--font-manrope-loaded, "Manrope"), "Avenir Next", "Segoe UI", sans-serif;
   --font-geist-mono: "Geist Mono", "SFMono-Regular", "SF Mono", "Menlo", monospace;
   --color-background: #faf7f1;
   --color-panel: #eee7dc;
@@ -39,6 +43,35 @@
   --ui-secondary-text: var(--color-ink);
   --ui-secondary-border: var(--color-line);
   --ui-ghost-text: var(--color-ink);
+
+  /* Фоновые свечения. Тёплое раньше было захардкожено в site-shell как
+     rgba(247,226,211,0.6) — второй цветной голос мимо палитры. Теперь это
+     токен, и тёмная тема гасит оба. */
+  --color-glow-cool: rgba(184, 211, 196, 0.4);
+  --color-glow-warm: rgba(247, 226, 211, 0.6);
+
+  /* Радиусы. Шесть шагов вместо десяти: 18/20/22 сводятся к panel, 36/40 —
+     к section. Имена семантические, а не размерные: rounded-sm/2xl уже заняты
+     дефолтами Tailwind, и переопределять их — значит молча сдвинуть чужие
+     классы. Радиус растёт с площадью, вложенный элемент мягче родителя на шаг. */
+  --radius-tight: 12px;
+  --radius-field: 16px;
+  --radius-panel: 20px;
+  --radius-nested: 24px;
+  --radius-card: 28px;
+  --radius-section: 32px;
+
+  /* Тени — это свет, а не уровень: большое размытие, прозрачность 8% в покое.
+     Пять ролей вместо десяти значений. */
+  --shadow-subtle: 0 10px 30px rgba(35, 36, 31, 0.04);
+  --shadow-card: 0 24px 80px rgba(35, 36, 31, 0.08);
+  --shadow-section: 0 32px 120px rgba(35, 36, 31, 0.08);
+  --shadow-hover: 0 30px 90px rgba(35, 36, 31, 0.14);
+  --shadow-ink: 0 40px 120px rgba(22, 24, 20, 0.18);
+
+  /* Единственный чернильный градиент. Раньше жил в двух версиях:
+     135deg/#35362f и 145deg/#343730. */
+  --gradient-ink: linear-gradient(135deg, #23241f 0%, #35362f 100%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -75,6 +108,19 @@
     --ui-secondary-text: #f2ede2;
     --ui-secondary-border: #38352c;
     --ui-ghost-text: #f2ede2;
+
+    /* На тёмном фоне свечения читаются как грязные пятна — гасим почти в ноль. */
+    --color-glow-cool: rgba(184, 211, 196, 0.1);
+    --color-glow-warm: rgba(247, 226, 211, 0.07);
+
+    /* Чёрное на тёмном не видно: тени уходят в глубину за счёт плотности. */
+    --shadow-subtle: 0 10px 30px rgba(0, 0, 0, 0.2);
+    --shadow-card: 0 24px 80px rgba(0, 0, 0, 0.35);
+    --shadow-section: 0 32px 120px rgba(0, 0, 0, 0.35);
+    --shadow-hover: 0 30px 90px rgba(0, 0, 0, 0.45);
+    --shadow-ink: 0 40px 120px rgba(0, 0, 0, 0.5);
+
+    --gradient-ink: linear-gradient(135deg, #2a2821 0%, #35332a 100%);
   }
 }
 
@@ -83,6 +129,28 @@
   --color-foreground: var(--color-ink);
   --font-sans: var(--font-manrope);
   --font-mono: var(--font-geist-mono);
+
+  /* Рабочий кегль интерфейса поднят с 14px до 15px одной точкой: text-sm
+     стоит в 355 местах, переписывать их поштучно незачем. text-xs остаётся
+     12px — это роль меток с разрядкой, а не текста для чтения. */
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5;
+
+  /* Значения намеренно проброшены через var(), а не скопированы: утилита
+     резолвит токен в рантайме, поэтому тёмная тема переключает тени
+     без второго набора классов. */
+  --radius-tight: var(--radius-tight);
+  --radius-field: var(--radius-field);
+  --radius-panel: var(--radius-panel);
+  --radius-nested: var(--radius-nested);
+  --radius-card: var(--radius-card);
+  --radius-section: var(--radius-section);
+
+  --shadow-subtle: var(--shadow-subtle);
+  --shadow-card: var(--shadow-card);
+  --shadow-section: var(--shadow-section);
+  --shadow-hover: var(--shadow-hover);
+  --shadow-ink: var(--shadow-ink);
 }
 
 .bg-surface {
@@ -216,7 +284,29 @@ textarea {
 
 [data-ui-input]::placeholder,
 [data-ui-textarea]::placeholder {
-  color: var(--ui-placeholder, #8b8477);
+  color: var(--ui-placeholder);
+}
+
+/* Видимая клавиатурная навигация. Раньше кнопки гасили outline через
+   focus-visible:outline-none и ничего не ставили взамен, а поля глушили его
+   утилитой outline-none — фокус был не виден нигде.
+   Цвет берём из accent-deep, а не из accent: в светлой теме он тёмный
+   (#4b6d5b), в тёмной — светлый (#a7cdb9), поэтому контраст есть в обеих.
+   :where() держит специфичность нулевой, чтобы компонент мог перебить. */
+:where(a[href], button, [role="button"], summary, [tabindex]:not([tabindex^="-"])):focus-visible {
+  outline: 2px solid var(--color-accent-deep);
+  outline-offset: 2px;
+}
+
+/* Полям нужна специфичность выше утилиты outline-none (0,1,0), поэтому
+   селектор по атрибуту, а не :where. Сдвиг границы даёт второй, нецветовой
+   признак фокуса — на случай, если контур не различают. */
+[data-ui-input]:focus-visible,
+[data-ui-textarea]:focus-visible,
+[data-ui-select]:focus-visible {
+  outline: 2px solid var(--color-accent-deep);
+  outline-offset: 1px;
+  border-color: var(--color-accent-deep);
 }
 
 button,
@@ -260,7 +350,7 @@ input[type="number"] {
 
 .card-hover:hover {
   transform: translateY(-4px);
-  box-shadow: 0 30px 90px rgba(35, 36, 31, 0.14);
+  box-shadow: var(--shadow-hover);
 }
 
 /* Page content entrance — replays on navigation via a pathname-keyed wrapper. */
@@ -324,9 +414,9 @@ input[type="number"] {
   position: relative;
   z-index: 70;
   isolation: isolate;
-  outline: 2px solid rgba(184, 211, 196, 0.9);
+  outline: 2px solid var(--color-accent);
   outline-offset: 12px;
-  box-shadow: 0 18px 56px rgba(22, 24, 20, 0.08);
+  box-shadow: var(--shadow-subtle);
 }
 
 .demo-tour-panel {
@@ -363,5 +453,10 @@ input[type="number"] {
 
   .print-static {
     position: static !important;
+  }
+
+  /* Навигация, оглавление и футер в распечатанном договоре только мешают. */
+  .print-hidden {
+    display: none !important;
   }
 }

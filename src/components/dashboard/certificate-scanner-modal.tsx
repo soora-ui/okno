@@ -225,8 +225,8 @@ function ScannerBody({ onClose }: { onClose: () => void }) {
       role="dialog"
       aria-modal="true"
       aria-label="Сканировать сертификат"
-      className="mx-auto flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-[32px] border border-line shadow-[0_40px_120px_rgba(22,24,20,0.18)]"
-      style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+      className="mx-auto flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-section border border-line shadow-ink"
+      style={{ backgroundColor: "var(--ui-card-bg)" }}
       onClick={(event) => event.stopPropagation()}
     >
       <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
@@ -241,7 +241,7 @@ function ScannerBody({ onClose }: { onClose: () => void }) {
 
       <div className="space-y-4 overflow-y-auto px-5 py-5">
         {!verifyResult ? (
-          <div className="relative overflow-hidden rounded-[20px] bg-black">
+          <div className="relative overflow-hidden rounded-panel bg-black">
             <video ref={videoRef} muted playsInline className="aspect-square w-full object-cover" />
             <canvas ref={canvasRef} className="hidden" />
             {verifying ? (
@@ -255,7 +255,7 @@ function ScannerBody({ onClose }: { onClose: () => void }) {
         {cameraError ? <p className="text-sm text-ink-soft">{cameraError}</p> : null}
 
         {verifyResult && !verifyResult.ok ? (
-          <div className="space-y-3 rounded-[20px] border border-line bg-panel p-4">
+          <div className="space-y-3 rounded-panel border border-line bg-panel p-4">
             <p className="text-sm font-medium text-ink">{reasonLabels[verifyResult.reason]}</p>
             {verifyResult.reason === "exhausted" && verifyResult.lastRedeemedAt ? (
               <p className="text-xs text-muted">
@@ -269,7 +269,7 @@ function ScannerBody({ onClose }: { onClose: () => void }) {
         ) : null}
 
         {verifyResult && verifyResult.ok ? (
-          <div className="space-y-4 rounded-[20px] border border-line bg-panel p-4">
+          <div className="space-y-4 rounded-panel border border-line bg-panel p-4">
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-xs text-muted">Номинал</p>

@@ -217,7 +217,7 @@ function AvatarUploadCard({ profile }: { profile: Profile }) {
   };
 
   return (
-    <section className="space-y-4 rounded-[24px] bg-panel p-4">
+    <section className="space-y-4 rounded-nested bg-panel p-4">
       <div className="space-y-2">
         <p className="text-sm font-semibold text-ink">Аватар</p>
         <p className="text-xs leading-5 text-muted">
@@ -226,7 +226,7 @@ function AvatarUploadCard({ profile }: { profile: Profile }) {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-[28px] border border-line bg-surface shadow-sm">
+      <div className="overflow-hidden rounded-card border border-line bg-surface shadow-sm">
         <Image
           src={profile.avatarUrl}
           alt={profile.fullName}
@@ -361,7 +361,7 @@ function PortfolioUploadSection({ profile }: { profile: Profile }) {
   };
 
   return (
-    <section className="space-y-4 rounded-[24px] border border-line bg-panel p-5">
+    <section className="space-y-4 rounded-nested border border-line bg-panel p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <h3 className="text-lg font-semibold text-ink">Готовые работы</h3>
@@ -414,7 +414,7 @@ function PortfolioUploadSection({ profile }: { profile: Profile }) {
           {profile.portfolioWorks.map((work, index) => (
             <div
               key={work.id}
-              className="overflow-hidden rounded-[20px] border border-line bg-surface"
+              className="overflow-hidden rounded-panel border border-line bg-surface"
             >
               <div className="relative aspect-[4/5]">
                 <Image
@@ -431,7 +431,7 @@ function PortfolioUploadSection({ profile }: { profile: Profile }) {
           ))}
         </div>
       ) : (
-        <div className="rounded-[20px] border border-dashed border-line bg-surface px-4 py-5 text-sm leading-6 text-muted">
+        <div className="rounded-panel border border-dashed border-line bg-surface px-4 py-5 text-sm leading-6 text-muted">
           Пока без прикреплённых работ. Как только загрузишь подборку, она
           появится на публичной странице отдельной галереей.
         </div>

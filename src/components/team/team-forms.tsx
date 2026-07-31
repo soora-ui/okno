@@ -159,7 +159,7 @@ export function TeamMemberCard({
   const canDisable = member.id !== currentProfileId;
 
   return (
-    <div className="rounded-[24px] border border-line bg-panel px-4 py-4">
+    <div className="rounded-nested border border-line bg-panel px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-medium text-ink">{member.fullName}</p>
@@ -240,7 +240,7 @@ export function TeamMemberCard({
       <FormMessage message={statusState.message} success={statusState.success} />
 
       {editOpen ? (
-        <form action={editAction} className="mt-5 space-y-4 rounded-[20px] border border-line bg-surface p-4">
+        <form action={editAction} className="mt-5 space-y-4 rounded-panel border border-line bg-surface p-4">
           <input type="hidden" name="memberProfileId" value={member.id} />
           <div className="grid gap-4 sm:grid-cols-2">
             <Input

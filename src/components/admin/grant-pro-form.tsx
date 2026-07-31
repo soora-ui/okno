@@ -66,8 +66,8 @@ export function GrantProForm() {
           className="text-sm font-medium"
           style={{
             color: state.success
-              ? "var(--color-success, #3f7b5a)"
-              : "var(--color-warning, #8e6c2f)",
+              ? "var(--color-success)"
+              : "var(--color-warning)",
           }}
         >
           {state.message}

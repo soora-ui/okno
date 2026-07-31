@@ -55,7 +55,7 @@ export function CertificateSalesToggle({
         onClick={handleClick}
         disabled={pending}
         className={cn(
-          "flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-70",
+          "flex w-full items-center justify-between gap-3 rounded-field border px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-70",
           looksDisabled ? "cursor-not-allowed border-line bg-panel opacity-60" : "border-line bg-surface",
         )}
       >

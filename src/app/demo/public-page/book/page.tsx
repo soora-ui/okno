@@ -86,10 +86,10 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[var(--color-background)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(184,211,196,0.4),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(247,226,211,0.6),_transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_var(--color-glow-cool),_transparent_30%),radial-gradient(circle_at_bottom_right,_var(--color-glow-warm),_transparent_30%)]" />
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-12 pt-4 sm:px-6 lg:px-8">
-        <header className="sticky top-4 z-20 mb-6 rounded-full border border-line bg-glass-strong px-4 py-3 shadow-[0_18px_50px_rgba(35,36,31,0.08)] backdrop-blur">
+        <header className="sticky top-4 z-20 mb-6 rounded-full border border-line bg-glass-strong px-4 py-3 shadow-subtle backdrop-blur">
           <div className="flex items-center justify-between gap-4">
             <BrandLogo />
 
@@ -148,7 +148,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                         time: firstTime,
                       })}
                       className={cn(
-                        "rounded-[24px] border p-4 text-left transition active:scale-[0.99]",
+                        "rounded-nested border p-4 text-left transition active:scale-[0.99]",
                         service.id === selectedService?.id
                           ? "border-accent bg-accent-soft"
                           : "border-line bg-surface hover:bg-panel",
@@ -159,7 +159,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                           <p className="font-medium text-ink">{service.title}</p>
                           <p className="text-sm leading-6 text-muted">{service.description}</p>
                         </div>
-                        <div className="text-right text-sm text-ink-soft">
+                        <div className="shrink-0 whitespace-nowrap text-right text-sm text-ink-soft">
                           <p>{service.durationMinutes} мин</p>
                           <p>{formatCurrency(service.price)}</p>
                         </div>
@@ -197,7 +197,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                             >
                               <div
                                 className={cn(
-                                  "flex min-w-[78px] flex-col items-center rounded-[18px] border px-4 py-3 text-center transition",
+                                  "flex min-w-[78px] flex-col items-center rounded-panel border px-4 py-3 text-center transition",
                                   isSelected
                                     ? "border-ink bg-ink text-ink-contrast"
                                     : "border-line bg-surface text-ink",
@@ -240,7 +240,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                               </p>
                               <div
                                 className={cn(
-                                  "rounded-2xl border px-4 py-3 text-xl font-medium transition",
+                                  "rounded-field border px-4 py-3 text-xl font-medium transition",
                                   isSelected
                                     ? "border-ink bg-ink text-ink-contrast"
                                     : "border-line bg-surface text-ink hover:bg-panel",
@@ -254,7 +254,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                       </div>
                     </>
                   ) : (
-                    <div className="rounded-[24px] border border-dashed border-line p-5 text-sm leading-6 text-muted">
+                    <div className="rounded-nested border border-dashed border-line p-5 text-sm leading-6 text-muted">
                       На ближайшие дни свободного времени пока нет. Попробуй выбрать другую услугу
                       или зайди позже.
                     </div>
@@ -278,7 +278,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                               time: slotTime,
                             })}
                             className={cn(
-                              "snap-start shrink-0 rounded-[18px] border px-5 py-3 text-center text-lg font-semibold transition active:scale-[0.99]",
+                              "snap-start shrink-0 rounded-panel border px-5 py-3 text-center text-lg font-semibold transition active:scale-[0.99]",
                               slotTime === selectedTime
                                 ? "border-ink bg-ink text-ink-contrast"
                                 : "border-line bg-surface text-ink",
@@ -300,7 +300,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                               time: slotTime,
                             })}
                             className={cn(
-                              "rounded-[22px] px-4 py-4 text-center text-2xl font-medium transition active:scale-[0.99]",
+                              "rounded-panel px-4 py-4 text-center text-2xl font-medium transition active:scale-[0.99]",
                               slotTime === selectedTime
                                 ? "bg-ink text-ink-contrast"
                                 : "bg-transparent text-ink hover:bg-panel",
@@ -312,7 +312,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                       </div>
                     </>
                   ) : selectedDate ? (
-                    <div className="rounded-[24px] border border-dashed border-line p-5 text-sm leading-6 text-muted">
+                    <div className="rounded-nested border border-dashed border-line p-5 text-sm leading-6 text-muted">
                       На эту дату свободного времени уже нет.
                     </div>
                   ) : null}
@@ -349,7 +349,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                   hint="Поле необязательное, но мастеру правда полезно."
                 />
 
-                <div className="rounded-[24px] bg-panel p-4 text-sm text-ink-soft">
+                <div className="rounded-nested bg-panel p-4 text-sm text-ink-soft">
                   <p className="font-medium text-ink">Что вы выбрали</p>
                   <p className="mt-2">
                     {selectedServiceTitle} • {selectedDateLabel} • {selectedTime}

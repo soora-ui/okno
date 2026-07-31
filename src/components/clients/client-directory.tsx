@@ -59,7 +59,7 @@ function StatCard({
   value: string;
 }) {
   return (
-    <div className="rounded-[20px] border border-line bg-panel/55 px-4 py-3">
+    <div className="rounded-panel border border-line bg-panel/55 px-4 py-3">
       <p className="text-xs uppercase tracking-[0.18em] text-muted">{label}</p>
       <p className="mt-2 text-sm font-medium leading-6 text-ink">{value}</p>
     </div>
@@ -110,7 +110,7 @@ function ClientDetailsModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Карточка клиента ${client.name}`}
-        className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] border border-line bg-surface shadow-[0_40px_120px_rgba(22,24,20,0.18)]"
+        className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-section border border-line bg-surface shadow-ink"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-5 sm:px-7">
@@ -143,7 +143,7 @@ function ClientDetailsModal({
           </div>
 
           <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-            <section className="rounded-[24px] border border-line bg-panel p-4">
+            <section className="rounded-nested border border-line bg-panel p-4">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-base font-semibold text-ink">История визитов</h3>
                 <span className="text-xs uppercase tracking-[0.16em] text-muted">
@@ -155,7 +155,7 @@ function ClientDetailsModal({
                   client.history.map((visit) => (
                     <div
                       key={visit.id}
-                      className="rounded-[20px] border border-line bg-surface px-4 py-3"
+                      className="rounded-panel border border-line bg-surface px-4 py-3"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
@@ -170,7 +170,7 @@ function ClientDetailsModal({
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-[20px] border border-dashed border-line bg-surface px-4 py-4 text-sm leading-6 text-muted">
+                  <div className="rounded-panel border border-dashed border-line bg-surface px-4 py-4 text-sm leading-6 text-muted">
                     Здесь появятся прошедшие и будущие визиты, как только у клиента
                     накопится история записей.
                   </div>
@@ -178,7 +178,7 @@ function ClientDetailsModal({
               </div>
             </section>
 
-            <section className="rounded-[24px] border border-line bg-panel p-4">
+            <section className="rounded-nested border border-line bg-panel p-4">
               <div className="space-y-4">
                 <div>
                   <h3 className="text-base font-semibold text-ink">Предпочитаемые услуги</h3>
@@ -256,7 +256,7 @@ export function ClientDirectory({
               key={client.id}
               type="button"
               onClick={() => setSelectedClientId(client.id)}
-              className="w-full rounded-[28px] border border-line bg-surface p-5 text-left shadow-[0_18px_50px_rgba(31,33,29,0.05)] transition duration-300 hover:-translate-y-0.5"
+              className="w-full rounded-card border border-line bg-surface p-5 text-left shadow-subtle transition duration-300 hover:-translate-y-0.5"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-2">
@@ -299,7 +299,7 @@ export function ClientDirectory({
           ))}
         </div>
       ) : (
-        <div className="rounded-[24px] border border-dashed border-line p-5 text-sm leading-6 text-muted">
+        <div className="rounded-nested border border-dashed border-line p-5 text-sm leading-6 text-muted">
           По текущему запросу пока ничего не найдено. Попробуй имя, телефон, заметку
           или услугу, на которую клиент записывается чаще всего.
         </div>

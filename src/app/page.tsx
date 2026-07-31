@@ -91,6 +91,7 @@ export default function HomePage() {
       hideGuestMenu
       publicPageHrefOverride={landingDemoPublicPageHref}
       publicPageLabelOverride="Демо-страница"
+      showFooter
     >
       <div className="space-y-20 pb-10">
         <section className="grid gap-8 py-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
@@ -126,7 +127,7 @@ export default function HomePage() {
             <div className="grid gap-3 sm:grid-cols-3">
               {valueProps.map((item, index) => (
                 <Reveal key={item} variant="fade-up" delay={index * 0.1}>
-                  <Card className="h-full rounded-[24px] p-4">
+                  <Card className="h-full rounded-nested p-4">
                     <p className="text-sm leading-6 text-ink-soft">{item}</p>
                   </Card>
                 </Reveal>
@@ -136,18 +137,20 @@ export default function HomePage() {
 
           <RoundedReveal finalRadius="28px">
             <Card className="overflow-hidden p-0">
-              <div className="m-4 rounded-[24px] border border-line bg-panel p-5">
+              <div className="m-4 rounded-nested border border-line bg-panel p-5">
                 <p className="text-sm text-muted">Независимое demo-превью</p>
-                <h2 className="mt-2 text-2xl font-semibold text-ink">
+                {/* Не заголовок: имя вымышленного мастера из демо-виджета
+                    попадало в оглавление страницы наравне с «Тарифами». */}
+                <p className="mt-2 text-2xl font-semibold text-ink">
                   {landingDemoProfile.fullName}
-                </h2>
+                </p>
                 <p className="mt-1 text-sm text-ink-soft">{landingDemoProfile.bio}</p>
               </div>
               <div className="space-y-4 px-4 pb-4">
                 {landingDemoServices.map((service) => (
                   <div
                     key={service.id}
-                    className="rounded-[24px] border border-line p-4"
+                    className="rounded-nested border border-line p-4"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-1">
@@ -156,7 +159,7 @@ export default function HomePage() {
                           {service.description}
                         </p>
                       </div>
-                      <div className="text-right text-sm text-ink-soft">
+                      <div className="shrink-0 whitespace-nowrap text-right text-sm text-ink-soft">
                         <p>{service.durationMinutes} мин</p>
                         <p>{service.price} ₽</p>
                       </div>
@@ -269,7 +272,7 @@ export default function HomePage() {
               className="h-full space-y-4 border-transparent text-white"
               style={{
                 background:
-                  "linear-gradient(135deg, #23241f 0%, #35362f 100%)",
+                  "var(--gradient-ink)",
               }}
             >
               <div className="flex items-center gap-2">
@@ -331,13 +334,12 @@ export default function HomePage() {
                 <Card
                   className={`flex h-full flex-col ${plan.highlighted ? "bg-panel" : ""}`}
                 >
-                  <p className="text-sm uppercase tracking-[0.24em] text-ink-soft">
-                    {plan.title}
-                  </p>
-                  <div className="mt-3 flex items-baseline gap-2">
-                    <h3 className="text-4xl font-semibold text-ink">
+                  {/* Заголовок — название тарифа, а не цена: см. pricing/page.tsx */}
+                  <h3 className="text-xl font-semibold text-ink">{plan.title}</h3>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <p className="text-4xl font-semibold text-ink">
                       {formatPlanPrice(plan.priceRub)}
-                    </h3>
+                    </p>
                     <span className="text-sm text-muted">{plan.period}</span>
                   </div>
                   <p className="mt-3 text-base leading-7 text-ink-soft">
@@ -356,7 +358,7 @@ export default function HomePage() {
             ))}
           </div>
           <Reveal variant="fade-up">
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-[24px] border border-line px-6 py-5">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-nested border border-line px-6 py-5">
               <p className="text-sm leading-6 text-ink-soft">
                 {extraSeat.description}
               </p>

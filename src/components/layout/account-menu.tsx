@@ -88,10 +88,10 @@ export function AccountMenu({
             onClick={() => setOpen(false)}
           />
 
-          <div className="fixed right-4 top-20 z-50 w-[min(92vw,360px)] rounded-[28px] border border-line bg-surface p-4 shadow-[0_30px_80px_rgba(35,36,31,0.16)] transition duration-300">
+          <div className="fixed right-4 top-20 z-50 w-[min(92vw,360px)] rounded-card border border-line bg-surface p-4 shadow-hover transition duration-300">
             {authenticated ? (
               <div className="space-y-2">
-                <div className="rounded-[22px] bg-panel p-4">
+                <div className="rounded-panel bg-panel p-4">
                   <p className="text-xs uppercase tracking-[0.24em] text-muted">
                     Навигация
                   </p>
@@ -101,7 +101,7 @@ export function AccountMenu({
                         key={item.href}
                         href={item.href}
                         onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 rounded-[18px] px-3 py-3 text-sm font-medium text-ink transition hover:bg-surface"
+                        className="flex items-center gap-3 rounded-panel px-3 py-3 text-sm font-medium text-ink transition hover:bg-surface"
                       >
                         <item.icon size={16} />
                         {item.label}
@@ -111,7 +111,7 @@ export function AccountMenu({
                       <Link
                         href={`/${username}`}
                         onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 rounded-[18px] px-3 py-3 text-sm font-medium text-ink transition hover:bg-surface"
+                        className="flex items-center gap-3 rounded-panel px-3 py-3 text-sm font-medium text-ink transition hover:bg-surface"
                       >
                         <Globe size={16} />
                         Публичная страница
@@ -123,7 +123,7 @@ export function AccountMenu({
                 <form action={signOutAction}>
                   <button
                     type="submit"
-                    className="flex w-full items-center justify-between rounded-[22px] border border-line bg-surface px-4 py-3 text-sm font-medium text-ink transition duration-300 hover:-translate-y-0.5 hover:bg-panel active:scale-[0.99]"
+                    className="flex w-full items-center justify-between rounded-panel border border-line bg-surface px-4 py-3 text-sm font-medium text-ink transition duration-300 hover:-translate-y-0.5 hover:bg-panel active:scale-[0.99]"
                   >
                     <span>Выйти из аккаунта</span>
                     <LogOut size={16} />
@@ -137,7 +137,7 @@ export function AccountMenu({
                     key={item.href}
                     href={item.href}
                     onClick={() => setOpen(false)}
-                    className="block rounded-[20px] px-4 py-3 text-sm font-medium text-ink transition hover:bg-panel"
+                    className="block rounded-panel px-4 py-3 text-sm font-medium text-ink transition hover:bg-panel"
                   >
                     {item.label}
                   </Link>

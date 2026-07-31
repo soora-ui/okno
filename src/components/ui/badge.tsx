@@ -9,24 +9,24 @@ export function Badge({
 }) {
   const tones = {
     neutral: {
-      backgroundColor: "var(--color-panel, #eee7dc)",
-      color: "var(--color-ink-soft, #434239)",
+      backgroundColor: "var(--color-panel)",
+      color: "var(--color-ink-soft)",
     },
     success: {
-      backgroundColor: "var(--color-success-soft, #e6f3eb)",
-      color: "var(--color-success, #3f7b5a)",
+      backgroundColor: "var(--color-success-soft)",
+      color: "var(--color-success)",
     },
     accent: {
-      backgroundColor: "var(--color-accent-soft, #eef6f0)",
-      color: "var(--color-accent-deep, #4b6d5b)",
+      backgroundColor: "var(--color-accent-soft)",
+      color: "var(--color-accent-deep)",
     },
     warning: {
-      backgroundColor: "var(--color-warning-soft, #f5ecdb)",
-      color: "var(--color-warning, #8e6c2f)",
+      backgroundColor: "var(--color-warning-soft)",
+      color: "var(--color-warning)",
     },
     danger: {
-      backgroundColor: "var(--color-danger-soft, #fff5f5)",
-      color: "var(--color-danger, #b14f4f)",
+      backgroundColor: "var(--color-danger-soft)",
+      color: "var(--color-danger)",
     },
   };
 

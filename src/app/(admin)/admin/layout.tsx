@@ -31,7 +31,7 @@ export default async function AdminLayout({
           <button
             type="submit"
             className="rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition hover:-translate-y-0.5"
-            style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+            style={{ backgroundColor: "var(--ui-card-bg)" }}
           >
             Выйти
           </button>

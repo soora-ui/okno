@@ -5,14 +5,20 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
+  bookingThemeAttr,
   defaultBookingThemePresetId,
-  getBookingThemeStyle,
   type BookingThemePresetId,
 } from "@/lib/booking-theme-presets";
 
 type BookingThemePreviewProps = {
   presetId?: BookingThemePresetId;
   serviceTitles?: string[];
+  /**
+   * Какую тему показывать. Пресет теперь идёт парой, и мастеру нужно видеть
+   * обе: клиент с тёмным телефоном увидит тёмную. Без явного режима
+   * предпросмотр повторял бы тему устройства самого мастера.
+   */
+  mode?: "light" | "dark";
 };
 
 const previewSteps = ["Услуга", "Дата", "Контакты"];
@@ -43,13 +49,15 @@ function getPreviewServices(serviceTitles?: string[]) {
 export function BookingThemePreview({
   presetId = defaultBookingThemePresetId,
   serviceTitles,
+  mode,
 }: BookingThemePreviewProps) {
   const previewServices = getPreviewServices(serviceTitles);
 
   return (
     <div
-      style={getBookingThemeStyle(presetId)}
-      className="rounded-[28px] border border-line bg-panel p-4"
+      {...bookingThemeAttr(presetId)}
+      data-booking-theme-mode={mode}
+      className="rounded-card border border-line bg-panel p-4"
     >
       <div className="mx-auto max-w-md">
         <Card className="space-y-5 p-5">
@@ -62,7 +70,7 @@ export function BookingThemePreview({
                       "flex h-8 w-8 items-center justify-center rounded-full border text-xs",
                       index === 0
                         ? "border-ink bg-ink text-ink-contrast"
-                        : "border-line bg-[var(--ui-field-bg,#ffffff)] text-muted",
+                        : "border-line bg-[var(--ui-field-bg)] text-muted",
                     )}
                   >
                     {index === 0 ? <Check size={14} /> : index + 1}
@@ -81,10 +89,10 @@ export function BookingThemePreview({
               <div
                 key={service.title}
                 className={cn(
-                  "rounded-[24px] border p-4",
+                  "rounded-nested border p-4",
                   service.selected
                     ? "border-accent bg-accent-soft"
-                    : "border-line bg-[var(--ui-field-bg,#ffffff)]",
+                    : "border-line bg-[var(--ui-field-bg)]",
                 )}
               >
                 <p className="font-medium text-ink">{service.title}</p>
@@ -99,10 +107,10 @@ export function BookingThemePreview({
                 <div
                   key={slot.day}
                   className={cn(
-                    "flex min-w-[68px] flex-col items-center rounded-[18px] border px-3 py-2 text-center",
+                    "flex min-w-[68px] flex-col items-center rounded-panel border px-3 py-2 text-center",
                     slot.selected
                       ? "border-ink bg-ink text-ink-contrast"
-                      : "border-line bg-[var(--ui-field-bg,#ffffff)] text-ink",
+                      : "border-line bg-[var(--ui-field-bg)] text-ink",
                   )}
                 >
                   <span
@@ -123,10 +131,10 @@ export function BookingThemePreview({
                 <div
                   key={slot.label}
                   className={cn(
-                    "rounded-[18px] border px-4 py-2 text-sm font-medium",
+                    "rounded-panel border px-4 py-2 text-sm font-medium",
                     slot.selected
                       ? "border-ink bg-ink text-ink-contrast"
-                      : "border-line bg-[var(--ui-field-bg,#ffffff)] text-ink",
+                      : "border-line bg-[var(--ui-field-bg)] text-ink",
                   )}
                 >
                   {slot.label}

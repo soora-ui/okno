@@ -1,0 +1,431 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-31T00:00:00.000Z",
+  "title": "Design System: okno",
+  "extensions": {
+    "colorMeta": {
+      "sage": {
+        "role": "primary",
+        "displayName": "Шалфей",
+        "canonical": "oklch(83.2% 0.042 158)",
+        "tonalRamp": [
+          "oklch(20% 0.030 158)",
+          "oklch(31% 0.036 158)",
+          "oklch(42% 0.042 158)",
+          "oklch(53% 0.046 158)",
+          "oklch(64% 0.048 158)",
+          "oklch(74% 0.046 158)",
+          "oklch(83.2% 0.042 158)",
+          "oklch(95% 0.018 158)"
+        ]
+      },
+      "sage-deep": {
+        "role": "primary",
+        "displayName": "Шалфей глубокий",
+        "canonical": "oklch(48.5% 0.045 158)",
+        "tonalRamp": [
+          "oklch(16% 0.030 158)",
+          "oklch(26% 0.038 158)",
+          "oklch(37% 0.044 158)",
+          "oklch(48.5% 0.045 158)",
+          "oklch(60% 0.044 158)",
+          "oklch(71% 0.040 158)",
+          "oklch(83% 0.032 158)",
+          "oklch(94% 0.016 158)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Чернила",
+        "canonical": "oklch(23.5% 0.008 110)",
+        "tonalRamp": [
+          "oklch(15% 0.008 110)",
+          "oklch(23.5% 0.008 110)",
+          "oklch(33% 0.009 110)",
+          "oklch(44% 0.010 110)",
+          "oklch(56% 0.011 110)",
+          "oklch(68% 0.012 110)",
+          "oklch(82% 0.012 110)",
+          "oklch(95% 0.008 110)"
+        ]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Тёплая бумага",
+        "canonical": "oklch(97.2% 0.012 85)",
+        "tonalRamp": [
+          "oklch(16% 0.010 85)",
+          "oklch(27% 0.012 85)",
+          "oklch(39% 0.014 85)",
+          "oklch(51% 0.016 85)",
+          "oklch(64% 0.018 85)",
+          "oklch(78% 0.018 85)",
+          "oklch(90% 0.015 85)",
+          "oklch(97.2% 0.012 85)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Панель",
+        "canonical": "oklch(92.5% 0.018 85)",
+        "tonalRamp": [
+          "oklch(18% 0.012 85)",
+          "oklch(29% 0.016 85)",
+          "oklch(41% 0.020 85)",
+          "oklch(53% 0.024 85)",
+          "oklch(66% 0.026 85)",
+          "oklch(79% 0.024 85)",
+          "oklch(92.5% 0.018 85)",
+          "oklch(97% 0.010 85)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Линия",
+        "canonical": "oklch(82.4% 0.030 85)",
+        "tonalRamp": [
+          "oklch(17% 0.016 85)",
+          "oklch(28% 0.022 85)",
+          "oklch(40% 0.028 85)",
+          "oklch(52% 0.032 85)",
+          "oklch(65% 0.034 85)",
+          "oklch(74% 0.032 85)",
+          "oklch(82.4% 0.030 85)",
+          "oklch(94% 0.016 85)"
+        ]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Успех",
+        "canonical": "oklch(53.5% 0.082 155)",
+        "tonalRamp": [
+          "oklch(18% 0.045 155)",
+          "oklch(29% 0.060 155)",
+          "oklch(41% 0.074 155)",
+          "oklch(53.5% 0.082 155)",
+          "oklch(65% 0.076 155)",
+          "oklch(77% 0.060 155)",
+          "oklch(88% 0.038 155)",
+          "oklch(95.5% 0.020 155)"
+        ]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Внимание",
+        "canonical": "oklch(53.8% 0.088 78)",
+        "tonalRamp": [
+          "oklch(18% 0.045 78)",
+          "oklch(29% 0.062 78)",
+          "oklch(41% 0.078 78)",
+          "oklch(53.8% 0.088 78)",
+          "oklch(66% 0.082 78)",
+          "oklch(78% 0.066 78)",
+          "oklch(89% 0.042 78)",
+          "oklch(96% 0.022 78)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Опасность",
+        "canonical": "oklch(54.5% 0.108 22)",
+        "tonalRamp": [
+          "oklch(19% 0.055 22)",
+          "oklch(30% 0.076 22)",
+          "oklch(42% 0.095 22)",
+          "oklch(54.5% 0.108 22)",
+          "oklch(66% 0.098 22)",
+          "oklch(78% 0.076 22)",
+          "oklch(89% 0.046 22)",
+          "oklch(96.5% 0.022 22)"
+        ]
+      },
+      "glow-warm": {
+        "role": "neutral",
+        "displayName": "Тёплое свечение",
+        "canonical": "rgba(247,226,211,0.6)",
+        "tonalRamp": [
+          "oklch(20% 0.02 55)",
+          "oklch(31% 0.025 55)",
+          "oklch(43% 0.03 55)",
+          "oklch(55% 0.035 55)",
+          "oklch(67% 0.038 55)",
+          "oklch(79% 0.036 55)",
+          "oklch(90% 0.028 55)",
+          "oklch(96% 0.016 55)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Заголовки первого экрана лендинга и крупных секций. 36–48px, вес 600, трекинг сжат внутрь."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Заголовки секций внутри страниц. 30px, вес 600."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Заголовки карточек, названия услуг, шапки модалок. 20–24px, вес 600."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Рабочий размер всего интерфейса — 15px, задаётся токеном --text-sm в @theme (класс text-sm стоит примерно в 355 местах). 16px только для текста, который читают подряд: правовые документы, описания."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Надзаголовки секций и метки статусов. 11–12px, UPPERCASE, трекинг 0.18–0.24em. Верхний регистр допустим только с разрядкой."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-subtle",
+        "value": "0 10px 30px rgba(35,36,31,0.04)",
+        "purpose": "Бейджи, мелкие плашки, вложенные элементы."
+      },
+      {
+        "name": "shadow-card",
+        "value": "0 24px 80px rgba(35,36,31,0.08)",
+        "purpose": "База системы: карточки, панели, секции."
+      },
+      {
+        "name": "shadow-section",
+        "value": "0 32px 120px rgba(35,36,31,0.08)",
+        "purpose": "Блоки во всю ширину, герой лендинга."
+      },
+      {
+        "name": "shadow-hover",
+        "value": "0 30px 90px rgba(35,36,31,0.14)",
+        "purpose": "Интерактивные карточки, вместе с translateY(-4px)."
+      },
+      {
+        "name": "shadow-ink",
+        "value": "0 40px 120px rgba(22,24,20,0.18)",
+        "purpose": "Блоки с чернильной заливкой, где 8% не видно."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-okno",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Единственная кривая системы. Hover карточек, появление страницы, reveal-блоки, подсветка демо-тура — всё на ней."
+      },
+      {
+        "name": "duration-control",
+        "value": "300ms",
+        "purpose": "Реакция управляющих элементов: hover и active кнопок."
+      },
+      {
+        "name": "duration-surface",
+        "value": "360ms",
+        "purpose": "Движение поверхностей: подъём карточки, подсветка демо-тура."
+      },
+      {
+        "name": "duration-page",
+        "value": "420ms",
+        "purpose": "Вход страницы (.page-enter) и панель демо-тура."
+      },
+      {
+        "name": "duration-reveal",
+        "value": "900ms",
+        "purpose": "Появление блоков при скролле (Reveal). Срабатывает один раз, за 80px до входа в вьюпорт."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "none",
+        "purpose": "При prefers-reduced-motion анимация отключается полностью, а не ускоряется. Reveal возвращает голый div."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ],
+    "fontLoading": "Manrope подключён через next/font/google в src/app/layout.tsx с сабсетами latin и cyrillic и display: swap. Переменный шрифт 200–800, метрически подогнанный фолбэк от next/font. Переменная --font-manrope-loaded стоит первой в стеке --font-manrope.",
+    "focus": {
+      "rule": "outline: 2px solid var(--color-accent-deep)",
+      "offsetControls": "2px",
+      "offsetFields": "1px",
+      "purpose": "Задаётся глобально в globals.css. Для ссылок и кнопок — через :where(...) с нулевой специфичностью, чтобы компонент мог перебить. Для полей — через [data-ui-input]/[data-ui-textarea]/[data-ui-select], специфичность (0,2,0) перебивает утилиту outline-none. У полей дополнительно сдвигается цвет границы — второй, нецветовой признак фокуса.",
+      "colorChoice": "accent-deep, а не accent: #4b6d5b в светлой теме и #a7cdb9 в тёмной дают контраст в обеих."
+    },
+    "radii": {
+      "purpose": "Шесть шагов вместо десяти: 18/20/22 сведены к panel, 36/40 — к section. Имена семантические, потому что rounded-sm/2xl заняты дефолтами Tailwind.",
+      "scale": {
+        "tight": "12px",
+        "field": "16px",
+        "panel": "20px",
+        "nested": "24px",
+        "card": "28px",
+        "section": "32px",
+        "pill": "9999px"
+      }
+    },
+    "shadowsDark": "В тёмной теме те же пять токенов переопределяются на чёрный с большей плотностью (0.2–0.5): тень цвета чернил на тёмном фоне не видна.",
+    "bookingPresets": {
+      "purpose": "Четыре пресета клиентского пути, каждый — пара светлой и тёмной темы. Переключение по prefers-color-scheme через data-booking-theme; инлайновый style, который был раньше, не умеет нести медиавыражение. Тёмная пара собрана не инверсией: акцент осветляется, роль «текст на акценте» переворачивается на тёмную.",
+      "ids": [
+        "linen",
+        "merlot",
+        "lagoon",
+        "rosewood"
+      ],
+      "forceMode": "data-booking-theme-mode=\"light|dark\" — для предпросмотра обеих пар в настройках"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Главное действие. Чернильная пилюля, подъём на 2px при наведении, продавливание до 0.98 при нажатии. Кольцо фокуса — 2px accent-deep с отступом 2px, задаётся глобально в globals.css.",
+      "html": "<button class=\"ds-btn-primary\">Начать бесплатно</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 12px 20px; border: 1px solid transparent; border-radius: 9999px; background: var(--ui-primary-bg, var(--color-ink, #23241f)); color: var(--ui-primary-text, #ffffff); font-family: var(--font-manrope, \"Manrope\", \"Avenir Next\", \"Segoe UI\", sans-serif); font-size: 14px; font-weight: 500; cursor: pointer; transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-btn-primary:hover { transform: translateY(-2px); } .ds-btn-primary:active { transform: scale(0.98); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-accent, #b8d3c4); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Равнозначное альтернативное действие. Белая пилюля с границей цвета линии.",
+      "html": "<button class=\"ds-btn-secondary\">Посмотреть демо</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 12px 20px; border: 1px solid var(--ui-secondary-border, var(--color-line, #d3c5b3)); border-radius: 9999px; background: var(--ui-secondary-bg, #ffffff); color: var(--ui-secondary-text, var(--color-ink, #23241f)); font-family: var(--font-manrope, \"Manrope\", \"Avenir Next\", \"Segoe UI\", sans-serif); font-size: 14px; font-weight: 500; cursor: pointer; transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-btn-secondary:hover { transform: translateY(-2px); } .ds-btn-secondary:active { transform: scale(0.98); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--color-accent, #b8d3c4); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Третьестепенное действие: вход, отмена, ссылки в шапке. Без заливки и видимой границы.",
+      "html": "<button class=\"ds-btn-ghost\">Войти</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 12px 20px; border: 1px solid transparent; border-radius: 9999px; background: transparent; color: var(--ui-ghost-text, var(--color-ink, #23241f)); font-family: var(--font-manrope, \"Manrope\", \"Avenir Next\", \"Segoe UI\", sans-serif); font-size: 14px; font-weight: 500; cursor: pointer; transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-btn-ghost:hover { transform: translateY(-2px); } .ds-btn-ghost:active { transform: scale(0.98); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--color-accent, #b8d3c4); outline-offset: 2px; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Базовая поверхность системы: скругление 28px, обязательная граница 1px и рассеянная тень 8%, которая читается как свет, а не как высота. Вариант .card-hover добавляет подъём на 4px для карточек, по которым реально кликают.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">Маникюр с покрытием</div><div class=\"ds-card-meta\">90 минут · 2 500 ₽</div></div>",
+      "css": ".ds-card { border: 1px solid var(--color-line, #d3c5b3); border-radius: 28px; padding: 24px; background: var(--ui-card-bg, #ffffff); box-shadow: 0 24px 80px rgba(28, 31, 27, 0.08); transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-card:hover { transform: translateY(-4px); box-shadow: 0 30px 90px rgba(35, 36, 31, 0.14); } .ds-card-title { font-family: var(--font-manrope, \"Manrope\", \"Avenir Next\", \"Segoe UI\", sans-serif); font-size: 20px; font-weight: 600; color: var(--color-ink, #23241f); } .ds-card-meta { margin-top: 8px; font-family: var(--font-manrope, \"Manrope\", \"Avenir Next\", \"Segoe UI\", sans-serif); font-size: 14px; color: var(--color-muted, #656055); }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Поле с меткой сверху и опциональным хинтом снизу. Высота 48px, скругление 16px. Select повторяет геометрию один в один. Фокус даёт два признака сразу: контур accent-deep и сдвиг цвета границы.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Номер телефона</span><input class=\"ds-field-input\" placeholder=\"+7 900 000-00-00\" /><span class=\"ds-field-hint\">Пришлём код подтверждения</span></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 8px; font-family: var(--font-manrope, \"Manrope\", \"Avenir Next\", \"Segoe UI\", sans-serif); } .ds-field-label { font-size: 14px; font-weight: 500; color: var(--color-ink, #23241f); } .ds-field-input { min-height: 48px; padding: 0 16px; border: 1px solid var(--color-line, #d3c5b3); border-radius: 16px; background: var(--ui-field-bg, #ffffff); color: var(--color-ink, #23241f); font-size: 15px; outline: none; transition: border-color 300ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-field-input::placeholder { color: var(--ui-placeholder, #8b8477); } .ds-field-input:focus-visible { border-color: var(--color-accent-deep, #4b6d5b); outline: 2px solid var(--color-accent, #b8d3c4); outline-offset: 1px; } .ds-field-hint { font-size: 12px; color: var(--color-muted, #656055); }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge-accent",
+      "description": "Статусная метка. Всегда пара «мягкая подложка + насыщенный текст того же семейства» — насыщенный цвет живёт только в тексте, заливка остаётся приглушённой.",
+      "html": "<span class=\"ds-badge ds-badge-accent\">Ждёт оплаты</span><span class=\"ds-badge ds-badge-success\">Пришёл</span><span class=\"ds-badge ds-badge-danger\">Не пришёл</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; padding: 4px 12px; margin-right: 8px; border-radius: 9999px; font-family: var(--font-manrope, \"Manrope\", \"Avenir Next\", \"Segoe UI\", sans-serif); font-size: 12px; font-weight: 500; } .ds-badge-accent { background: var(--color-accent-soft, #eef6f0); color: var(--color-accent-deep, #4b6d5b); } .ds-badge-success { background: var(--color-success-soft, #e6f3eb); color: var(--color-success, #3f7b5a); } .ds-badge-danger { background: var(--color-danger-soft, #fff5f5); color: var(--color-danger, #b14f4f); }"
+    },
+    {
+      "name": "Header Bar",
+      "kind": "nav",
+      "refersTo": "header-bar",
+      "description": "Липкая шапка-пилюля на top:4. Плавающая полоса с границей и белой заливкой, а не приклеенная к краю панель. Ссылки без подчёркиваний и фоновых плашек — только сдвиг цвета из ink-soft в ink.",
+      "html": "<header class=\"ds-header\"><span class=\"ds-header-brand\">okno<span class=\"ds-header-tag\">beta</span></span><nav class=\"ds-header-nav\"><a class=\"ds-header-link\" href=\"#\">Возможности</a><a class=\"ds-header-link\" href=\"#\">Тарифы</a></nav></header>",
+      "css": ".ds-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border: 1px solid var(--color-line, #d3c5b3); border-radius: 9999px; background: var(--color-surface, #ffffff); font-family: var(--font-manrope, \"Manrope\", \"Avenir Next\", \"Segoe UI\", sans-serif); } .ds-header-brand { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; color: var(--color-ink, #23241f); } .ds-header-tag { padding: 4px 10px; border: 1px solid var(--color-line, #d3c5b3); border-radius: 9999px; background: var(--color-panel, #eee7dc); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.2em; color: var(--color-muted, #656055); } .ds-header-nav { display: flex; align-items: center; gap: 20px; } .ds-header-link { font-size: 14px; color: var(--color-ink-soft, #434239); text-decoration: none; transition: color 300ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-header-link:hover { color: var(--color-ink, #23241f); } .ds-header-link:focus-visible { outline: 2px solid var(--color-accent, #b8d3c4); outline-offset: 4px; border-radius: 4px; }"
+    },
+    {
+      "name": "Section Eyebrow",
+      "kind": "custom",
+      "refersTo": "label",
+      "description": "Надзаголовок секции — единственное место, где система использует верхний регистр. Работает только в связке «11–12px + трекинг от 0.18em»; без разрядки заглавные читаются как крик.",
+      "html": "<div class=\"ds-eyebrow\">Почему okno</div><div class=\"ds-eyebrow-title\">Простой инструмент для записи, без лишних настроек.</div>",
+      "css": ".ds-eyebrow { font-family: var(--font-manrope, \"Manrope\", \"Avenir Next\", \"Segoe UI\", sans-serif); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.24em; color: var(--color-muted, #656055); } .ds-eyebrow-title { margin-top: 12px; font-family: var(--font-manrope, \"Manrope\", \"Avenir Next\", \"Segoe UI\", sans-serif); font-size: 30px; font-weight: 600; line-height: 1.2; letter-spacing: -0.025em; color: var(--color-ink, #23241f); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Свет из окна",
+    "overview": "Имя продукта работает буквально. Окно — это и свободное место в расписании мастера, и источник света, который лежит в основе всей визуальной системы. Поверхности здесь не парят в цифровой пустоте: они лежат на тёплой бумаге (#faf7f1) и освещены сбоку. Отсюда огромные размытые тени с прозрачностью 8% — это не элевация, а дневной свет, падающий на лист. Отсюда же чернила #23241f вместо чёрного и шалфей #b8d3c4 вместо синего: цвета, которые бывают в комнате, а не в дизайн-системе.\n\nСистема спокойная и негромкая: она не борется за внимание, потому что за внимание борется работа мастера — его портфолио, его услуги, его страница. Единственный цветной голос — шалфей, и он расходуется скупо. Всё остальное держится на трёх нейтралях бумаги и одной линии #d3c5b3, которая обводит буквально каждую поверхность.\n\nПри этом система тёплая и живая, а не стерильная. Скругления крупные (карточки 28px, кнопки — пилюли), движение мягкое и всегда на одной кривой cubic-bezier(0.22, 1, 0.36, 1), компоненты физически отвечают на касание. Подтверждённый анти-референс, унаследованный из позиции продукта: перегруженные сервисы с пугающим кабинетом и записью, которая выглядит как форма из банка. Ни один экран не должен читаться как банковский интерфейс.",
+    "keyCharacteristics": [
+      "Тёплая бумага вместо белого, чернила вместо чёрного",
+      "Шалфей — единственный акцент, расходуется скупо",
+      "Граница есть у всего; тень — это свет, а не уровень",
+      "Крупные скругления и щедрые радиусы, вплоть до пилюль",
+      "Одна кривая движения на всю систему",
+      "Полноценная тёмная тема, собранная на тех же токенах"
+    ],
+    "rules": [
+      {
+        "name": "Правило одного голоса",
+        "body": "Шалфей — единственный хроматический цвет в интерфейсе. Он занимает не более 10% экрана, и его редкость — это и есть приём. Появился второй акцентный цвет — значит, что-то пошло не так.",
+        "section": "colors"
+      },
+      {
+        "name": "Правило тёплой бумаги",
+        "body": "Фон страницы никогда не белый. Белое #ffffff — это материал поверхности, лежащей на бумаге, и он всегда обведён линией. Белое на белом без границы в системе не существует.",
+        "section": "colors"
+      },
+      {
+        "name": "Правило цветного статуса",
+        "body": "Зелёный, жёлтый и красный принадлежат статусам и только им. Ими нельзя красить декор, иллюстрации или акцентные блоки — иначе бейдж надёжности клиента перестанет читаться как сигнал.",
+        "section": "colors"
+      },
+      {
+        "name": "Правило двух весов",
+        "body": "В системе живут ровно два веса: 500 для интерфейса и 600 для заголовков. Bold и light не используются нигде. Если элемент нужно выделить сильнее — это задача размера, цвета или подложки, а не третьего веса.",
+        "section": "typography"
+      },
+      {
+        "name": "Правило разрядки",
+        "body": "Верхний регистр допустим только на 11–12px и только с трекингом от 0.18em. Заглавные без разрядки в системе запрещены — они читаются как крик.",
+        "section": "typography"
+      },
+      {
+        "name": "Правило «тень — это свет»",
+        "body": "Тень никогда не служит признаком уровня. Хочешь показать, что элемент важнее — используй границу, заливку или размер. Тень отвечает только за то, насколько поверхность освещена, и её прозрачность не выходит за 8% в покое.",
+        "section": "elevation"
+      },
+      {
+        "name": "Правило обязательной границы",
+        "body": "Ни одна поверхность не отделяется от фона одной лишь тенью. Тень 8% на тёплой бумаге почти не видна, и без border-line карточка растворится.",
+        "section": "elevation"
+      },
+      {
+        "name": "Правило растущего радиуса",
+        "body": "Радиус пропорционален площади: чем крупнее поверхность, тем он больше. Карточка 28px внутри секции 32px — правильно; поле 28px внутри карточки 28px — нет, вложенный элемент всегда мягче родителя минимум на один шаг.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do обводить каждую поверхность границей 1px цвета #d3c5b3. Тень 8% на тёплой бумаге сама по себе поверхность не удержит.",
+      "Do держать одну кривую движения cubic-bezier(0.22, 1, 0.36, 1) на всё.",
+      "Do уважать prefers-reduced-motion отключением анимации, а не её ускорением.",
+      "Do брать цвет из токена --color-* или --ui-* без хекс-фолбэка: фолбэк не страхует, а даёт значению шанс разъехаться.",
+      "Do брать радиус и тень из токена (rounded-card, shadow-card), а не писать литерал — в тёмной теме тени переопределяются.",
+      "Do делать вложенный элемент мягче родителя минимум на один шаг радиуса.",
+      "Do держать интерактивную высоту кнопок не ниже 44px, а любую цель нажатия — не ниже 24×24 (WCAG 2.2, 2.5.8).",
+      "Do делать заголовком то, между чем выбирают: в карточке тарифа заголовок — название плана, а не цена."
+    ],
+    "donts": [
+      "Don't вводить второй акцентный цвет. Тёплое свечение — единственное исключение, и оно уже сделано.",
+      "Don't красить декор в зелёный, жёлтый или красный из статусной группы.",
+      "Don't ставить чистый белый фон страницы. Белое — материал поверхности, фон — бумага #faf7f1.",
+      "Don't использовать тень как признак важности и уводить её прозрачность выше 8% в покое.",
+      "Don't добавлять третий вес шрифта. Есть 500 и 600.",
+      "Don't ставить заглавные буквы без трекинга от 0.18em и размера 11–12px.",
+      "Don't снимать outline без видимой замены — глобальное правило фокуса намеренно имеет нулевую специфичность.",
+      "Don't делать острые углы. Минимальный радиус — 12px.",
+      "Don't ставить заголовок ради размера: имя из демо-виджета в <h2> попадает в оглавление наравне с разделами сайта.",
+      "Don't завязывать видимость контента на срабатывание наблюдателя — пропущенный колбэк не должен означать пустую секцию."
+    ]
+  }
+}

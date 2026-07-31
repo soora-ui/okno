@@ -38,8 +38,8 @@ export default async function CancelBookingPage({
             className="mx-auto flex h-16 w-16 items-center justify-center rounded-full"
             style={{
               backgroundColor: isAlreadyCancelled
-                ? "var(--color-panel, #f3ecdf)"
-                : "var(--color-warning-soft, #f5ecdb)",
+                ? "var(--color-panel)"
+                : "var(--color-warning-soft)",
             }}
           >
             {isAlreadyCancelled ? (
@@ -69,12 +69,12 @@ export default async function CancelBookingPage({
           </div>
 
           {query.updated === "1" ? (
-            <div className="rounded-[20px] bg-success-soft px-4 py-3 text-sm text-success">
+            <div className="rounded-panel bg-success-soft px-4 py-3 text-sm text-success">
               Запись перенесена. Ниже уже показаны новые дата и время визита.
             </div>
           ) : null}
 
-          <div className="rounded-[28px] bg-panel p-5 text-left">
+          <div className="rounded-card bg-panel p-5 text-left">
             <p className="font-medium text-ink">{booking.serviceTitle}</p>
             <p className="mt-2 text-sm text-ink-soft">{booking.startsAtLabel}</p>
             <p className="mt-2 text-sm text-ink-soft">Мастер: {booking.masterName}</p>
@@ -88,7 +88,7 @@ export default async function CancelBookingPage({
 
           {!isAlreadyCancelled && booking.canCancel ? (
             <div className="grid gap-6 text-left lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="space-y-4 rounded-[28px] border border-line bg-surface p-5">
+              <div className="space-y-4 rounded-card border border-line bg-surface p-5">
                 <div className="space-y-2">
                   <h2 className="text-xl font-semibold text-ink">Перенести запись</h2>
                   <p className="text-sm leading-6 text-ink-soft">
@@ -101,7 +101,7 @@ export default async function CancelBookingPage({
                 />
               </div>
 
-              <div className="space-y-4 rounded-[28px] border border-line bg-surface p-5">
+              <div className="space-y-4 rounded-card border border-line bg-surface p-5">
                 <div className="space-y-2">
                   <h2 className="text-xl font-semibold text-ink">Отменить запись</h2>
                   <p className="text-sm leading-6 text-ink-soft">

@@ -214,7 +214,7 @@ export default async function DashboardPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-[24px] border border-dashed border-line p-5 text-sm text-muted">
+                  <div className="rounded-nested border border-dashed border-line p-5 text-sm text-muted">
                     На сегодня записей пока нет.
                   </div>
                 )}
@@ -236,7 +236,7 @@ export default async function DashboardPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-[24px] border border-dashed border-line p-5 text-sm text-muted">
+                  <div className="rounded-nested border border-dashed border-line p-5 text-sm text-muted">
                     Предстоящих записей после сегодняшнего дня пока нет.
                   </div>
                 )}
@@ -272,7 +272,7 @@ export default async function DashboardPage() {
             className="space-y-4 border-transparent text-white"
             style={{
               background:
-                "linear-gradient(135deg, #23241f 0%, #35362f 100%)",
+                "var(--gradient-ink)",
             }}
           >
             <div className="flex items-center gap-2">
@@ -333,7 +333,7 @@ export default async function DashboardPage() {
                 </p>
               </div>
             </div>
-            <div className="rounded-[20px] bg-panel px-4 py-3 text-sm text-ink-soft">
+            <div className="rounded-panel bg-panel px-4 py-3 text-sm text-ink-soft">
               В этом месяце вручную добавлено{" "}
               {pluralizeRu(manualBookingsThisMonth, "запись", "записи", "записей")}.
             </div>
@@ -413,7 +413,7 @@ function QuickAction({
   statusTone: "neutral" | "success" | "accent" | "warning";
 }) {
   return (
-    <div className="rounded-[22px] border border-line bg-panel p-4">
+    <div className="rounded-panel border border-line bg-panel p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex items-center gap-3">

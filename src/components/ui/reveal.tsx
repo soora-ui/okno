@@ -1,7 +1,8 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
+import { useRevealed } from "./use-revealed";
 
 type RevealProps = {
   children: ReactNode;
@@ -36,6 +37,8 @@ export function Reveal({
   variant = "fade-up",
 }: RevealProps) {
   const shouldReduceMotion = useReducedMotion();
+  const ref = useRef<HTMLDivElement>(null);
+  const revealed = useRevealed(ref);
 
   if (shouldReduceMotion) {
     return <div className={className}>{children}</div>;
@@ -43,10 +46,13 @@ export function Reveal({
 
   return (
     <motion.div
+      ref={ref}
+      data-reveal
       className={className}
       initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-80px" }}
+      // Состояние ведёт useRevealed, а не whileInView: наблюдателя дублирует
+      // проверка геометрии, иначе блок теряется при быстрой прокрутке.
+      animate={revealed ? "visible" : "hidden"}
       variants={variants[variant]}
       transition={{ duration: 0.9, delay, ease: [0.22, 1, 0.36, 1] }}
     >

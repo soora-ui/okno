@@ -93,7 +93,7 @@ export default async function TeamPage() {
                 {upcomingBookings.map((booking) => (
                   <div
                     key={booking.id}
-                    className="rounded-[24px] border border-line bg-panel px-4 py-4"
+                    className="rounded-nested border border-line bg-panel px-4 py-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
@@ -133,7 +133,7 @@ export default async function TeamPage() {
                 {recentClients.map((client) => (
                   <div
                     key={client.id}
-                    className="rounded-[24px] border border-line px-4 py-4"
+                    className="rounded-nested border border-line px-4 py-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>

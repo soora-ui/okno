@@ -35,7 +35,7 @@ export default async function DemoConfirmPage({
               демонстрационный контур, он не создает реальную запись в базе.
             </p>
           </div>
-          <div className="rounded-[28px] bg-panel p-5 text-left">
+          <div className="rounded-card bg-panel p-5 text-left">
             <p className="font-medium text-ink">{service}</p>
             <p className="mt-2 text-sm text-ink-soft">
               {date && time ? `${date} • ${time}` : "Выбранный слот"}

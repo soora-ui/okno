@@ -35,7 +35,7 @@ export function ClientRescheduleForm({
 
   if (bookingSlots.length === 0) {
     return (
-      <div className="rounded-[20px] border border-dashed border-line px-4 py-3 text-sm leading-6 text-muted">
+      <div className="rounded-panel border border-dashed border-line px-4 py-3 text-sm leading-6 text-muted">
         Свободных слотов для переноса пока нет. Можно попробовать отменить запись или
         связаться с мастером напрямую.
       </div>

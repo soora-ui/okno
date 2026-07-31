@@ -4,6 +4,7 @@ import { AuthenticatedRoutePrefetch } from "@/components/layout/authenticated-ro
 import { AccountMenu } from "@/components/layout/account-menu";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { PageTransition } from "@/components/layout/page-transition";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
 import { SupportChatWidget } from "@/components/support/support-chat-widget";
 import { ButtonLink } from "@/components/ui/button";
@@ -47,6 +48,7 @@ export async function SiteShell({
   publicPageHrefOverride,
   publicPageLabelOverride,
   resolveAuth = true,
+  showFooter = false,
 }: {
   children: React.ReactNode;
   compact?: boolean;
@@ -55,6 +57,10 @@ export async function SiteShell({
   publicPageHrefOverride?: string;
   publicPageLabelOverride?: string;
   resolveAuth?: boolean;
+  // Футер со ссылками на правовые документы нужен на витрине сервиса. На
+  // публичных страницах записи он лишний: там оболочка принадлежит мастеру,
+  // а не платформе.
+  showFooter?: boolean;
 }) {
   let authProfile: Awaited<ReturnType<typeof getCurrentAuthProfile>> | null = null;
 
@@ -106,7 +112,7 @@ export async function SiteShell({
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--color-background)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(184,211,196,0.4),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(247,226,211,0.6),_transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_var(--color-glow-cool),_transparent_30%),radial-gradient(circle_at_bottom_right,_var(--color-glow-warm),_transparent_30%)]" />
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-12 pt-4 sm:px-6 lg:px-8">
         <header className="print-static sticky top-4 z-20 mb-6 rounded-full border border-line bg-surface px-4 py-3">
           <div className="flex items-center justify-between gap-4">
@@ -123,7 +129,7 @@ export async function SiteShell({
                   <Link
                     key={`${link.href}::${link.label}`}
                     href={link.href}
-                    className="text-sm text-ink-soft transition hover:text-ink"
+                    className="inline-flex min-h-6 items-center text-sm text-ink-soft transition hover:text-ink"
                   >
                     {link.label}
                   </Link>
@@ -164,6 +170,7 @@ export async function SiteShell({
         <main className="flex-1">
           <PageTransition>{children}</PageTransition>
         </main>
+        {showFooter ? <SiteFooter /> : null}
       </div>
       <SupportChatWidget />
     </div>

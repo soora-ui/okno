@@ -50,7 +50,7 @@ function DesktopSidebarLayout({ sections }: { sections: RecordSection[] }) {
 
   return (
     <div className="hidden gap-6 md:flex">
-      <nav className="w-64 shrink-0 self-start space-y-1 rounded-[24px] border border-line bg-surface p-2">
+      <nav className="w-64 shrink-0 self-start space-y-1 rounded-nested border border-line bg-surface p-2">
         {sections.map((section) => {
           const Icon = section.icon;
           const isActive = section.id === active?.id;
@@ -60,7 +60,7 @@ function DesktopSidebarLayout({ sections }: { sections: RecordSection[] }) {
               type="button"
               onClick={() => setActiveId(section.id)}
               className={cn(
-                "flex w-full items-center gap-3 rounded-[16px] border-l-[3px] px-3 py-3 text-left text-sm transition",
+                "flex w-full items-center gap-3 rounded-field border-l-[3px] px-3 py-3 text-left text-sm transition",
                 isActive
                   ? "border-accent-deep bg-panel font-medium text-ink"
                   : "border-transparent text-ink-soft hover:bg-panel/60 hover:text-ink",
@@ -90,7 +90,7 @@ function MobileAccordion({ sections }: { sections: RecordSection[] }) {
         return (
           <div
             key={section.id}
-            className="overflow-hidden rounded-[20px] border border-line bg-surface"
+            className="overflow-hidden rounded-panel border border-line bg-surface"
           >
             <button
               type="button"

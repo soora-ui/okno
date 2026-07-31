@@ -53,7 +53,7 @@ export default async function AdminOverviewPage() {
       {unresolvedErrors.length > 0 ? (
         <Card
           className="space-y-4"
-          style={{ borderColor: "var(--color-warning, #8e6c2f)" }}
+          style={{ borderColor: "var(--color-warning)" }}
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">

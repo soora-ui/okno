@@ -123,7 +123,7 @@ export function NotificationsPanel({
             onClick={() => setOpen(false)}
           />
 
-          <div className="fixed right-4 top-20 z-50 flex max-h-[min(78vh,640px)] w-[min(calc(100vw-2rem),380px)] flex-col rounded-[28px] border border-line bg-surface p-4 shadow-[0_30px_80px_rgba(35,36,31,0.16)] transition duration-300">
+          <div className="fixed right-4 top-20 z-50 flex max-h-[min(78vh,640px)] w-[min(calc(100vw-2rem),380px)] flex-col rounded-card border border-line bg-surface p-4 shadow-hover transition duration-300">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-muted">
@@ -156,7 +156,7 @@ export function NotificationsPanel({
                       router.push(item.href);
                       setOpen(false);
                     }}
-                    className="block w-full rounded-[22px] border border-line bg-panel p-4 text-left transition hover:bg-surface"
+                    className="block w-full rounded-panel border border-line bg-panel p-4 text-left transition hover:bg-surface"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 gap-3">
@@ -179,7 +179,7 @@ export function NotificationsPanel({
                   </button>
                 ))
               ) : (
-                <div className="rounded-[22px] border border-dashed border-line p-4 text-sm text-muted">
+                <div className="rounded-panel border border-dashed border-line p-4 text-sm text-muted">
                   Пока новых уведомлений нет.
                 </div>
               )}

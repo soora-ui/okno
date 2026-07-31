@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Building2, CheckCircle2, Link2, Users2 } from "lucide-react";
 import { SiteShell } from "@/components/layout/site-shell";
 import { ButtonLink } from "@/components/ui/button";
@@ -15,7 +16,7 @@ export default async function RegisterPage({
   const referralCode = normalizeReferralCode(query.ref);
 
   return (
-    <SiteShell compact resolveAuth={false}>
+    <SiteShell compact resolveAuth={false} showFooter>
       <div className="mx-auto flex max-w-3xl justify-center py-10">
         <div className="w-full space-y-6">
           <Card className="space-y-5">
@@ -28,10 +29,29 @@ export default async function RegisterPage({
               </p>
             </div>
             <RegisterForm referralCode={referralCode} />
+            {/* Оферта считает акцептом завершение регистрации — значит, момент
+                принятия условий должен быть виден прямо здесь. */}
+            <p className="text-center text-xs leading-5 text-muted">
+              Создавая аккаунт, вы принимаете{" "}
+              <Link
+                href="/legal/offer"
+                className="underline underline-offset-4 transition hover:text-ink"
+              >
+                публичную оферту
+              </Link>{" "}
+              и{" "}
+              <Link
+                href="/legal/privacy"
+                className="underline underline-offset-4 transition hover:text-ink"
+              >
+                политику обработки персональных данных
+              </Link>
+              .
+            </p>
           </Card>
 
           <Card className="space-y-4 bg-panel">
-            <div className="rounded-[24px] border border-line bg-surface p-4">
+            <div className="rounded-nested border border-line bg-surface p-4">
               <div className="flex items-center gap-3">
                 <Link2 size={18} className="text-accent-deep" />
                 <p className="font-medium text-ink">{publicLinkHost}/ваша-ссылка</p>
@@ -46,7 +66,7 @@ export default async function RegisterPage({
                 { label: "Команда и роли", icon: Users2 },
                 { label: "Студия под контролем", icon: Building2 },
               ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3 rounded-[18px] bg-surface px-4 py-3">
+                <div key={item.label} className="flex items-center gap-3 rounded-panel bg-surface px-4 py-3">
                   <item.icon size={18} className="shrink-0 text-success" />
                   <p className="text-sm text-ink-soft">{item.label}</p>
                 </div>

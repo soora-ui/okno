@@ -47,7 +47,7 @@ export function ReferralSettings({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 rounded-[18px] bg-panel px-4 py-3">
+      <div className="flex items-center gap-3 rounded-panel bg-panel px-4 py-3">
         <Gift size={18} className="shrink-0 text-accent-deep" />
         <p className="text-sm leading-6 text-ink-soft">
           Приглашай других мастеров: за каждого, кто оплатит первый месяц подписки,
@@ -55,7 +55,7 @@ export function ReferralSettings({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-[18px] border border-line bg-surface px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2 rounded-panel border border-line bg-surface px-4 py-3">
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
           {referralLink}
         </span>
@@ -78,7 +78,7 @@ export function ReferralSettings({
       </div>
 
       {invites.length > 0 ? (
-        <div className="overflow-hidden rounded-[18px] border border-line">
+        <div className="overflow-hidden rounded-panel border border-line">
           <table className="w-full text-left text-sm">
             <thead className="bg-panel text-xs uppercase tracking-wide text-muted">
               <tr>

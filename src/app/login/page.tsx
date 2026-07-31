@@ -32,7 +32,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const hint = getLoginHint(params.reason);
 
   return (
-    <SiteShell compact resolveAuth={false}>
+    <SiteShell compact resolveAuth={false} showFooter>
       <div className="mx-auto flex max-w-xl justify-center py-12">
         <Card className="w-full space-y-5">
           <div className="space-y-2">
@@ -44,13 +44,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </p>
           </div>
           {hint ? (
-            <div className="rounded-[20px] border border-line bg-panel px-4 py-3 text-sm leading-6 text-ink-soft">
+            <div className="rounded-panel border border-line bg-panel px-4 py-3 text-sm leading-6 text-ink-soft">
               {hint}
             </div>
           ) : null}
           <LoginForm redirectTo={params.next} />
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[20px] border border-line bg-panel px-4 py-4">
+            <div className="rounded-panel border border-line bg-panel px-4 py-4">
               <div className="flex items-center gap-2 text-ink">
                 <BriefcaseBusiness size={16} />
                 <p className="text-sm font-medium">Администратор</p>
@@ -59,7 +59,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 Видит сотрудников, ближайшие записи, общую клиентскую базу и настройки студии.
               </p>
             </div>
-            <div className="rounded-[20px] border border-line bg-panel px-4 py-4">
+            <div className="rounded-panel border border-line bg-panel px-4 py-4">
               <div className="flex items-center gap-2 text-ink">
                 <Users2 size={16} />
                 <p className="text-sm font-medium">Сотрудник</p>

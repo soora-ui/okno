@@ -99,7 +99,7 @@ export function GiftCertificateWidget({
                   "touch-manipulation rounded-full border px-4 py-2 text-sm font-medium transition active:scale-[0.98]",
                   value === amount
                     ? "border-ink bg-ink text-ink-contrast"
-                    : "border-line bg-[var(--ui-field-bg,#ffffff)] text-ink hover:bg-panel",
+                    : "border-line bg-[var(--ui-field-bg)] text-ink hover:bg-panel",
                 )}
               >
                 {formatCurrency(value)}

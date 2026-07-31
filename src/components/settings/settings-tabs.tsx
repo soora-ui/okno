@@ -51,8 +51,8 @@ const BookingThemeSettings = dynamic(
   {
     loading: () => (
       <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <div className="h-[34rem] animate-pulse rounded-[24px] border border-line bg-panel" />
-        <div className="h-[34rem] animate-pulse rounded-[24px] border border-line bg-panel" />
+        <div className="h-[34rem] animate-pulse rounded-nested border border-line bg-panel" />
+        <div className="h-[34rem] animate-pulse rounded-nested border border-line bg-panel" />
       </div>
     ),
   },
@@ -65,7 +65,7 @@ const CertificateSection = dynamic(
     ),
   {
     loading: () => (
-      <div className="h-[26rem] animate-pulse rounded-[24px] border border-line bg-panel" />
+      <div className="h-[26rem] animate-pulse rounded-nested border border-line bg-panel" />
     ),
   },
 );
@@ -140,7 +140,7 @@ export function SettingsTabs({
             Telegram-уведомления
           </h2>
         </div>
-        <div className="rounded-[18px] bg-panel p-4">
+        <div className="rounded-panel bg-panel p-4">
           <p className="text-sm font-medium text-ink">
             {profile.telegramChatId ? "Бот подключен" : "Бот не подключен"}
           </p>
@@ -218,7 +218,7 @@ export function SettingsTabs({
                 Публичная ссылка
               </h2>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-panel px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-panel bg-panel px-4 py-4">
               <span className="text-sm font-medium text-accent-deep">
                 {formatPublicProfileLink(profile.username)}
               </span>
@@ -322,7 +322,7 @@ export function SettingsTabs({
           </Card>
 
           <Card className="space-y-4">
-            <h2 className="text-xl font-semibold text-[var(--color-danger,#b14f4f)]">
+            <h2 className="text-xl font-semibold text-[var(--color-danger)]">
               Удалить аккаунт
             </h2>
             <p className="text-sm leading-6 text-ink-soft">

@@ -52,8 +52,8 @@ export function PortfolioModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Галерея работ ${fullName}`}
-        className="mx-auto flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] border border-line shadow-[0_40px_120px_rgba(22,24,20,0.18)]"
-        style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+        className="mx-auto flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-section border border-line shadow-ink"
+        style={{ backgroundColor: "var(--ui-card-bg)" }}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-5 sm:px-7">
@@ -76,7 +76,7 @@ export function PortfolioModal({
             {works.map((work, index) => (
               <article
                 key={work.id}
-                className="overflow-hidden rounded-[28px] border border-line"
+                className="overflow-hidden rounded-card border border-line"
                 style={{ backgroundColor: "var(--color-panel)" }}
               >
                 <div className="relative aspect-[4/5] overflow-hidden">

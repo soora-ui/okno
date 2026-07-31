@@ -31,7 +31,7 @@ export function BlockedSlotsForm({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-[20px] bg-panel p-4">
+      <div className="rounded-panel bg-panel p-4">
         <p className="font-medium text-ink">Что это такое</p>
         <p className="mt-2 text-sm leading-6 text-ink-soft">
           Ручная блокировка закрывает время для записи клиентов. Это удобно, если у тебя
@@ -39,7 +39,7 @@ export function BlockedSlotsForm({
         </p>
       </div>
 
-      <form action={action} className="space-y-4 rounded-[20px] border border-line p-4">
+      <form action={action} className="space-y-4 rounded-panel border border-line p-4">
         <div className="grid gap-4 sm:grid-cols-3">
           <Input
             label="Дата"
@@ -77,7 +77,7 @@ export function BlockedSlotsForm({
             return (
               <div
                 key={slot.id}
-                className="rounded-[20px] border border-line p-4"
+                className="rounded-panel border border-line p-4"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -102,7 +102,7 @@ export function BlockedSlotsForm({
             );
           })
         ) : (
-          <div className="rounded-[20px] border border-dashed border-line p-4 text-sm text-muted">
+          <div className="rounded-panel border border-dashed border-line p-4 text-sm text-muted">
             Пока нет ручных блокировок. Если нужно закрыть часть дня для клиентов, добавь
             ее через форму выше.
           </div>

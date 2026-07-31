@@ -149,7 +149,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
                     return (
                       <div
                         key={booking.id}
-                        className="rounded-[24px] border border-line p-4"
+                        className="rounded-nested border border-line p-4"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div>
@@ -179,7 +179,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
             </div>
             <div className="space-y-3">
               {availabilityRules.map((rule) => (
-                <div key={rule.id} className="flex items-center justify-between rounded-[20px] bg-panel px-4 py-3">
+                <div key={rule.id} className="flex items-center justify-between rounded-panel bg-panel px-4 py-3">
                   <p className="font-medium text-ink">{weekdays[rule.weekday - 1]}</p>
                   <p className="text-sm text-ink-soft">
                     {rule.startTime} - {rule.endTime}

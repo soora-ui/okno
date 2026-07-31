@@ -13,18 +13,18 @@ type ButtonLinkProps = React.ComponentProps<typeof Link> & {
 
 const styles = {
   primary: {
-    backgroundColor: "var(--ui-primary-bg, var(--color-ink, #23241f))",
-    color: "var(--ui-primary-text, #ffffff)",
+    backgroundColor: "var(--ui-primary-bg, var(--color-ink))",
+    color: "var(--ui-primary-text)",
     border: "1px solid var(--ui-primary-border, transparent)",
   },
   secondary: {
-    backgroundColor: "var(--ui-secondary-bg, #ffffff)",
-    color: "var(--ui-secondary-text, var(--color-ink, #23241f))",
-    border: "1px solid var(--ui-secondary-border, var(--color-line, #d3c5b3))",
+    backgroundColor: "var(--ui-secondary-bg)",
+    color: "var(--ui-secondary-text, var(--color-ink))",
+    border: "1px solid var(--ui-secondary-border, var(--color-line))",
   },
   ghost: {
     backgroundColor: "transparent",
-    color: "var(--ui-ghost-text, var(--color-ink, #23241f))",
+    color: "var(--ui-ghost-text, var(--color-ink))",
     border: "1px solid transparent",
   },
 };
@@ -39,7 +39,7 @@ export function Button({
       type={props.type ?? "button"}
       style={styles[variant]}
       className={cn(
-        "inline-flex min-h-11 items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition duration-300 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-none",
+        "inline-flex min-h-11 items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]",
         className,
       )}
       {...props}
@@ -56,7 +56,7 @@ export function ButtonLink({
   ...props
 }: ButtonLinkProps) {
   const sharedClassName = cn(
-    "inline-flex min-h-11 items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition duration-300 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-none",
+    "inline-flex min-h-11 items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]",
     className,
   );
 

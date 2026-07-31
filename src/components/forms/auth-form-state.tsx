@@ -19,8 +19,8 @@ export function SubmitButton({
     <button
       type="submit"
       style={{
-        backgroundColor: "var(--ui-primary-bg, var(--color-ink, #23241f))",
-        color: "var(--ui-primary-text, #ffffff)",
+        backgroundColor: "var(--ui-primary-bg, var(--color-ink))",
+        color: "var(--ui-primary-text)",
       }}
       className={`inline-flex min-h-11 items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${className ?? ""}`}
       disabled={pending || disabled}
@@ -44,15 +44,15 @@ export function FormMessage({
       style={
         success
           ? {
-              backgroundColor: "var(--color-success-soft, #e6f3eb)",
-              color: "var(--color-success, #3f7b5a)",
+              backgroundColor: "var(--color-success-soft)",
+              color: "var(--color-success)",
             }
           : {
-              backgroundColor: "var(--color-warning-soft, #f5ecdb)",
-              color: "var(--color-warning, #8e6c2f)",
+              backgroundColor: "var(--color-warning-soft)",
+              color: "var(--color-warning)",
             }
       }
-      className="rounded-2xl px-4 py-3 text-sm"
+      className="rounded-field px-4 py-3 text-sm"
     >
       {message}
     </p>

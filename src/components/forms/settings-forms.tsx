@@ -64,8 +64,8 @@ const ProfileMediaUploadSection = dynamic(
   {
     loading: () => (
       <div className="space-y-6">
-        <div className="h-80 animate-pulse rounded-[24px] bg-panel" />
-        <div className="h-96 animate-pulse rounded-[24px] border border-line bg-panel" />
+        <div className="h-80 animate-pulse rounded-nested bg-panel" />
+        <div className="h-96 animate-pulse rounded-nested border border-line bg-panel" />
       </div>
     ),
   },
@@ -84,7 +84,7 @@ export function ProfileSettingsForm({ profile }: { profile: Profile }) {
       <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
         <ProfileMediaUploadSection profile={profile} />
 
-        <form action={action} className="space-y-4 rounded-[24px] border border-line bg-surface p-5">
+        <form action={action} className="space-y-4 rounded-nested border border-line bg-surface p-5">
           <Input
             label="Имя мастера"
             name="fullName"
@@ -362,7 +362,7 @@ export function AvailabilitySettingsForm({
           return (
             <div
               key={day.value}
-              className={`rounded-[18px] border p-4 transition ${
+              className={`rounded-panel border p-4 transition ${
                 enabled
                   ? "border-ink bg-panel"
                   : "border-line bg-surface"
@@ -409,14 +409,14 @@ export function AvailabilitySettingsForm({
                     name={`start_${day.value}`}
                     type="time"
                     defaultValue={rule?.startTime ?? "09:00"}
-                    className="min-h-10 rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none"
+                    className="min-h-10 rounded-tight border border-line bg-surface px-3 text-sm text-ink outline-none"
                   />
                   <span className="text-xs text-muted">—</span>
                   <input
                     name={`end_${day.value}`}
                     type="time"
                     defaultValue={rule?.endTime ?? "18:00"}
-                    className="min-h-10 rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none"
+                    className="min-h-10 rounded-tight border border-line bg-surface px-3 text-sm text-ink outline-none"
                   />
                 </div>
               </div>
@@ -463,7 +463,7 @@ export function SubscriptionSettingsForm({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-panel px-4 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-panel bg-panel px-4 py-4">
         <div className="flex items-center gap-3">
           <Sparkles size={18} className="text-accent-deep" />
           <div>
@@ -489,7 +489,7 @@ export function SubscriptionSettingsForm({
             return (
               <label
                 key={plan.id}
-                className={`flex cursor-pointer items-start gap-3 rounded-[18px] border p-4 transition ${
+                className={`flex cursor-pointer items-start gap-3 rounded-panel border p-4 transition ${
                   selectedPlanId === plan.id
                     ? "border-accent-deep bg-panel"
                     : "border-line"
@@ -567,7 +567,7 @@ export function ServicesSettingsForm({
         ))}
       </div>
 
-      <form action={createAction} className="space-y-4 rounded-[20px] border border-dashed border-line p-4">
+      <form action={createAction} className="space-y-4 rounded-panel border border-dashed border-line p-4">
         <h3 className="text-lg font-semibold text-ink">Новая услуга</h3>
         <Input label="Название" name="title" placeholder="Маникюр без покрытия" required />
         <Textarea
@@ -612,7 +612,7 @@ function ServiceEditor({
 
   return (
     <div className="space-y-3">
-    <form action={action} className="space-y-4 rounded-[18px] border border-line bg-surface p-4">
+    <form action={action} className="space-y-4 rounded-panel border border-line bg-surface p-4">
       <input type="hidden" name="serviceId" value={service.id} />
       <input type="hidden" name="sortOrder" value={String(service.sortOrder || 1)} />
       <div className="flex items-center justify-between gap-4">
@@ -638,7 +638,7 @@ function ServiceEditor({
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-line px-4 py-3 text-sm font-medium text-ink transition hover:bg-panel"
+          className="inline-flex items-center justify-center gap-2 rounded-tight border border-line px-4 py-3 text-sm font-medium text-ink transition hover:bg-panel"
         >
           <Pencil size={14} />
           {open ? "Свернуть" : "Редактировать"}
@@ -647,7 +647,7 @@ function ServiceEditor({
           type="submit"
           name="visibilityAction"
           value={service.isActive ? "hide" : "show"}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-line px-4 py-3 text-sm font-medium text-ink transition hover:bg-panel"
+          className="inline-flex items-center justify-center gap-2 rounded-tight border border-line px-4 py-3 text-sm font-medium text-ink transition hover:bg-panel"
         >
           <EyeOff size={14} />
           {service.isActive ? "Скрыть" : "Показать"}
@@ -716,7 +716,7 @@ function ServiceManualEditor({
 }) {
   if (!hasProAccess) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-dashed border-line bg-panel p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-dashed border-line bg-panel p-4">
         <div className="flex items-center gap-3">
           <Bot size={16} className="text-muted" />
           <div>
@@ -757,7 +757,7 @@ function ServiceManualEditorForm({
   return (
     <form
       action={action}
-      className="space-y-4 rounded-[18px] border border-line bg-panel p-4"
+      className="space-y-4 rounded-panel border border-line bg-panel p-4"
     >
       <input type="hidden" name="serviceId" value={serviceId} />
       <div className="flex items-center justify-between gap-4">
@@ -771,7 +771,7 @@ function ServiceManualEditorForm({
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink transition hover:bg-surface"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-tight border border-line px-4 py-2 text-sm font-medium text-ink transition hover:bg-surface"
         >
           {open ? "Свернуть" : manual?.isConfirmed ? "Изменить" : "Настроить"}
         </button>
@@ -788,13 +788,13 @@ function ServiceManualEditorForm({
             maxLength={manualMaxLength}
             className="min-h-48 whitespace-pre-wrap"
           />
-          <label className="flex items-start gap-3 rounded-2xl border border-line bg-surface px-4 py-3">
+          <label className="flex items-start gap-3 rounded-field border border-line bg-surface px-4 py-3">
             <input
               type="checkbox"
               name="confirmed"
               checked={agree}
               onChange={(event) => setAgree(event.target.checked)}
-              className="mt-1 size-4 shrink-0 accent-[var(--color-ink,#23241f)]"
+              className="mt-1 size-4 shrink-0 accent-[var(--color-ink)]"
             />
             <span className="flex items-start gap-2 text-sm text-ink-soft">
               <ShieldCheck size={16} className="mt-0.5 shrink-0 text-accent-deep" />
@@ -839,7 +839,7 @@ function PrepaymentFields({
   // самое в createServiceAction/updateServiceAction, это лишь UI-подсказка.
   if (!isYooKassaConnected) {
     return (
-      <div className="space-y-2 rounded-[18px] border border-dashed border-line p-3">
+      <div className="space-y-2 rounded-panel border border-dashed border-line p-3">
         <p className="text-sm font-medium text-ink">Предоплата: выключена</p>
         <p className="text-sm leading-6 text-ink-soft">
           Чтобы клиенты могли вносить предоплату за эту услугу, сначала подключи ЮKassa —
@@ -852,7 +852,7 @@ function PrepaymentFields({
   }
 
   return (
-    <div className="space-y-3 rounded-[18px] border border-dashed border-line p-3">
+    <div className="space-y-3 rounded-panel border border-dashed border-line p-3">
       <Select
         label="Предоплата"
         name="prepaymentType"
@@ -898,14 +898,14 @@ function UnitInput({
   return (
     <label className="flex flex-col gap-2 text-sm">
       <span className="font-medium text-ink">{label}</span>
-      <div className="flex min-h-12 items-center rounded-2xl border border-line bg-surface px-4">
+      <div className="flex min-h-12 items-center rounded-field border border-line bg-surface px-4">
         <input
           name={name}
           type="number"
           defaultValue={defaultValue}
           placeholder={placeholder}
           inputMode="numeric"
-          className="w-full bg-transparent text-[15px] text-ink outline-none"
+          className="w-full bg-transparent text-sm text-ink outline-none"
           required={required}
         />
         <span className="ml-3 text-xs text-muted">{unit}</span>
@@ -931,7 +931,7 @@ function ParameterField({
   example: string;
 }) {
   return (
-    <div className="rounded-[18px] bg-panel p-4">
+    <div className="rounded-panel bg-panel p-4">
       <p className="text-sm font-medium text-ink">{label}</p>
       <p className="mt-1 text-xs leading-5 text-ink-soft">
         {description}
@@ -941,7 +941,7 @@ function ParameterField({
         type="number"
         inputMode="numeric"
         defaultValue={defaultValue}
-        className="mt-2 min-h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-medium text-ink outline-none"
+        className="mt-2 min-h-10 w-full rounded-tight border border-line bg-surface px-3 text-sm font-medium text-ink outline-none"
         required
       />
       <p className="mt-2 text-xs text-muted">{unit}</p>

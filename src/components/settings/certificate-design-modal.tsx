@@ -256,8 +256,8 @@ export function CertificateDesignModal({
         role="dialog"
         aria-modal="true"
         aria-label="Дизайн сертификата"
-        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] border border-line shadow-[0_40px_120px_rgba(22,24,20,0.18)]"
-        style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-section border border-line shadow-ink"
+        style={{ backgroundColor: "var(--ui-card-bg)" }}
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={panelTransition}
@@ -300,7 +300,7 @@ export function CertificateDesignModal({
                           alt="Логотип"
                           width={64}
                           height={64}
-                          className="h-16 w-16 rounded-xl border border-line object-contain bg-surface"
+                          className="h-16 w-16 rounded-tight border border-line object-contain bg-surface"
                           unoptimized={logoPreviewUrl.endsWith(".svg")}
                         />
                       ) : null}
@@ -333,7 +333,7 @@ export function CertificateDesignModal({
                         name="primaryColor"
                         value={primaryColor}
                         onChange={(event) => setPrimaryColor(event.target.value)}
-                        className="h-12 w-full rounded-2xl border border-line"
+                        className="h-12 w-full rounded-field border border-line"
                       />
                     </label>
                     <label className="flex flex-col gap-2 text-sm">
@@ -343,7 +343,7 @@ export function CertificateDesignModal({
                         name="secondaryColor"
                         value={secondaryColor}
                         onChange={(event) => setSecondaryColor(event.target.value)}
-                        className="h-12 w-full rounded-2xl border border-line"
+                        className="h-12 w-full rounded-field border border-line"
                       />
                     </label>
                   </div>
@@ -378,7 +378,7 @@ export function CertificateDesignModal({
                 </form>
 
                 <div className="space-y-3">
-                  <div className="flex aspect-[35/24] items-center justify-center overflow-hidden rounded-[20px] border border-dashed border-line bg-surface">
+                  <div className="flex aspect-[35/24] items-center justify-center overflow-hidden rounded-panel border border-dashed border-line bg-surface">
                     {previewSrc ? (
                       // eslint-disable-next-line @next/next/no-img-element -- data: base64 предпросмотр, next/image его не оптимизирует
                       <img src={previewSrc} alt="Превью сертификата" className="h-full w-full object-contain" />

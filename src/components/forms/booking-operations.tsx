@@ -35,7 +35,7 @@ export function ManualBookingForm({
 
   if (services.length === 0) {
     return (
-      <div className="rounded-[20px] bg-panel px-4 py-3 text-sm text-muted">
+      <div className="rounded-panel bg-panel px-4 py-3 text-sm text-muted">
         Сначала добавь хотя бы одну услугу, и после этого ручные записи станут доступны.
       </div>
     );
@@ -171,7 +171,7 @@ function VisitStatusButton({
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-xl border border-line px-3 py-2 text-xs font-medium text-ink transition hover:bg-panel disabled:opacity-60"
+        className="w-full rounded-tight border border-line px-3 py-2 text-xs font-medium text-ink transition hover:bg-panel disabled:opacity-60"
       >
         {label}
       </button>

@@ -38,7 +38,7 @@ export function YooKassaConnectSection({
 
       {isConnected ? (
         <div className="space-y-3">
-          <div className="rounded-[18px] bg-panel p-4">
+          <div className="rounded-panel bg-panel p-4">
             <p className="text-sm font-medium text-ink">
               Подключено{account?.isTestShop ? " (тестовый магазин)" : ""}
             </p>

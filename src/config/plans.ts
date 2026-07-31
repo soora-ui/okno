@@ -98,6 +98,126 @@ export const extraSeat = {
     "Доплата к тарифу «Студия и барбершоп», если в команде больше трёх мастеров.",
 };
 
+// Сравнительная таблица на витрине. Строки, за которыми стоит серверный гейт,
+// выводятся из capabilities — иначе таблица однажды пообещает то, что
+// hasCapability не пустит.
+export type PlanComparisonValue = boolean | string;
+
+export type PlanComparisonRow = {
+  label: string;
+  hint?: string;
+  values: Record<PlanId, PlanComparisonValue>;
+};
+
+export type PlanComparisonGroup = {
+  title: string;
+  rows: PlanComparisonRow[];
+};
+
+const byPlan = (
+  resolve: (plan: PricingPlan) => PlanComparisonValue,
+): Record<PlanId, PlanComparisonValue> =>
+  Object.fromEntries(
+    pricingPlans.map((plan) => [plan.id, resolve(plan)]),
+  ) as Record<PlanId, PlanComparisonValue>;
+
+const capabilityRow = (
+  label: string,
+  capability: PlanCapability,
+  hint?: string,
+): PlanComparisonRow => ({
+  label,
+  hint,
+  values: byPlan((plan) => plan.capabilities.includes(capability)),
+});
+
+const everyPlanRow = (label: string, hint?: string): PlanComparisonRow => ({
+  label,
+  hint,
+  values: byPlan(() => true),
+});
+
+export const planComparisonGroups: PlanComparisonGroup[] = [
+  {
+    title: "Запись и расписание",
+    rows: [
+      everyPlanRow(
+        "Страница записи",
+        "Клиент выбирает время без регистрации в сервисе",
+      ),
+      everyPlanRow("Расписание, блокировки и защита от двойной записи"),
+      everyPlanRow(
+        "Подтверждение телефона клиента",
+        "SMS, flash-call или обратный звонок",
+      ),
+      everyPlanRow(
+        "Отмена клиентом по ссылке",
+        "До срока, который мастер задаёт сам",
+      ),
+      everyPlanRow("Напоминание о повторном визите"),
+    ],
+  },
+  {
+    title: "Клиенты",
+    rows: [
+      everyPlanRow("База клиентов и история визитов"),
+      capabilityRow(
+        "Рейтинг надёжности клиента",
+        "clientReliability",
+        "Считается по вашим визитам и виден только вам",
+      ),
+      capabilityRow(
+        "AI-консультант для клиентов",
+        "aiConsultation",
+        "Отвечает строго по вашему мануалу услуги",
+      ),
+    ],
+  },
+  {
+    title: "Деньги",
+    rows: [
+      everyPlanRow("Подарочные сертификаты с QR-кодом"),
+      everyPlanRow("Чаевые через CloudTips"),
+      capabilityRow(
+        "Предоплата за услугу",
+        "prepayment",
+        "Через вашу ЮKassa, деньги идут напрямую вам",
+      ),
+    ],
+  },
+  {
+    title: "Команда",
+    rows: [
+      capabilityRow(
+        "Общий кабинет команды",
+        "team",
+        "У каждого мастера свой кабинет, у администратора — общая картина",
+      ),
+      {
+        label: "Сотрудников включено в тариф",
+        values: byPlan((plan) =>
+          plan.includedSeats > 0 ? String(plan.includedSeats) : false,
+        ),
+      },
+      {
+        label: "Сотрудник сверх включённых",
+        values: byPlan((plan) =>
+          plan.capabilities.includes("team")
+            ? `${extraSeatPriceRub} ₽ в месяц`
+            : false,
+        ),
+      },
+    ],
+  },
+  {
+    title: "Уведомления",
+    rows: [
+      everyPlanRow("SMS клиенту о записи, отмене и напоминании"),
+      everyPlanRow("Telegram-уведомления мастеру"),
+    ],
+  },
+];
+
 const planById = new Map<PlanId, PricingPlan>(
   pricingPlans.map((plan) => [plan.id, plan]),
 );

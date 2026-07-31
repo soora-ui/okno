@@ -6,7 +6,7 @@ import { SiteShell } from "@/components/layout/site-shell";
 import { TipForm } from "@/components/booking/tip-form";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getBookingThemeStyle } from "@/lib/booking-theme-presets";
+import { bookingThemeAttr } from "@/lib/booking-theme-presets";
 import { getBookingConfirmationData } from "@/lib/data";
 import { detectCalendarPlatformFromUserAgent } from "@/lib/ics";
 
@@ -61,11 +61,11 @@ export default async function ConfirmPage({
   return (
     <SiteShell compact hideGuestMenu resolveAuth={false}>
       <div
-        style={getBookingThemeStyle(booking.themePresetId)}
+        {...bookingThemeAttr(booking.themePresetId)}
         className="mx-auto max-w-3xl py-10"
       >
         <div
-          className="rounded-[36px] p-4 sm:p-6"
+          className="rounded-section p-4 sm:p-6"
           style={{
             backgroundImage:
               "radial-gradient(circle at top left, var(--public-glow-a), transparent 30%), radial-gradient(circle at 80% 20%, var(--public-glow-b), transparent 24%), radial-gradient(circle at bottom right, var(--public-glow-c), transparent 32%)",
@@ -89,7 +89,7 @@ export default async function ConfirmPage({
               <h1 className="text-4xl font-semibold text-ink">{heading}</h1>
               <p className="text-sm leading-7 text-ink-soft">{description}</p>
             </div>
-            <div className="rounded-[28px] bg-panel p-5 text-left">
+            <div className="rounded-card bg-panel p-5 text-left">
               <p className="font-medium text-ink">{booking.serviceTitle}</p>
               <p className="mt-2 text-sm text-ink-soft">{booking.startsAtLabel}</p>
               {isPendingPayment ? (

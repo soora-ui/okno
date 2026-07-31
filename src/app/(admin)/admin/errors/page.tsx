@@ -41,10 +41,10 @@ export default async function AdminErrorsPage({
             href="/admin/errors"
             style={{
               backgroundColor: onlyUnresolved
-                ? "var(--color-ink, #23241f)"
-                : "var(--ui-card-bg, #ffffff)",
-              color: onlyUnresolved ? "#ffffff" : "var(--color-ink, #23241f)",
-              borderColor: "var(--color-line, #d3c5b3)",
+                ? "var(--color-ink)"
+                : "var(--ui-card-bg)",
+              color: onlyUnresolved ? "#ffffff" : "var(--color-ink)",
+              borderColor: "var(--color-line)",
             }}
             className="rounded-full border px-4 py-2 font-medium"
           >
@@ -54,10 +54,10 @@ export default async function AdminErrorsPage({
             href="/admin/errors?filter=all"
             style={{
               backgroundColor: onlyUnresolved
-                ? "var(--ui-card-bg, #ffffff)"
-                : "var(--color-ink, #23241f)",
-              color: onlyUnresolved ? "var(--color-ink, #23241f)" : "#ffffff",
-              borderColor: "var(--color-line, #d3c5b3)",
+                ? "var(--ui-card-bg)"
+                : "var(--color-ink)",
+              color: onlyUnresolved ? "var(--color-ink)" : "#ffffff",
+              borderColor: "var(--color-line)",
             }}
             className="rounded-full border px-4 py-2 font-medium"
           >
@@ -96,7 +96,7 @@ export default async function AdminErrorsPage({
                     <button
                       type="submit"
                       className="rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition hover:-translate-y-0.5"
-                      style={{ backgroundColor: "var(--ui-card-bg, #ffffff)" }}
+                      style={{ backgroundColor: "var(--ui-card-bg)" }}
                     >
                       Решено
                     </button>
@@ -104,7 +104,7 @@ export default async function AdminErrorsPage({
                 ) : null}
               </div>
               {error.context ? (
-                <pre className="overflow-x-auto rounded-2xl bg-panel p-3 text-xs text-ink-soft">
+                <pre className="overflow-x-auto rounded-field bg-panel p-3 text-xs text-ink-soft">
                   {JSON.stringify(error.context, null, 2)}
                 </pre>
               ) : null}
