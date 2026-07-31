@@ -13,6 +13,7 @@ import {
 type BookingThemePreviewProps = {
   presetId?: BookingThemePresetId;
   serviceTitles?: string[];
+  className?: string;
   /**
    * Какую тему показывать. Пресет теперь идёт парой, и мастеру нужно видеть
    * обе: клиент с тёмным телефоном увидит тёмную. Без явного режима
@@ -50,6 +51,7 @@ export function BookingThemePreview({
   presetId = defaultBookingThemePresetId,
   serviceTitles,
   mode,
+  className,
 }: BookingThemePreviewProps) {
   const previewServices = getPreviewServices(serviceTitles);
 
@@ -57,7 +59,7 @@ export function BookingThemePreview({
     <div
       {...bookingThemeAttr(presetId)}
       data-booking-theme-mode={mode}
-      className="rounded-card border border-line bg-panel p-4"
+      className={cn("rounded-card border border-line bg-panel p-4", className)}
     >
       <div className="mx-auto max-w-md">
         <Card className="space-y-5 p-5">
@@ -146,6 +148,55 @@ export function BookingThemePreview({
           <Button className="w-full">Продолжить</Button>
         </Card>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Один предпросмотр, разрезанный по диагонали из правого верхнего угла
+ * в левый нижний: сверху слева светлая тема, снизу справа тёмная.
+ *
+ * Так пресет виден целиком в обеих темах на одних и тех же элементах — кнопка,
+ * выбранный слот и подложка карточки сравниваются напрямую, а не через
+ * перевод взгляда между двумя блоками. И места это занимает столько же,
+ * сколько один предпросмотр: два рядом попросту не помещались в колонку
+ * настроек и вылезали за края.
+ */
+export function BookingThemePreviewSplit({
+  presetId = defaultBookingThemePresetId,
+  serviceTitles,
+}: Omit<BookingThemePreviewProps, "mode" | "className">) {
+  const shared = { presetId, serviceTitles } as const;
+
+  return (
+    <div className="relative isolate overflow-hidden rounded-card border border-line">
+      {/* Светлая половина идёт в потоке и задаёт высоту всему виджету. */}
+      <BookingThemePreview
+        {...shared}
+        mode="light"
+        className="rounded-none border-0"
+      />
+
+      {/* Тёмная лежит поверх и обрезана до нижнего правого треугольника.
+          aria-hidden: содержимое дублируется, диктору незачем читать его дважды. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 [clip-path:polygon(100%_0,100%_100%,0_100%)]"
+      >
+        <BookingThemePreview
+          {...shared}
+          mode="dark"
+          className="h-full rounded-none border-0"
+        />
+      </div>
+
+      {/* Волосяная линия по самому разрезу. Градиент «to bottom right» даёт
+          полосы, параллельные диагонали правый верх — левый низ, то есть
+          ровно по краю clip-path выше. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom_right,transparent_calc(50%-1px),var(--color-line)_calc(50%-1px),var(--color-line)_calc(50%+1px),transparent_calc(50%+1px))]"
+      />
     </div>
   );
 }

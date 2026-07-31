@@ -6,7 +6,7 @@ import {
   type BookingThemePresetId,
 } from "@/lib/booking-theme-presets";
 import { updateBookingThemePresetAction } from "@/app/actions/settings";
-import { BookingThemePreview } from "@/components/booking/booking-theme-preview";
+import { BookingThemePreviewSplit } from "@/components/booking/booking-theme-preview";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import type { Profile, Service } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -75,16 +75,20 @@ export function BookingThemeSettings({
                 className="sr-only"
               />
 
-              <div className="flex items-start justify-between gap-3">
+              {/* Палитры идут под текстом, а не сбоку: сбоку они забирали
+                  136px из 298 и описание сжималось в столбик шириной 116px. */}
+              <div className="space-y-3">
                 <div className="space-y-1">
                   <p className="font-medium text-ink">{preset.label}</p>
                   <p className="text-sm leading-6 text-muted">
                     {preset.description}
                   </p>
                 </div>
-                {/* Два ряда кружков: пресет живёт парой, и по одному ряду
-                    непонятно, во что он превратится на тёмном телефоне. */}
-                <div className="shrink-0 space-y-1.5">
+
+                {/* Две пары: пресет живёт светлой и тёмной темой сразу, и по
+                    одному ряду непонятно, во что он превратится на тёмном
+                    телефоне клиента. */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   {(
                     [
                       { key: "light", label: "Светлая", colors: preset.swatches },
@@ -92,9 +96,7 @@ export function BookingThemeSettings({
                     ] as const
                   ).map((row) => (
                     <div key={row.key} className="flex items-center gap-2">
-                      <span className="w-14 text-right text-xs text-muted">
-                        {row.label}
-                      </span>
+                      <span className="text-xs text-muted">{row.label}</span>
                       <span className="flex gap-1.5">
                         {row.colors.map((swatch, index) => (
                           <span
@@ -126,24 +128,20 @@ export function BookingThemeSettings({
           </p>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          {(
-            [
-              { mode: "light", label: "Светлая тема" },
-              { mode: "dark", label: "Тёмная тема" },
-            ] as const
-          ).map((variant) => (
-            <div key={variant.mode} className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted">
-                {variant.label}
-              </p>
-              <BookingThemePreview
-                presetId={selectedPresetId}
-                serviceTitles={previewServices}
-                mode={variant.mode}
-              />
-            </div>
-          ))}
+        {/* Ширина по карточке записи: на всю колонку диагональ шла бы
+            по пустым полям, а не по содержимому. Подписи стоят у своих
+            углов разреза — светлая сверху слева, тёмная снизу справа. */}
+        <div className="mx-auto w-full max-w-md space-y-2">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted">
+            Светлая
+          </p>
+          <BookingThemePreviewSplit
+            presetId={selectedPresetId}
+            serviceTitles={previewServices}
+          />
+          <p className="text-right text-xs font-medium uppercase tracking-[0.18em] text-muted">
+            Тёмная
+          </p>
         </div>
       </div>
     </div>
