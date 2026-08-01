@@ -46,7 +46,7 @@ export function DemoStoryChapter({
   const toneClasses =
     step.tone === "ink"
       ? {
-          shell: "border-transparent bg-[var(--gradient-ink)] text-white shadow-hover",
+          shell: "border-transparent bg-[image:var(--gradient-ink)] text-white shadow-hover",
           eyebrow: "text-white/60",
           description: "text-white/75",
           settings: "border-white/10 bg-white/8 text-white/75",

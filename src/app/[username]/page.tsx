@@ -33,18 +33,16 @@ export default async function PublicProfilePage({ params, searchParams }: Props)
   }
 
   return (
-    <>
-      <PublicProfileView
-        profile={data.profile}
-        services={data.services}
-        bookingSlotsByService={data.bookingSlotsByService}
-        bookingHref={`/${username}/book`}
-        homeHref={homeHref}
-        eyebrowLabel={`Онлайн-запись @${username}`}
-        showDemoSections={false}
-      />
-      {data.profile.bookingPageSettings.giftCertificatesEnabled ? (
-        <div className="mx-auto max-w-2xl px-4 pb-16 sm:px-6 lg:px-8">
+    <PublicProfileView
+      profile={data.profile}
+      services={data.services}
+      bookingSlotsByService={data.bookingSlotsByService}
+      bookingHref={`/${username}/book`}
+      homeHref={homeHref}
+      eyebrowLabel={`Онлайн-запись @${username}`}
+      showDemoSections={false}
+      certificateSlot={
+        data.profile.bookingPageSettings.giftCertificatesEnabled ? (
           <GiftCertificateWidget
             username={username}
             masterName={data.profile.fullName}
@@ -53,8 +51,8 @@ export default async function PublicProfilePage({ params, searchParams }: Props)
             returnedCertificateId={query.certificate}
             returnedCertificateToken={query.ct}
           />
-        </div>
-      ) : null}
-    </>
+        ) : null
+      }
+    />
   );
 }

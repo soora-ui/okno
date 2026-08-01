@@ -52,13 +52,17 @@ export async function purchaseGiftCertificateAction(
     username: formData.get("username") ?? "",
     amount: formData.get("amount") ?? "",
     serviceId: formData.get("serviceId") ?? "",
+    purchaserEmail: formData.get("purchaserEmail") ?? "",
     purchaserContact: formData.get("purchaserContact") ?? "",
   });
 
   if (!parsed.success) {
+    // Показываем конкретную причину: чаще всего это опечатка в почте, а
+    // общее «проверь данные» заставляет гадать, что именно не так.
+    const first = parsed.error.issues[0];
     return {
       success: false,
-      message: "Проверь сумму сертификата и контакт для связи.",
+      message: first?.message ?? "Проверь сумму сертификата и почту.",
     };
   }
 
@@ -129,7 +133,9 @@ export async function purchaseGiftCertificateAction(
       template_id: templateRow?.id ?? null,
       token_hash: tokenHash,
       status: "pending",
-      purchaser_contact: parsed.data.purchaserContact,
+      purchaser_contact: [parsed.data.purchaserEmail, parsed.data.purchaserContact]
+        .filter(Boolean)
+        .join(" · "),
       provider: "yookassa",
       idempotence_key: idempotenceKey,
       expires_at: expiresAt,

@@ -19,6 +19,7 @@ import {
   DemoStoryOutro,
 } from "@/components/public/demo-story";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { DemoThemeSwitcher } from "@/components/public/demo-theme-switcher";
 import { PortfolioModal } from "@/components/public/portfolio-modal";
 import {
   getClosestSlots,
@@ -43,6 +44,7 @@ export function PublicProfileView({
   showDemoSections = true,
   guidedDemo = false,
   guidedDemoCleanHref,
+  certificateSlot,
 }: PublicProfileViewProps) {
   const [isPortfolioOpen, setIsPortfolioOpen] = useState(false);
   const closestSlots = getClosestSlots(services, bookingSlotsByService);
@@ -52,7 +54,10 @@ export function PublicProfileView({
   const shortestDuration =
     services.length > 0 ? Math.min(...services.map((service) => service.durationMinutes)) : null;
 
-  const publicThemeAttr = bookingThemeAttr(profile.bookingThemePresetId);
+  // В демо-туре пресет можно переключать прямо на странице, поэтому он
+  // живёт в состоянии; на реальной странице мастера это просто его пресет.
+  const [presetId, setPresetId] = useState(profile.bookingThemePresetId);
+  const publicThemeAttr = bookingThemeAttr(presetId);
 
   return (
     <main
@@ -99,6 +104,10 @@ export function PublicProfileView({
         </header>
 
         {guidedDemo ? <DemoStoryIntro steps={publicDemoStorySteps} /> : null}
+
+        {guidedDemo ? (
+          <DemoThemeSwitcher value={presetId} onApply={setPresetId} />
+        ) : null}
 
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div
@@ -539,7 +548,7 @@ export function PublicProfileView({
             className="relative mt-16 rounded-section grid gap-6 lg:grid-cols-[1.05fr_0.95fr]"
           >
           <Reveal variant="fade-up">
-            <div className="h-full rounded-section border border-transparent bg-[var(--gradient-ink)] p-6 text-white shadow-hover sm:p-8">
+            <div className="h-full rounded-section border border-transparent bg-[image:var(--gradient-ink)] p-6 text-white shadow-hover sm:p-8">
               <p className="text-sm uppercase tracking-[0.24em] text-white/60">
                 Как всё устроено
               </p>
@@ -629,13 +638,23 @@ export function PublicProfileView({
         </section>
         ) : null}
 
+        {certificateSlot ? (
+          <section className="mt-12">{certificateSlot}</section>
+        ) : null}
+
         {guidedDemo ? (
           <DemoStoryOutro cleanHref={guidedDemoCleanHref} />
         ) : null}
 
-        <footer className="mt-16 flex flex-col gap-4 border-t border-line pt-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+        {/* Подвал намеренно компактный: это страница мастера, а не сайт okno.
+            Было mt-16/pt-6/text-sm — на фоне контента подвал читался как
+            отдельная секция. Стало вдвое меньше по отступам и на шаг мельче. */}
+        <footer className="mt-8 flex flex-col gap-2 border-t border-line pt-4 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>Онлайн-запись к {profile.fullName}.</p>
-          <Link href={homeHref} className="font-medium text-ink underline underline-offset-4">
+          <Link
+            href={homeHref}
+            className="inline-flex min-h-6 items-center font-medium text-ink underline underline-offset-4"
+          >
             Создано в okno
           </Link>
         </footer>

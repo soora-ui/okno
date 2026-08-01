@@ -11,6 +11,12 @@ export type PublicProfileViewProps = {
   showDemoSections?: boolean;
   guidedDemo?: boolean;
   guidedDemoCleanHref?: string;
+  /**
+   * Блок продажи сертификата. Приходит слотом, а не рендерится соседом
+   * страницы: соседом он оказывался ниже подвала — клиент видел «Создано
+   * в okno», считал страницу законченной и до сертификата не доходил.
+   */
+  certificateSlot?: React.ReactNode;
 };
 
 export type DemoStoryStep = {

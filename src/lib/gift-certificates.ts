@@ -69,9 +69,16 @@ export const giftCertificatePurchaseSchema = z.object({
   username: z.string().trim().min(1),
   amount: z.coerce.number().int().min(giftCertificateMinAmount).max(giftCertificateMaxAmount),
   serviceId: z.string().optional().default(""),
-  // Больше не используется для доставки (сертификат — это PDF-скачивание,
-  // не SMS-код), контакт остаётся опциональным полем для связи на случай
-  // спора с мастером.
+  // Обязательная почта: у покупателя нет аккаунта, и ссылка на скачивание
+  // живёт только в адресной строке после оплаты. Если вкладку закрыть,
+  // восстановить сертификат больше нечем — почта это страхует.
+  purchaserEmail: z
+    .string()
+    .trim()
+    .min(1, "Укажи почту")
+    .email("Проверь адрес почты")
+    .max(160),
+  // Телефон остаётся необязательным — только для связи на случай спора.
   purchaserContact: z.string().trim().max(120).optional().default(""),
 });
 
