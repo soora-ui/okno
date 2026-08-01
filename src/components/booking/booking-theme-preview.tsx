@@ -109,7 +109,7 @@ export function BookingThemePreview({
                 <div
                   key={slot.day}
                   className={cn(
-                    "flex min-w-[68px] flex-col items-center rounded-panel border px-3 py-2 text-center",
+                    "flex min-w-0 flex-1 flex-col items-center rounded-panel border px-2 py-2 text-center",
                     slot.selected
                       ? "border-ink bg-ink text-ink-contrast"
                       : "border-line bg-[var(--ui-field-bg)] text-ink",

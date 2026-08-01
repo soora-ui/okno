@@ -39,7 +39,7 @@ export function BookingThemeSettings({
     <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
       <form
         action={action}
-        className="space-y-4 rounded-nested border border-line bg-surface p-5"
+        className="min-w-0 space-y-4 rounded-nested border border-line bg-surface p-5"
       >
         <input
           type="hidden"
@@ -118,7 +118,7 @@ export function BookingThemeSettings({
         <SubmitButton idleLabel="Сохранить пресет" pendingLabel="Сохраняю..." />
       </form>
 
-      <div className="space-y-3 rounded-nested border border-line bg-panel p-5">
+      <div className="min-w-0 space-y-3 rounded-nested border border-line bg-panel p-5">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-ink">Как это увидит клиент</p>
           <p className="text-sm leading-6 text-ink-soft">
