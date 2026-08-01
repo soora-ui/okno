@@ -59,10 +59,18 @@ export function PublicProfileView({
   const [presetId, setPresetId] = useState(profile.bookingThemePresetId);
   const publicThemeAttr = bookingThemeAttr(presetId);
 
+  // pb-28 на main нужен только под мобильную плавающую кнопку записи
+  // (она lg:hidden). На десктопе это было 112px пустоты после подвала,
+  // плюс ещё 64px от контейнера — почти экран прокрутки в никуда.
+  //
+  // isolate обязателен для круговой заливки из DemoThemeSwitcher: слой волны
+  // лежит на -z-10, а без собственного контекста наложения у main такой слой
+  // всплывает в корневой контекст и оказывается ПОД фоном самого main, то есть
+  // невидимым. С isolate он ложится выше фона, но ниже всего содержимого.
   return (
     <main
       {...publicThemeAttr}
-      className="relative min-h-screen overflow-x-hidden bg-[var(--color-background)] pb-28"
+      className="relative isolate min-h-screen overflow-x-hidden bg-[var(--color-background)] pb-28 lg:pb-0"
     >
       <div
         className="pointer-events-none absolute inset-0"
@@ -72,11 +80,7 @@ export function PublicProfileView({
         }}
       />
 
-      <div
-        className={[
-          "relative mx-auto max-w-7xl px-4 pb-16 pt-4 sm:px-6 lg:px-8",
-        ].join(" ")}
-      >
+      <div className="relative mx-auto max-w-7xl px-4 pb-6 pt-4 sm:px-6 lg:px-8">
         <header className="sticky top-4 z-30 mb-8">
           <div
             className="flex items-center justify-between gap-4 rounded-full border px-4 py-3 shadow-subtle backdrop-blur"
