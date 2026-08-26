@@ -8,7 +8,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "migrate:profile-media": "node --env-file=.env.local scripts/migrate-profile-media.mjs"
+    "test": "vitest run",
+    "migrate:profile-media": "node --env-file=.env.local scripts/migrate-profile-media.mjs",
+    "telegram:setup": "node --env-file=.env.local scripts/telegram-setup.mjs",
+    "email:test": "node --env-file=.env.local scripts/test-email.mjs",
+    "sms:check": "node --env-file=.env.local scripts/sms-check.mjs",
+    "email:webhook": "node --env-file=.env.local scripts/unisender-webhook-setup.mjs",
+    "nalog:check": "node --env-file=.env.local scripts/nalog-check.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -39,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

@@ -568,7 +568,7 @@ export async function POST(request: Request) {
         }) ?? startsAt.toISOString(),
       repeat_visit_reminder_requested:
         parsed.data.wantsRepeatVisitReminder &&
-        Number(serviceRow.repeat_interval_weeks ?? 0) > 0,
+        Number(serviceRow.repeat_interval_days ?? 0) > 0,
     })
     .select("*")
     .single();
@@ -766,6 +766,9 @@ export async function POST(request: Request) {
               clientName: parsed.data.name,
               serviceTitle: String(serviceRow.title),
               startsAtLabel,
+              // Бот прицепит к сообщению кнопку «Открыть запись» — из неё
+              // мастер сразу видит телефон клиента и может отменить визит.
+              bookingId: String(bookingRow.id),
             },
           },
         ]
@@ -814,7 +817,7 @@ export async function POST(request: Request) {
       masterName: String(profileRow.full_name),
       serviceTitle: String(serviceRow.title),
       startsAtIso: startsAt.toISOString(),
-      repeatIntervalWeeks: Number(serviceRow.repeat_interval_weeks ?? 0),
+      repeatIntervalDays: Number(serviceRow.repeat_interval_days ?? 0),
     });
 
     if (repeatVisitRow) {

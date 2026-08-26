@@ -21,9 +21,9 @@ export function RoundedReveal({
   const ref = useRef<HTMLDivElement>(null);
   const revealed = useRevealed(ref, 100);
 
-  if (shouldReduceMotion) {
-    return <div className={className}>{children}</div>;
-  }
+  // См. комментарий в Reveal: ветка на shouldReduceMotion меняла структуру DOM
+  // между сервером и клиентом и ломала гидратацию.
+  const settled = shouldReduceMotion || revealed;
 
   return (
     <motion.div
@@ -33,17 +33,23 @@ export function RoundedReveal({
       style={{ overflow: "hidden" }}
       initial={{ scale: 0.4, borderRadius: "999px", opacity: 0.5 }}
       animate={
-        revealed
+        settled
           ? { scale: 1, borderRadius: finalRadius, opacity: 1 }
           : { scale: 0.4, borderRadius: "999px", opacity: 0.5 }
       }
-      transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+      transition={
+        shouldReduceMotion ? { duration: 0 } : { duration: 1, ease: [0.16, 1, 0.3, 1] }
+      }
     >
       <motion.div
         data-reveal
         initial={{ opacity: 0 }}
-        animate={{ opacity: revealed ? 1 : 0 }}
-        transition={{ duration: 0.6, delay: contentDelay, ease: "easeOut" }}
+        animate={{ opacity: settled ? 1 : 0 }}
+        transition={
+          shouldReduceMotion
+            ? { duration: 0 }
+            : { duration: 0.6, delay: contentDelay, ease: "easeOut" }
+        }
       >
         {children}
       </motion.div>

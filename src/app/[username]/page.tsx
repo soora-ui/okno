@@ -3,6 +3,7 @@ import { GiftCertificateWidget } from "@/components/public/gift-certificate-widg
 import { PublicProfileView } from "@/components/public/public-profile-view";
 import { TeamPublicProfileView } from "@/components/public/team-public-profile-view";
 import { getCurrentAuthProfile, getPublicPageData } from "@/lib/data";
+import { getConsultantServiceIds } from "@/lib/service-consultant/availability";
 import { getDefaultAccountRoute } from "@/lib/workspace";
 
 const USERNAME_PATTERN = /^[a-z0-9-]+$/;
@@ -32,6 +33,13 @@ export default async function PublicProfilePage({ params, searchParams }: Props)
     return <TeamPublicProfileView data={data} homeHref={homeHref} />;
   }
 
+  // Здесь клиент аноним: предыдущего визита нет, поэтому предложить время для
+  // повторной записи консультант не сможет — только ответить по мануалу.
+  const consultantServiceIds = await getConsultantServiceIds({
+    profileId: data.profile.id,
+    profile: data.profile,
+  });
+
   return (
     <PublicProfileView
       profile={data.profile}
@@ -53,6 +61,7 @@ export default async function PublicProfilePage({ params, searchParams }: Props)
           />
         ) : null
       }
+      consultantServiceIds={consultantServiceIds}
     />
   );
 }

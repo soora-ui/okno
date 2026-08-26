@@ -40,10 +40,10 @@ export function Reveal({
   const ref = useRef<HTMLDivElement>(null);
   const revealed = useRevealed(ref);
 
-  if (shouldReduceMotion) {
-    return <div className={className}>{children}</div>;
-  }
-
+  // Раньше здесь был ранний выход на обычный <div>. На сервере useReducedMotion
+  // всегда false, поэтому у гостя с включённым «уменьшить движение» разметка
+  // расходилась и гидратация роняла всю страницу в повторный рендер. Обёртка
+  // теперь одна и та же, гасим только саму анимацию.
   return (
     <motion.div
       ref={ref}
@@ -52,9 +52,13 @@ export function Reveal({
       initial="hidden"
       // Состояние ведёт useRevealed, а не whileInView: наблюдателя дублирует
       // проверка геометрии, иначе блок теряется при быстрой прокрутке.
-      animate={revealed ? "visible" : "hidden"}
+      animate={shouldReduceMotion || revealed ? "visible" : "hidden"}
       variants={variants[variant]}
-      transition={{ duration: 0.9, delay, ease: [0.22, 1, 0.36, 1] }}
+      transition={
+        shouldReduceMotion
+          ? { duration: 0 }
+          : { duration: 0.9, delay, ease: [0.22, 1, 0.36, 1] }
+      }
     >
       {children}
     </motion.div>

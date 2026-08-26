@@ -6,8 +6,10 @@ import { writeAuditLog } from "@/lib/observability/audit";
 import {
   exchangeOAuthCode,
   fetchYooKassaMe,
+  syncMasterYooKassaWebhooks,
   upsertMasterYooKassaAccount,
   verifyOAuthState,
+  type MasterYooKassaWebhook,
 } from "@/lib/payments/yookassa-oauth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -62,6 +64,24 @@ export async function GET(request: Request) {
     const { accessToken, expiresInSeconds } = await exchangeOAuthCode(code);
     const me = await fetchYooKassaMe(accessToken);
 
+    // Уведомления по платежам магазина мастера надо запросить отдельно: они
+    // приходят на адрес, привязанный к его токену, а не к магазину платформы.
+    // Если подписаться не вышло — сохраняем подключение неактивным
+    // (status='disabled'): предоплату на услугах включить будет нельзя, и
+    // мастер не окажется в ситуации, когда клиент платит, а бронь снимается
+    // как неоплаченная.
+    let webhooks: MasterYooKassaWebhook[] = [];
+    let webhooksReady = true;
+    try {
+      webhooks = await syncMasterYooKassaWebhooks(accessToken);
+    } catch (webhookError) {
+      webhooksReady = false;
+      logError("YooKassa OAuth: failed to subscribe master shop to webhooks", {
+        profileId: profile.id,
+        error: webhookError,
+      });
+    }
+
     const supabase = await createSupabaseServerClient();
     await upsertMasterYooKassaAccount(supabase, {
       profileId: profile.id,
@@ -70,16 +90,24 @@ export async function GET(request: Request) {
       expiresInSeconds,
       isTestShop: me.isTest,
       paymentMethods: me.paymentMethods,
+      status: webhooksReady ? "enabled" : "disabled",
+      webhooks,
     });
 
     await writeAuditLog({
       actorKind: "master",
       actorProfileId: profile.id,
       profileId: profile.id,
-      eventType: "yookassa_oauth.connected",
+      eventType: webhooksReady
+        ? "yookassa_oauth.connected"
+        : "yookassa_oauth.connected_without_webhooks",
       targetType: "master_yookassa_account",
-      metadata: { accountId: me.accountId, isTestShop: me.isTest },
+      metadata: { accountId: me.accountId, isTestShop: me.isTest, webhooksReady },
     });
+
+    if (!webhooksReady) {
+      return redirectToSettings("webhooks_failed");
+    }
 
     return redirectToSettings(me.isTest ? "connected_test" : "connected");
   } catch (error) {

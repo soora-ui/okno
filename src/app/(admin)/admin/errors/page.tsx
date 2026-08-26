@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { resolveErrorAction } from "@/app/actions/admin";
+import { resolveErrorGroupAction } from "@/app/actions/admin";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { getRecentErrorEvents } from "@/lib/admin/queries";
+import { getGroupedErrorEvents } from "@/lib/admin/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +18,15 @@ function formatDateTime(iso: string): string {
   }).format(date);
 }
 
+function plural(count: number, one: string, few: string, many: string): string {
+  const mod100 = count % 100;
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  const mod10 = count % 10;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
+}
+
 export default async function AdminErrorsPage({
   searchParams,
 }: {
@@ -25,7 +34,11 @@ export default async function AdminErrorsPage({
 }) {
   const { filter } = await searchParams;
   const onlyUnresolved = filter !== "all";
-  const errors = await getRecentErrorEvents({ limit: 150, onlyUnresolved });
+  const { groups, scanned, scanLimit } = await getGroupedErrorEvents({
+    onlyUnresolved,
+  });
+
+  const totalEvents = groups.reduce((sum, group) => sum + group.count, 0);
 
   return (
     <div className="space-y-6">
@@ -33,8 +46,20 @@ export default async function AdminErrorsPage({
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold text-ink">Технические ошибки</h1>
           <p className="text-sm text-ink-soft">
-            Ошибки со всех пользователей — чините в первую очередь.
+            Одинаковые ошибки собраны в группы — чините сверху вниз, там самое
+            свежее.
           </p>
+          {groups.length > 0 ? (
+            <p className="text-xs text-muted">
+              {groups.length}{" "}
+              {plural(groups.length, "проблема", "проблемы", "проблем")} ·{" "}
+              {totalEvents}{" "}
+              {plural(totalEvents, "событие", "события", "событий")}
+              {scanned >= scanLimit
+                ? ` · показаны последние ${scanLimit}, более старые не вошли`
+                : ""}
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2 text-sm">
           <Link
@@ -66,7 +91,7 @@ export default async function AdminErrorsPage({
         </div>
       </div>
 
-      {errors.length === 0 ? (
+      {groups.length === 0 ? (
         <Card>
           <p className="text-sm text-muted">
             {onlyUnresolved ? "Нерешённых ошибок нет 🎉" : "Ошибок пока нет."}
@@ -74,38 +99,56 @@ export default async function AdminErrorsPage({
         </Card>
       ) : (
         <div className="space-y-3">
-          {errors.map((error) => (
-            <Card key={error.id} className="space-y-3">
+          {groups.map((group) => (
+            <Card key={group.key} className="space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={error.level === "error" ? "warning" : "neutral"}>
-                      {error.level}
+                    <Badge tone={group.level === "error" ? "warning" : "neutral"}>
+                      {group.level}
                     </Badge>
-                    <Badge tone="neutral">{error.source}</Badge>
-                    {error.resolved ? <Badge tone="success">решено</Badge> : null}
+                    <Badge tone="neutral">{group.source}</Badge>
+                    {group.count > 1 ? (
+                      <Badge tone="neutral">×{group.count}</Badge>
+                    ) : null}
+                    {group.unresolvedCount === 0 ? (
+                      <Badge tone="success">решено</Badge>
+                    ) : null}
                     <span className="text-xs text-muted">
-                      {error.route ?? "—"} · {formatDateTime(error.createdAt)}
+                      {group.route ?? "—"} · {formatDateTime(group.lastSeen)}
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-ink">{error.message}</p>
+                  <p className="text-sm font-medium text-ink">{group.message}</p>
+                  {group.count > 1 ? (
+                    <p className="text-xs text-muted">
+                      с {formatDateTime(group.firstSeen)} по{" "}
+                      {formatDateTime(group.lastSeen)}
+                      {group.digest ? ` · digest ${group.digest}` : ""}
+                    </p>
+                  ) : null}
                 </div>
-                {!error.resolved ? (
-                  <form action={resolveErrorAction}>
-                    <input type="hidden" name="id" value={error.id} />
+                {group.unresolvedCount > 0 ? (
+                  <form action={resolveErrorGroupAction}>
+                    <input
+                      type="hidden"
+                      name="ids"
+                      value={group.unresolvedIds.join(",")}
+                    />
                     <button
                       type="submit"
                       className="rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition hover:-translate-y-0.5"
                       style={{ backgroundColor: "var(--ui-card-bg)" }}
                     >
-                      Решено
+                      {group.unresolvedCount > 1
+                        ? `Решено (${group.unresolvedCount})`
+                        : "Решено"}
                     </button>
                   </form>
                 ) : null}
               </div>
-              {error.context ? (
+              {group.latestContext ? (
                 <pre className="overflow-x-auto rounded-field bg-panel p-3 text-xs text-ink-soft">
-                  {JSON.stringify(error.context, null, 2)}
+                  {JSON.stringify(group.latestContext, null, 2)}
                 </pre>
               ) : null}
             </Card>

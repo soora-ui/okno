@@ -57,7 +57,7 @@ const RELATIVE_SCORE_CUTOFF = 0.6;
 const RELATED_EXPANSION_DEPTH = 2;
 
 // Что показать, когда вопрос ещё не задан или совсем не распознан.
-const FALLBACK_TOPIC_IDS = ["cabinet-structure", "settings-tabs", "pro-plan", "free-plan"];
+const FALLBACK_TOPIC_IDS = ["cabinet-structure", "settings-tabs", "plans", "trial"];
 
 // Слова, которые есть почти в каждом вопросе и потому ничего не различают.
 const STOP_WORDS = new Set([

@@ -45,9 +45,11 @@ function pluralizeAttempts(count: number): string {
 export function CertificateSection({
   profile,
   certificateTemplate,
+  yookassaConnected,
 }: {
   profile: Profile;
   certificateTemplate: CertificateTemplateSummary | null;
+  yookassaConnected: boolean;
 }) {
   const [isModalOpen, setModalOpen] = useState(false);
   const hasTemplate = Boolean(certificateTemplate);
@@ -106,6 +108,7 @@ export function CertificateSection({
       <CertificateSalesToggle
         enabled={profile.bookingPageSettings.giftCertificatesEnabled}
         hasTemplate={hasTemplate}
+        yookassaConnected={yookassaConnected}
         onRequireDesign={() => setModalOpen(true)}
       />
 

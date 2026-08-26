@@ -6,59 +6,64 @@
 export type LegalEntityKind = "ip" | "self-employed" | "ooo";
 
 export type LegalEntity = {
-  // Организационно-правовая форма ещё не выбрана — от неё зависит набор
-  // обязательных реквизитов (ОГРНИП у ИП, ОГРН и КПП у ООО, ни того ни другого
-  // у самозанятого).
-  kind: LegalEntityKind | null;
+  kind: LegalEntityKind;
   name: string;
   shortName: string;
   inn: string;
   ogrn: string;
-  kpp: string;
   address: string;
+  // Адрес для юридически значимых сообщений и претензий (ст. 165.1 ГК),
+  // п. 7.3.1 оферты.
   email: string;
-  phone: string;
 };
 
-// Реквизиты заполняются одной правкой здесь: в текстах оферты и политики они
-// не продублированы, там стоит <LegalPending>. Пустая строка означает «ещё не
-// знаем» — страница честно показывает пропуск, а не выдумывает значение.
 export const legalEntity: LegalEntity = {
-  kind: null,
-  name: "",
-  shortName: "",
-  inn: "",
-  ogrn: "",
-  kpp: "",
-  address: "",
-  email: "",
-  phone: "",
+  kind: "ip",
+  name: "Индивидуальный предприниматель Каменков Артём Денисович",
+  shortName: "ИП Каменков А. Д.",
+  inn: "910924469701",
+  ogrn: "324911200020401",
+  address: "297576, Республика Крым, Симферопольский район, село Лозовое",
+  email: "support@okno.business",
 };
 
-// Отдельный адрес для обращений по персональным данным: закон требует канал
-// связи с оператором, и он может отличаться от общей почты.
-export const privacyContactEmail = "";
+// Банковские реквизиты нужны в разделе «Реквизиты» оферты. Пустая строка
+// означает «ещё не знаем» — страница честно показывает пропуск, а не
+// выдумывает счёт.
+export type LegalBankDetails = {
+  name: string;
+  bik: string;
+  correspondentAccount: string;
+  settlementAccount: string;
+};
 
+export const legalBankDetails: LegalBankDetails = {
+  name: "",
+  bik: "",
+  correspondentAccount: "",
+  settlementAccount: "",
+};
+
+// Пока в оферте зияют пустые банковские реквизиты, документы висят
+// черновиками: договор без счёта получателя платежа не работает.
 export const isLegalEntityReady = Boolean(
-  legalEntity.kind &&
-    legalEntity.name &&
-    legalEntity.inn &&
-    legalEntity.address &&
-    legalEntity.email,
+  legalBankDetails.name &&
+    legalBankDetails.bik &&
+    legalBankDetails.correspondentAccount &&
+    legalBankDetails.settlementAccount,
 );
 
-// Факты о размещении инфраструктуры нужны для двух пунктов политики:
-// локализации баз данных (ч. 5 ст. 18 152-ФЗ) и трансграничной передачи.
-// Заполняются перед публикацией — придумывать их из кода нельзя.
-export const dataHosting = {
-  databaseLocation: "",
-  applicationLocation: "",
-  crossBorderCountries: "",
-};
+// Один адрес на все каналы: юридически значимые сообщения, поддержка и
+// обращения по персональным данным. Разведены по трём именам, чтобы при
+// появлении отдельного ящика правка была ровно в одном месте.
+export const supportEmail = "support@okno.business";
+export const privacyContactEmail = "support@okno.business";
 
-// ФИО и должность лица, ответственного за организацию обработки персональных
-// данных (ст. 22.1 152-ФЗ).
-export const privacyOfficer = "";
+// ФИО лица, ответственного за организацию обработки персональных данных
+// (ст. 22.1 152-ФЗ). Назначается приказом.
+export const privacyOfficer = "Каменков Артём Денисович";
+
+export const legalSiteOrigin = "https://okno.business";
 
 export type LegalSubprocessor = {
   name: string;
@@ -68,49 +73,58 @@ export type LegalSubprocessor = {
 
 // Состав внешних сервисов собран по фактическим интеграциям
 // (см. src/lib/env.ts и okno-functional-description.md, раздел 11.1).
+// Дублирует раздел 9 Политики: там — с реквизитами, здесь — таблицей.
 export const legalSubprocessors: LegalSubprocessor[] = [
   {
-    name: "Supabase",
-    purpose: "База данных, аутентификация и хранилище загруженных файлов",
+    name: "Podaon SIA (Латвия)",
+    purpose: "Размещение (хостинг), хранение и резервное копирование данных Сервиса",
     data: "Все данные учётной записи Пользователя и данные его Клиентов",
   },
   {
-    name: "ЮKassa",
+    name: "ООО «СМС.РУ»",
     purpose:
-      "Оплата подписки Пользователем, а также приём предоплаты и продажа сертификатов через магазин самого Пользователя",
-    data: "Данные платежа, контакт плательщика",
+      "Доставка SMS-уведомлений о записи, напоминаний и ссылок на самостоятельную отмену",
+    data: "Имя и номер телефона Клиента, дата, время и место записи",
   },
   {
-    name: "CloudTips",
-    purpose: "Приём чаевых Клиентов в адрес Пользователя",
-    data: "Данные платежа",
-  },
-  {
-    name: "sms.ru",
+    name: "ООО НКО «ЮМани»",
     purpose:
-      "Отправка SMS, flash-call и обратного звонка для подтверждения номера и уведомлений о записи",
-    data: "Номер телефона Клиента, текст транзакционного сообщения",
+      "Приём вознаграждения за Сервис, предоплаты по записям и оплаты подарочных сертификатов",
+    data: "Имя, контактные данные и сведения о платеже без данных платёжных карт",
   },
   {
-    name: "Telegram",
-    purpose: "Уведомления Пользователю о записях, отменах и напоминаниях",
-    data: "Идентификатор чата Пользователя, сведения о записи",
+    name: "ООО «КЛАУДПЭЙМЕНТС»",
+    purpose: "Приём и перевод чаевых Клиентов в адрес Пользователя",
+    data: "Имя, контактные данные и сведения о платеже без данных платёжных карт",
   },
   {
-    name: "Anthropic (Claude API)",
+    name: "Anthropic PBC (США)",
+    purpose: "Формирование ответов автоматизированного консультанта Сервиса",
+    data: "Текст обращения Клиента и сведения об услугах Пользователя",
+  },
+  {
+    name: "ООО «ЯНДЕКС»",
+    purpose: "Сбор и анализ статистики посещения сайта (веб-аналитика)",
+    data: "Обезличенные технические данные, файлы cookie и идентификаторы аналитики",
+  },
+  {
+    name: "Telegram Messenger Inc.",
     purpose:
-      "AI-поддержка Пользователей, AI-консультация Клиентов по мануалам услуг, генерация дизайна подарочного сертификата",
-    data: "Текст обращения, мануал услуги, данные оформления профиля",
-  },
-  {
-    name: "Sentry",
-    purpose:
-      "Мониторинг ошибок и запись сессии интерфейса в момент возникновения ошибки",
-    data: "Технические данные устройства и браузера, содержимое экрана в момент ошибки",
+      "Доставка Пользователю уведомлений о записях, отменах и напоминаниях через бота Сервиса",
+    // Бот показывает Пользователю карточку записи, поэтому в Telegram уходит
+    // не только факт записи, но и имя с телефоном Клиента — то же, что
+    // Пользователь видит в кабинете.
+    data: "Идентификатор чата Пользователя, сведения о записи, имя и номер телефона Клиента",
   },
 ];
 
-export type LegalDocumentId = "offer" | "privacy";
+export type LegalDocumentId =
+  | "offer"
+  | "privacy"
+  | "cookie"
+  | "rules"
+  | "consent"
+  | "consent-client";
 
 export type LegalDocumentStatus = "draft" | "published";
 
@@ -138,24 +152,30 @@ export type LegalDocument = {
   editions: LegalEdition[];
 };
 
+// Редакция 02.08.2026 — первая для всех шести документов, поэтому архивы
+// пусты, а не заполнены прежними версиями.
+const firstEdition: LegalEdition = {
+  version: "1.0",
+  effectiveFrom: "2026-08-02",
+  source: { kind: "page" },
+  summary: "Первая редакция.",
+};
+
+const draftStatus: LegalDocumentStatus = isLegalEntityReady
+  ? "published"
+  : "draft";
+
 export const legalDocuments: LegalDocument[] = [
   {
     id: "offer",
-    title: "Публичная оферта о предоставлении права использования сервиса okno.business",
+    title: "Публичная оферта okno.business",
     navTitle: "Публичная оферта",
     description:
-      "Условия, на которых мастер получает доступ к сервису: предмет договора, тарифы и оплата, расчёты с клиентами, ответственность сторон.",
+      "Условия, на которых мастер получает доступ к сервису: предмет договора, тарифы и оплата, автопродление и возврат, ответственность сторон. С Приложением № 1 — поручением на обработку персональных данных клиентов.",
     href: "/legal/offer",
     archiveHref: "/legal/offer/archive",
-    status: "draft",
-    editions: [
-      {
-        version: "1.0",
-        effectiveFrom: "2026-07-30",
-        source: { kind: "page" },
-        summary: "Первая редакция.",
-      },
-    ],
+    status: draftStatus,
+    editions: [firstEdition],
   },
   {
     id: "privacy",
@@ -165,15 +185,53 @@ export const legalDocuments: LegalDocument[] = [
       "Какие данные обрабатывает сервис, на каком основании, кому передаёт и как субъект может реализовать свои права.",
     href: "/legal/privacy",
     archiveHref: "/legal/privacy/archive",
-    status: "draft",
-    editions: [
-      {
-        version: "1.0",
-        effectiveFrom: "2026-07-30",
-        source: { kind: "page" },
-        summary: "Первая редакция.",
-      },
-    ],
+    status: draftStatus,
+    editions: [firstEdition],
+  },
+  {
+    id: "cookie",
+    title: "Политика обработки файлов cookie",
+    navTitle: "Политика обработки файлов cookie",
+    description:
+      "Какие файлы cookie использует сайт, зачем они нужны, сколько хранятся и как изменить свой выбор.",
+    href: "/legal/cookie",
+    archiveHref: "/legal/cookie/archive",
+    status: draftStatus,
+    editions: [firstEdition],
+  },
+  {
+    id: "rules",
+    title: "Правила использования Сервиса okno",
+    navTitle: "Правила использования Сервиса",
+    description:
+      "Порядок использования функциональных возможностей сервиса, требования к размещаемым материалам и порядок модерации.",
+    href: "/legal/rules",
+    archiveHref: "/legal/rules/archive",
+    status: draftStatus,
+    editions: [firstEdition],
+  },
+  {
+    id: "consent",
+    title: "Согласие на обработку персональных данных Пользователя Сервиса okno",
+    navTitle: "Согласие на обработку ПДн — мастер",
+    description:
+      "Текст согласия, которое мастер даёт при регистрации: трансграничная передача, рекламные сообщения и необязательные файлы cookie.",
+    href: "/legal/consent",
+    archiveHref: "/legal/consent/archive",
+    status: draftStatus,
+    editions: [firstEdition],
+  },
+  {
+    id: "consent-client",
+    title:
+      "Согласие на обработку персональных данных Клиента Пользователя Сервиса okno",
+    navTitle: "Согласие на обработку ПДн — клиент",
+    description:
+      "Шаблон согласия для публичной страницы записи. Оператором данных клиента выступает сам мастер, его реквизиты подставляются в текст.",
+    href: "/legal/consent-client",
+    archiveHref: "/legal/consent-client/archive",
+    status: draftStatus,
+    editions: [firstEdition],
   },
 ];
 

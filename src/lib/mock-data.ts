@@ -65,9 +65,13 @@ export type Service = {
   price: number;
   isActive: boolean;
   sortOrder: number;
-  // Через сколько недель стоит напомнить клиенту про повторный визит. Мастер
-  // настраивает это per-услуге; null — не предлагать напоминание.
-  repeatIntervalWeeks: number | null;
+  // Через сколько дней после визита услугу можно повторить. Мастер настраивает
+  // это per-услуге; null — срок не задан.
+  //
+  // Единственный источник срока повторного визита в сервисе. На нём стоят и
+  // SMS-напоминание, и предложение записаться повторно, которое делает
+  // AI-консультант, — чтобы клиент не получил от сервиса две разные даты.
+  repeatIntervalDays: number | null;
   prepaymentType: PrepaymentType;
   prepaymentValue: number;
 };
@@ -233,7 +237,7 @@ export const services: Service[] = [
     price: 1900,
     isActive: true,
     sortOrder: 1,
-    repeatIntervalWeeks: 3,
+    repeatIntervalDays: 21,
     prepaymentType: "none",
     prepaymentValue: 0,
   },
@@ -246,7 +250,7 @@ export const services: Service[] = [
     price: 900,
     isActive: true,
     sortOrder: 2,
-    repeatIntervalWeeks: 4,
+    repeatIntervalDays: 28,
     prepaymentType: "none",
     prepaymentValue: 0,
   },

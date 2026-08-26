@@ -22,6 +22,7 @@ import { writeAuditLog } from "@/lib/observability/audit";
 import { logError } from "@/lib/observability/logger";
 import {
   buildReminderNotificationEvents,
+  buildClientCancelledNotificationEvent,
   cancelQueuedReminderEvents,
 } from "@/lib/notification-queue";
 import {
@@ -550,6 +551,15 @@ export async function cancelBookingByMasterAction(
   }
 
   await cancelQueuedReminderEvents(parsed.data.bookingId);
+
+  // Клиент мог сохранить визит в календарь и больше сюда не заходить —
+  // об отмене он узнает только сообщением.
+  await supabase.from("notification_events").insert(
+    buildClientCancelledNotificationEvent({
+      profileId: profile.id,
+      bookingId: parsed.data.bookingId,
+    }),
+  );
 
   await writeAuditLog({
     ...getAuditProfileContext(profile),

@@ -24,6 +24,19 @@ export function buildBookingSlotsForService(input: {
   blockedSlots: BlockedSlot[];
   bookings: Booking[];
   maxDaysToShow?: number;
+  /**
+   * С какой даты начинать выдачу (ISO, `2026-08-30`). По умолчанию — с
+   * сегодняшнего дня.
+   *
+   * Нужно консультанту, который предлагает записаться повторно: срок бывает
+   * и месяц, а maxDaysToShow считает дни СО СЛОТАМИ, не календарные. У
+   * мастера, работающего каждый день, выдача заканчивается через две недели —
+   * и нужный день в неё не попадает, хотя в окне записи мастера он есть.
+   *
+   * Окно записи (bookingWindowDays) при этом не растягивается: смещается
+   * начало отсчёта, а не граница.
+   */
+  fromDate?: string;
 }) {
   const {
     profile,
@@ -32,9 +45,20 @@ export function buildBookingSlotsForService(input: {
     blockedSlots,
     bookings,
     maxDaysToShow = 14,
+    fromDate,
   } = input;
 
   const now = DateTime.now().setZone(profile.timezone);
+
+  // Отсчёт всегда ведётся от сегодняшнего дня — иначе окно записи мастера
+  // можно было бы обойти, попросив слоты от даты в будущем.
+  const requestedStart = fromDate
+    ? DateTime.fromISO(fromDate, { zone: profile.timezone }).startOf("day")
+    : null;
+  const startOffset =
+    requestedStart?.isValid && requestedStart > now.startOf("day")
+      ? Math.floor(requestedStart.diff(now.startOf("day"), "days").days)
+      : 0;
   // pending_payment — слот резервирован под предоплату (Модуль 2,
   // okno-tz-rating-prepayment.md, ТЗ 2.3): пока клиент не оплатил или не
   // истекли 15 минут резервации, слот не должен казаться свободным другим
@@ -45,7 +69,7 @@ export function buildBookingSlotsForService(input: {
   const visibleDays: BookingSlot[] = [];
 
   for (
-    let dayOffset = 0;
+    let dayOffset = startOffset;
     dayOffset < profile.bookingWindowDays && visibleDays.length < maxDaysToShow;
     dayOffset += 1
   ) {
@@ -112,7 +136,9 @@ export function buildBookingSlotsForService(input: {
 
     if (times.length > 0) {
       visibleDays.push({
-        date: day.setLocale("ru").toFormat("d LLLL"),
+        // MMMM, а не LLLL: LLLL даёт именительный падеж («17 август»), а с
+        // числом нужен родительный — «17 августа».
+        date: day.setLocale("ru").toFormat("d MMMM"),
         value: day.toISODate() ?? "",
         times,
       });

@@ -15,20 +15,38 @@ import {
   type SettingsActionState,
 } from "@/app/actions/settings";
 import { saveServiceManualAction } from "@/app/actions/service-manuals";
-import { startProSubscriptionAction } from "@/app/actions/subscription";
+import {
+  disableSubscriptionAutopayAction,
+  startProSubscriptionAction,
+  startSeatTopUpAction,
+} from "@/app/actions/subscription";
+// Только типы: сами модули серверные (логгер, клиент Supabase) и в бандл
+// настроек попадать не должны.
+import type { AutopayState } from "@/lib/payments/subscription-autopay";
+import type { SeatBalance } from "@/lib/subscription-seats";
 import {
   formatSubscriptionUntil,
   planPeriodDays,
   resolveSubscription,
 } from "@/lib/subscription";
 import {
+  type BillingPeriodId,
   type PlanId,
-  calculatePlanPriceRub,
+  autopayMaxAttempts,
+  calculatePeriodFullPriceRub,
+  calculatePeriodPriceRub,
+  defaultBillingPeriodId,
   extraSeatPriceRub,
+  findBillingPeriodByDays,
   formatPlanPrice,
+  getBillingPeriod,
   getPlan,
+  periodDiscountPercent,
   pricingPlans,
+  reminderLeadDaysFor,
 } from "@/config/plans";
+import { PlanPeriodTabs } from "@/components/pricing/plan-period-tabs";
+import { pluralizeRu } from "@/lib/utils";
 import {
   commentFieldModeLabels,
   commentFieldModes,
@@ -36,6 +54,7 @@ import {
   giftCertificateMaxAmount,
   giftCertificateMinAmount,
   headlineMaxLength,
+  masterContactMaxLength,
   maxGiftCertificateDenominations,
   subheadlineMaxLength,
 } from "@/lib/booking-page-settings";
@@ -262,6 +281,14 @@ export function BookingPageSettingsForm({ profile }: { profile: Profile }) {
         options={commentFieldModeOptions}
         hint="Можно скрыть поле, оставить по желанию или сделать обязательным."
       />
+      <Input
+        label="Как с тобой связаться"
+        name="masterContact"
+        defaultValue={settings.masterContact}
+        maxLength={masterContactMaxLength}
+        placeholder="Например: +7 978 123-45-67 или @alina_nails"
+        hint="Виден клиенту, когда консультант не нашёл ответа в мануале услуги и отправляет вопрос к тебе. Оставь пустым — консультант просто скажет связаться с мастером."
+      />
       <FormMessage message={state.message} success={state.success} />
       <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
     </form>
@@ -430,12 +457,127 @@ export function AvailabilitySettingsForm({
   );
 }
 
+const noAutopay: AutopayState = {
+  enabled: false,
+  planId: null,
+  periodDays: planPeriodDays,
+  method: null,
+  failedAttempts: 0,
+  requestFailed: false,
+  lapsed: false,
+};
+
+const noSeatBalance: SeatBalance = {
+  activeSeats: 0,
+  coveredSeats: 0,
+  unpaidSeats: 0,
+  remainingDays: 0,
+  periodDays: planPeriodDays,
+  amountRub: 0,
+  topUpRequired: false,
+};
+
+// Карточка автопродления. Появляется, только когда карта привязана: если
+// привязки нет, единственное действие — галочка на форме оплаты ниже.
+function AutopayCard({
+  autopay,
+  nextChargeLabel,
+  nextChargeAmountRub,
+}: {
+  autopay: AutopayState;
+  nextChargeLabel: string | null;
+  nextChargeAmountRub: number;
+}) {
+  const [state, action] = useActionState(
+    disableSubscriptionAutopayAction,
+    initialState,
+  );
+  const method = autopay.method;
+
+  if (!method) {
+    return null;
+  }
+
+  const cardLabel = [method.cardType, method.cardLast4 ? `•••• ${method.cardLast4}` : null]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className="space-y-3 rounded-panel border border-line p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold text-ink">Автопродление включено</p>
+        <p className="text-sm font-semibold text-ink">
+          {formatPlanPrice(nextChargeAmountRub)} / {autopay.periodDays} дней
+        </p>
+      </div>
+      <p className="text-xs leading-5 text-ink-soft">
+        {cardLabel || "Привязанная карта"}
+        {nextChargeLabel ? ` — спишем ${nextChargeLabel}` : ""}. За{" "}
+        {pluralizeRu(reminderLeadDaysFor(autopay.periodDays), "день", "дня", "дней")} до
+        списания придёт напоминание в Telegram.
+      </p>
+      {autopay.failedAttempts > 0 ? (
+        <p className="text-xs leading-5 text-warning">
+          Прошлое списание не прошло. Проверь карту — иначе после нескольких попыток
+          автопродление отключится.
+        </p>
+      ) : null}
+      <form action={action}>
+        <FormMessage message={state.message} success={state.success} />
+        <SubmitButton
+          idleLabel="Отключить и отвязать карту"
+          pendingLabel="Отключаю..."
+        />
+      </form>
+    </div>
+  );
+}
+
+// Доплата за сотрудников, добавленных посреди оплаченного вперёд периода.
+// Появляется только когда доплата действительно нужна: при месячной оплате
+// сотрудник просто войдёт в следующий платёж, и просить денег не за что.
+function SeatTopUpCard({ balance }: { balance: SeatBalance }) {
+  const [state, action] = useActionState(startSeatTopUpAction, initialState);
+
+  if (!balance.topUpRequired) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-3 rounded-panel border border-line bg-warning-soft p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold text-ink">
+          {pluralizeRu(balance.unpaidSeats, "сотрудник", "сотрудника", "сотрудников")} без
+          оплаченного места
+        </p>
+        <p className="text-sm font-semibold tabular-nums text-ink">
+          {formatPlanPrice(balance.amountRub)}
+        </p>
+      </div>
+      <p className="text-xs leading-5 text-ink-soft">
+        Период оплачен вперёд, до его конца ещё{" "}
+        {pluralizeRu(balance.remainingDays, "день", "дня", "дней")}. Доплата закрывает
+        места до конца этого периода — по той же скидке, что и у оплаченного периода.
+        Срок подписки она не меняет.
+      </p>
+      <form action={action}>
+        <FormMessage message={state.message} success={state.success} />
+        <SubmitButton idleLabel="Доплатить за места" pendingLabel="Открываю оплату..." />
+      </form>
+    </div>
+  );
+}
+
 export function SubscriptionSettingsForm({
   profile,
   activeSeats = 0,
+  autopay = noAutopay,
+  seatBalance = noSeatBalance,
 }: {
   profile: Profile;
   activeSeats?: number;
+  autopay?: AutopayState;
+  seatBalance?: SeatBalance;
 }) {
   const [state, action] = useActionState(startProSubscriptionAction, initialState);
   const access = resolveSubscription(profile);
@@ -444,6 +586,12 @@ export function SubscriptionSettingsForm({
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(
     access.planId ?? "solo-basic",
   );
+  const [periodId, setPeriodId] = useState<BillingPeriodId>(defaultBillingPeriodId);
+  const period = getBillingPeriod(periodId);
+  const isPrepaid = period.months > 1;
+  // Карта без согласия (и наоборот) — не повод показывать половину блока:
+  // управлять есть чем, только когда есть и то, и другое.
+  const hasAutopay = autopay.enabled && Boolean(autopay.method);
 
   const statusTitle = currentPlan
     ? `Тариф «${currentPlan.title}»`
@@ -480,10 +628,34 @@ export function SubscriptionSettingsForm({
         </span>
       </div>
 
+      <SeatTopUpCard balance={seatBalance} />
+
+      {hasAutopay ? (
+        <AutopayCard
+          autopay={autopay}
+          nextChargeLabel={untilLabel}
+          nextChargeAmountRub={calculatePeriodPriceRub(
+            autopay.planId ?? selectedPlanId,
+            findBillingPeriodByDays(autopay.periodDays).id,
+            activeSeats,
+          )}
+        />
+      ) : null}
+
       <form action={action} className="space-y-3">
+        {/* Переключатель периода стоит над тарифами: он меняет цену в каждой
+            строке ниже, и увидеть его после цен — значит увидеть поздно. */}
+        <PlanPeriodTabs
+          value={periodId}
+          onChange={setPeriodId}
+          size="compact"
+        />
+
         <div className="space-y-2">
           {pricingPlans.map((plan) => {
-            const total = calculatePlanPriceRub(plan.id, activeSeats);
+            const total = calculatePeriodPriceRub(plan.id, periodId, activeSeats);
+            const fullTotal = calculatePeriodFullPriceRub(plan.id, periodId, activeSeats);
+            const discount = periodDiscountPercent(plan.id, periodId, activeSeats);
             const paidSeats = Math.max(0, activeSeats - plan.includedSeats);
 
             return (
@@ -506,8 +678,27 @@ export function SubscriptionSettingsForm({
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline justify-between gap-2">
                     <span className="text-sm font-semibold text-ink">{plan.title}</span>
-                    <span className="text-sm font-semibold text-ink">
-                      {formatPlanPrice(total)} / {planPeriodDays} дней
+                    <span className="flex items-baseline gap-2">
+                      {isPrepaid ? (
+                        <s className="text-xs tabular-nums text-muted">
+                          {formatPlanPrice(fullTotal)}
+                        </s>
+                      ) : null}
+                      <span className="text-base font-semibold tabular-nums text-ink">
+                        {formatPlanPrice(total)}
+                      </span>
+                      <span className="text-xs text-muted">/ {period.days} дней</span>
+                      {discount > 0 ? (
+                        <span
+                          className="rounded-full px-2 py-0.5 text-xs font-medium"
+                          style={{
+                            backgroundColor: "var(--color-accent-soft)",
+                            color: "var(--color-accent-deep)",
+                          }}
+                        >
+                          −{discount}%
+                        </span>
+                      ) : null}
                     </span>
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-ink-soft">
@@ -516,8 +707,9 @@ export function SubscriptionSettingsForm({
                   {paidSeats > 0 ? (
                     <span className="mt-1 block text-xs leading-5 text-muted">
                       Включает доплату за {paidSeats} сотрудников сверх{" "}
-                      {plan.includedSeats}: {formatPlanPrice(plan.priceRub)} +{" "}
-                      {paidSeats} × {formatPlanPrice(extraSeatPriceRub)}
+                      {plan.includedSeats} — по {formatPlanPrice(extraSeatPriceRub)} в
+                      месяц за человека
+                      {isPrepaid ? ", скидка за период на них тоже действует" : ""}
                     </span>
                   ) : null}
                 </span>
@@ -526,9 +718,51 @@ export function SubscriptionSettingsForm({
           })}
         </div>
 
-        <p className="text-xs leading-5 text-muted">
-          Оплата разовая за {planPeriodDays} дней, автосписания нет — продлевать нужно вручную.
-        </p>
+        {hasAutopay ? (
+          <p className="text-xs leading-5 text-muted">
+            Оплата за {period.days} дней. Новый период присоединяется к оплаченному —
+            остаток не сгорает. Дальше автопродление будет списывать за тот период,
+            который вы оплатили последним.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {autopay.lapsed ? (
+              <p className="rounded-panel bg-warning-soft px-4 py-3 text-xs leading-5 text-ink">
+                Автопродление отключилось: {autopayMaxAttempts} раза подряд не удалось
+                списать оплату с привязанной карты, и мы её отвязали. Деньги не списаны.
+                Оплати тариф здесь — и поставь галочку ниже, если хочешь снова включить
+                автопродление.
+              </p>
+            ) : null}
+
+            {autopay.requestFailed ? (
+              <p className="rounded-panel bg-warning-soft px-4 py-3 text-xs leading-5 text-ink">
+                Автопродление не включилось: карта не привязалась. Так бывает, если оплата
+                прошла кошельком, SBP или другим способом, который привязать нельзя.
+                Тариф оплачен и работает — чтобы включить автопродление, поставь галочку
+                при следующей оплате и заплати картой.
+              </p>
+            ) : null}
+            <label className="flex items-start gap-3 text-sm text-ink">
+              <input type="checkbox" name="autopay" value="on" className="mt-1" />
+              <span>
+                Продлевать автоматически
+                <span className="mt-1 block text-xs leading-5 text-ink-soft">
+                  Карта сохранится, и каждые {period.days} дней мы будем списывать{" "}
+                  {formatPlanPrice(calculatePeriodPriceRub(selectedPlanId, periodId, activeSeats))}{" "}
+                  — тот же период и та же цена со скидкой. Отключить и отвязать карту
+                  можно здесь же в любой момент, напоминание придёт за{" "}
+                  {pluralizeRu(reminderLeadDaysFor(period.days), "день", "дня", "дней")}{" "}
+                  до списания.
+                </span>
+              </span>
+            </label>
+            <p className="text-xs leading-5 text-muted">
+              Без галочки оплата разовая — продлевать нужно вручную. Карта привяжется
+              только при оплате картой: через кошелёк или SBP автопродление не включится.
+            </p>
+          </div>
+        )}
 
         <FormMessage message={state.message} success={state.success} />
         <SubmitButton
@@ -581,10 +815,10 @@ export function ServicesSettingsForm({
         </div>
         <UnitInput
           label="Повторный визит через"
-          unit="нед"
-          name="repeatIntervalWeeks"
-          placeholder="Например, 3"
-          hint="Если заполнено, клиент сможет отметить напоминание о повторном визите при записи."
+          unit="дн"
+          name="repeatIntervalDays"
+          placeholder="Например, 21"
+          hint="Через сколько дней услугу можно повторить. Клиент сможет отметить напоминание при записи, а консультант — предложить ближайшее время после этого срока."
           required={false}
         />
         <PrepaymentFields isYooKassaConnected={isYooKassaConnected} />
@@ -675,13 +909,13 @@ function ServiceEditor({
           </div>
           <UnitInput
             label="Повторный визит через"
-            unit="нед"
-            name="repeatIntervalWeeks"
+            unit="дн"
+            name="repeatIntervalDays"
             defaultValue={
-              service.repeatIntervalWeeks ? String(service.repeatIntervalWeeks) : ""
+              service.repeatIntervalDays ? String(service.repeatIntervalDays) : ""
             }
-            placeholder="Например, 3"
-            hint="Если заполнено, клиент сможет отметить напоминание о повторном визите при записи."
+            placeholder="Например, 21"
+            hint="Через сколько дней услугу можно повторить. Клиент сможет отметить напоминание при записи, а консультант — предложить ближайшее время после этого срока."
             required={false}
           />
           <PrepaymentFields

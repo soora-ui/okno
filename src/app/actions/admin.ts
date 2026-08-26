@@ -10,6 +10,9 @@ import { logError } from "@/lib/observability/logger";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatSubscriptionUntil } from "@/lib/subscription";
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export type AdminActionState = {
   success: boolean;
   message: string;
@@ -197,11 +200,23 @@ export async function revokeProAction(
   };
 }
 
-export async function resolveErrorAction(formData: FormData): Promise<void> {
+// Кнопка «Решено» закрывает всю группу, а не одну строку: у поломки, которая
+// повторилась сорок раз, закрывать по одной записи бессмысленно. Список id
+// приходит из той же выборки, которую показывает панель.
+export async function resolveErrorGroupAction(formData: FormData): Promise<void> {
   await requirePlatformAdmin();
 
-  const id = formData.get("id");
-  if (typeof id !== "string" || !id) {
+  const raw = formData.get("ids");
+  if (typeof raw !== "string" || !raw) {
+    return;
+  }
+
+  const ids = raw
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => UUID_PATTERN.test(id));
+
+  if (ids.length === 0) {
     return;
   }
 
@@ -209,11 +224,12 @@ export async function resolveErrorAction(formData: FormData): Promise<void> {
   const { error } = await supabase
     .from("error_events")
     .update({ resolved: true, resolved_at: new Date().toISOString() })
-    .eq("id", id);
+    .in("id", ids);
 
   if (error) {
-    logError("Admin: failed to resolve error event", { id, error });
+    logError("Admin: failed to resolve error group", { count: ids.length, error });
   }
 
   revalidatePath("/admin/errors");
+  revalidatePath("/admin");
 }

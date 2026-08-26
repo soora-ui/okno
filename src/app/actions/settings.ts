@@ -15,6 +15,7 @@ import {
   bookingPageSettingsFormSchema,
   giftCertificateSettingsFormSchema,
   headlineMaxLength,
+  masterContactMaxLength,
   maxGiftCertificateDenominations,
   subheadlineMaxLength,
 } from "@/lib/booking-page-settings";
@@ -473,11 +474,12 @@ export async function updateBookingPageSettingsAction(
     headline: formData.get("headline") ?? "",
     subheadline: formData.get("subheadline") ?? "",
     commentFieldMode: formData.get("commentFieldMode") ?? "optional",
+    masterContact: formData.get("masterContact") ?? "",
   });
   if (!parsed.success) {
     return {
       success: false,
-      message: `Проверь поля: заголовок до ${headlineMaxLength}, подзаголовок до ${subheadlineMaxLength} символов.`,
+      message: `Проверь поля: заголовок до ${headlineMaxLength}, подзаголовок до ${subheadlineMaxLength}, контакт до ${masterContactMaxLength} символов.`,
     };
   }
 
@@ -486,6 +488,7 @@ export async function updateBookingPageSettingsAction(
     headline: parsed.data.headline,
     subheadline: parsed.data.subheadline,
     commentFieldMode: parsed.data.commentFieldMode,
+    masterContact: parsed.data.masterContact,
   };
 
   const supabase = await createSupabaseServerClient();
@@ -665,6 +668,19 @@ export async function updateCertificateSalesEnabledAction(input: { enabled: bool
         message: "Нужен дизайн сертификата, чтобы включить продажу.",
       };
     }
+
+    // Деньги за сертификат идут напрямую в магазин мастера через его
+    // OAuth-токен (PRODUCT.md, «Деньги») — без подключения принимать их
+    // некуда, и кнопка покупки на публичной странице была бы обманом.
+    // Та же проверка, что у предоплаты в create/updateServiceAction.
+    const yookassaAccount = await getMasterYooKassaAccount(admin, profile.id);
+    if (!yookassaAccount || yookassaAccount.status !== "enabled") {
+      return {
+        success: false,
+        message:
+          "Сначала подключи ЮKassa во вкладке «Запись», потом можно включить продажу сертификатов.",
+      };
+    }
   }
 
   const nextSettings = {
@@ -808,9 +824,9 @@ const serviceSchema = z.object({
   durationMinutes: z.coerce.number().min(5).max(480),
   price: z.coerce.number().min(0),
   sortOrder: z.coerce.number().min(0).default(0),
-  // Пусто/0 — не предлагать клиенту напоминание о повторном визите для
-  // этой услуги.
-  repeatIntervalWeeks: z.coerce.number().min(0).max(52).default(0),
+  // Пусто/0 — срок повторного визита не задан: ни напоминания клиенту, ни
+  // предложения записаться повторно от AI-консультанта не будет.
+  repeatIntervalDays: z.coerce.number().min(0).max(364).default(0),
   prepaymentType: z.enum(["none", "fixed", "percent"]).default("none"),
   prepaymentValue: z.coerce.number().min(0).default(0),
 });
@@ -875,8 +891,8 @@ export async function createServiceAction(
     price: parsed.data.price,
     sort_order: parsed.data.sortOrder,
     is_active: true,
-    repeat_interval_weeks: parsed.data.repeatIntervalWeeks > 0
-      ? parsed.data.repeatIntervalWeeks
+    repeat_interval_days: parsed.data.repeatIntervalDays > 0
+      ? parsed.data.repeatIntervalDays
       : null,
     prepayment_type: parsed.data.prepaymentType,
     prepayment_value: parsed.data.prepaymentValue,
@@ -982,8 +998,8 @@ export async function updateServiceAction(
       price: parsed.data.price,
       sort_order: parsed.data.sortOrder,
       is_active: nextActive,
-      repeat_interval_weeks: parsed.data.repeatIntervalWeeks > 0
-        ? parsed.data.repeatIntervalWeeks
+      repeat_interval_days: parsed.data.repeatIntervalDays > 0
+        ? parsed.data.repeatIntervalDays
         : null,
       prepayment_type: parsed.data.prepaymentType,
       prepayment_value: parsed.data.prepaymentValue,

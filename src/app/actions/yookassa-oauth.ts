@@ -6,7 +6,8 @@ import { getCurrentAuthProfile } from "@/lib/data";
 import { writeAuditLog } from "@/lib/observability/audit";
 import { logError } from "@/lib/observability/logger";
 import {
-  getActiveMasterYooKassaToken,
+  deleteMasterYooKassaWebhooks,
+  getMasterYooKassaTokenForRevoke,
   markMasterYooKassaAccountRevoked,
   revokeYooKassaTokenRemote,
 } from "@/lib/payments/yookassa-oauth";
@@ -45,9 +46,13 @@ export async function revokeYooKassaAccountAction(
   const profile = authProfile.profile;
   const supabase = await createSupabaseServerClient();
 
-  const activeToken = await getActiveMasterYooKassaToken(supabase, profile.id);
-  if (activeToken) {
-    await revokeYooKassaTokenRemote(activeToken.accessToken);
+  // Токен берём независимо от статуса: подключение, не добравшееся до
+  // 'enabled' (не завелись вебхуки), тоже надо отозвать у ЮKassa.
+  const token = await getMasterYooKassaTokenForRevoke(supabase, profile.id);
+  if (token) {
+    // Сначала подписки, потом токен: после отзыва удалять их уже нечем.
+    await deleteMasterYooKassaWebhooks(token.accessToken, token.webhooks);
+    await revokeYooKassaTokenRemote(token.accessToken);
   }
 
   await markMasterYooKassaAccountRevoked(supabase, profile.id);

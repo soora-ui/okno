@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { isLegalEntityReady, legalDocuments, legalEntity } from "@/config/legal";
+import { legalDocuments, legalEntity } from "@/config/legal";
 import { landingDemoPublicPageHref } from "@/lib/landing-demo";
 import { publicLinkHost } from "@/lib/site";
 
@@ -73,13 +73,9 @@ export function SiteFooter() {
         <p className="text-sm text-muted">
           © {year} {publicLinkHost}
         </p>
-        {/* Реквизиты появятся в футере, как только будут заполнены в
-            src/config/legal.ts: пустую строку «ИНН » показывать хуже, чем ничего. */}
-        {isLegalEntityReady ? (
-          <p className="text-sm text-muted">
-            {legalEntity.shortName || legalEntity.name} · ИНН {legalEntity.inn}
-          </p>
-        ) : null}
+        <p className="text-sm text-muted">
+          {legalEntity.shortName || legalEntity.name} · ИНН {legalEntity.inn}
+        </p>
       </div>
     </footer>
   );

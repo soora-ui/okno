@@ -114,10 +114,10 @@ export function mapService(row: Record<string, unknown>) {
     price: Number(row.price),
     isActive: Boolean(row.is_active),
     sortOrder: Number(row.sort_order ?? 0),
-    repeatIntervalWeeks:
-      row.repeat_interval_weeks === null || row.repeat_interval_weeks === undefined
+    repeatIntervalDays:
+      row.repeat_interval_days === null || row.repeat_interval_days === undefined
         ? null
-        : Number(row.repeat_interval_weeks),
+        : Number(row.repeat_interval_days),
     prepaymentType: prepaymentType as "none" | "fixed" | "percent",
     prepaymentValue: Number(row.prepayment_value ?? 0),
   };

@@ -6,7 +6,7 @@ export default function CabinetLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SiteShell compact showAccountNotifications>
+    <SiteShell compact showAccountNotifications bottomNav>
       {children}
     </SiteShell>
   );

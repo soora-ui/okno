@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { LegalDocumentPage } from "@/components/legal/legal-document-page";
 import { getLegalDocument } from "@/config/legal";
-import { offerSections } from "@/content/legal/offer";
+import {
+  offerAppendix,
+  offerPreamble,
+  offerSections,
+} from "@/content/legal/offer";
 
 const doc = getLegalDocument("offer");
 
@@ -14,5 +18,12 @@ export const metadata: Metadata = {
 };
 
 export default function OfferPage() {
-  return <LegalDocumentPage doc={doc} sections={offerSections} />;
+  return (
+    <LegalDocumentPage
+      doc={doc}
+      sections={offerSections}
+      intro={offerPreamble}
+      appendix={offerAppendix}
+    />
+  );
 }

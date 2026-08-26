@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
-import { env, isSupabaseConfigured, isYooKassaConfigured } from "@/lib/env";
+import { env, isSupabaseConfigured } from "@/lib/env";
 import { normalizeBookingPageSettings } from "@/lib/booking-page-settings";
 import {
   generateCertificateToken,
@@ -14,8 +14,16 @@ import {
 } from "@/lib/gift-certificates";
 import { logError } from "@/lib/observability/logger";
 import { writeAuditLog } from "@/lib/observability/audit";
-import { createYooKassaPayment } from "@/lib/payments/yookassa";
-import { isSupabaseMissingTableError } from "@/lib/supabase/auth-errors";
+import { notifyMasterYooKassaRevoked } from "@/lib/notifications";
+import { createYooKassaPaymentWithToken, YooKassaAuthError } from "@/lib/payments/yookassa";
+import {
+  getActiveMasterYooKassaToken,
+  markMasterYooKassaAccountRevoked,
+} from "@/lib/payments/yookassa-oauth";
+import {
+  isSupabaseMissingColumnError,
+  isSupabaseMissingTableError,
+} from "@/lib/supabase/auth-errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type GiftCertificatePurchaseActionState = {
@@ -26,10 +34,19 @@ export type GiftCertificatePurchaseActionState = {
 const migrationHint =
   "В базе еще нет таблицы сертификатов. Прогони миграцию 202607090001_gift_certificates.sql и попробуй еще раз.";
 
+const oauthMigrationHint =
+  "В базе еще нет связи сертификата с магазином мастера. Прогони миграцию 202608070001_gift_certificates_master_yookassa.sql и попробуй еще раз.";
+
 // Покупка подарочного сертификата с публичной страницы мастера. Платит
-// покупатель (клиент), не мастер — в отличие от PRO-подписки. Тот же паттерн:
-// создаем pending-запись у себя и в ЮKassa, затем уводим покупателя на оплату.
+// покупатель (клиент), не мастер — в отличие от PRO-подписки. Создаем
+// pending-запись у себя и в ЮKassa, затем уводим покупателя на оплату.
 // Код сертификата отправится покупателю уже вебхуком после успешной оплаты.
+//
+// Деньги идут напрямую в магазин мастера через его OAuth-токен ЮKassa, минуя
+// счёт платформы — платформа не платёжный агент (PRODUCT.md, «Деньги»;
+// okno-functional-description.md п. 7.2). Тот же механизм, что у предоплаты
+// за услугу (src/app/api/bookings/route.ts), платформенная пара
+// shopId/secretKey здесь не участвует.
 export async function purchaseGiftCertificateAction(
   _prevState: GiftCertificatePurchaseActionState,
   formData: FormData,
@@ -38,13 +55,6 @@ export async function purchaseGiftCertificateAction(
     return {
       success: false,
       message: "Покупка сертификата пока недоступна: нет подключения к Supabase.",
-    };
-  }
-
-  if (!isYooKassaConfigured) {
-    return {
-      success: false,
-      message: "Оплата пока недоступна: не настроены ключи ЮKassa.",
     };
   }
 
@@ -69,7 +79,7 @@ export async function purchaseGiftCertificateAction(
   const admin = createSupabaseAdminClient();
   const { data: profileRow, error: profileError } = await admin
     .from("profiles")
-    .select("id, full_name, booking_page_settings, account_status")
+    .select("id, full_name, booking_page_settings, account_status, telegram_chat_id")
     .eq("username", parsed.data.username)
     .maybeSingle();
 
@@ -107,6 +117,22 @@ export async function purchaseGiftCertificateAction(
     }
   }
 
+  // Оплату принимает магазин мастера, а не платформы, — без активного
+  // OAuth-подключения продавать сертификат нечем. Проверяем до создания
+  // pending-строки, чтобы не плодить мусорные сертификаты, которые всё равно
+  // некому оплатить (мастер не может включить продажу, не подключив ЮKassa,
+  // см. updateCertificateSalesEnabledAction; эта проверка ловит случай, когда
+  // он отключил её уже после включения продажи).
+  const masterYooKassaToken = await getActiveMasterYooKassaToken(admin, profileRow.id);
+
+  if (!masterYooKassaToken) {
+    return {
+      success: false,
+      message:
+        "Мастер сейчас не может принять оплату сертификата. Свяжись с мастером напрямую.",
+    };
+  }
+
   const { data: templateRow } = await admin
     .from("certificate_templates")
     .select("id")
@@ -137,6 +163,7 @@ export async function purchaseGiftCertificateAction(
         .filter(Boolean)
         .join(" · "),
       provider: "yookassa",
+      master_yookassa_account_id: masterYooKassaToken.accountId,
       idempotence_key: idempotenceKey,
       expires_at: expiresAt,
     })
@@ -146,6 +173,10 @@ export async function purchaseGiftCertificateAction(
   if (insertError || !certificateRow) {
     if (isSupabaseMissingTableError(insertError, "gift_certificates")) {
       return { success: false, message: migrationHint };
+    }
+
+    if (isSupabaseMissingColumnError(insertError, "master_yookassa_account_id")) {
+      return { success: false, message: oauthMigrationHint };
     }
 
     logError("Failed to create gift certificate row", {
@@ -158,9 +189,11 @@ export async function purchaseGiftCertificateAction(
   let confirmationUrl: string | null = null;
 
   try {
-    const payment = await createYooKassaPayment({
+    const payment = await createYooKassaPaymentWithToken(masterYooKassaToken.accessToken, {
       amountRub: parsed.data.amount,
-      description: `okno: подарочный сертификат на ${parsed.data.amount} руб. — ${profileRow.full_name}`,
+      // Без префикса «okno»: платёж проходит в магазине мастера, и покупатель
+      // видит это описание в выписке рядом с именем мастера, а не сервиса.
+      description: `Подарочный сертификат на ${parsed.data.amount} руб. — ${profileRow.full_name}`,
       // certificateId + ct(token) в возвратном URL — единственный способ
       // покупателя (без аккаунта) доказать право на скачивание PDF после
       // оплаты; тот же токен зашит в QR-код на самом сертификате.
@@ -192,6 +225,22 @@ export async function purchaseGiftCertificateAction(
       .from("gift_certificates")
       .update({ status: "canceled", updated_at: new Date().toISOString() })
       .eq("id", certificateRow.id);
+
+    if (error instanceof YooKassaAuthError) {
+      // Мастер отозвал доступ на стороне ЮKassa напрямую, не через кнопку
+      // «Отключить» — синхронизируем статус и просим переподключиться, иначе
+      // следующие покупатели тоже упрутся в ту же стену.
+      await markMasterYooKassaAccountRevoked(admin, profileRow.id);
+      await notifyMasterYooKassaRevoked({
+        chatId: profileRow.telegram_chat_id ? String(profileRow.telegram_chat_id) : null,
+      });
+      return {
+        success: false,
+        message:
+          "Мастер сейчас не может принять оплату сертификата. Свяжись с мастером напрямую.",
+      };
+    }
+
     return {
       success: false,
       message: "ЮKassa не приняла платеж. Попробуй еще раз.",

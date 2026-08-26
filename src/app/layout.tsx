@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { BookingThemeStyles } from "@/components/booking/booking-theme-styles";
 import "./globals.css";
@@ -12,6 +12,14 @@ const manrope = Manrope({
   variable: "--font-manrope-loaded",
   display: "swap",
 });
+
+// viewport-fit=cover обязателен, иначе env(safe-area-inset-*) на iOS всегда
+// равен нулю и нижняя панель кабинета садится вплотную к домашнему индикатору.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "okno",

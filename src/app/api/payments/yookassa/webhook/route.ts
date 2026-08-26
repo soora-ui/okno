@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { DateTime } from "luxon";
 import { isYooKassaConfigured } from "@/lib/env";
 import { logError, logWarn } from "@/lib/observability/logger";
 import { writeAuditLog } from "@/lib/observability/audit";
@@ -11,28 +10,34 @@ import {
 } from "@/lib/payments/yookassa";
 import { isYooKassaIp } from "@/lib/payments/yookassa-ips";
 import { decryptOAuthToken, markMasterYooKassaAccountRevoked } from "@/lib/payments/yookassa-oauth";
+import {
+  SUBSCRIPTION_PAYMENT_COLUMNS,
+  applySubscriptionPaymentResult,
+  mapSubscriptionPaymentRow,
+} from "@/lib/subscription-activation";
 import { notifyMasterYooKassaRevoked } from "@/lib/notifications";
 import { getClientIp } from "@/lib/public-booking-guards";
-import { applyReferralRewardForFirstPayment } from "@/lib/referral-rewards";
-import { type PlanId, isPlanId } from "@/config/plans";
-import { planPeriodDays } from "@/lib/subscription";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
 // Вебхук ЮKassa. Тело уведомления не является доверенным источником: статус
-// оплаты мы перепроверяем прямым запросом к API ЮKassa нашими ключами, поэтому
-// подделать активацию PRO/сертификата нельзя. Дополнительно принимаем
+// оплаты мы перепроверяем прямым запросом к API ЮKassa, поэтому подделать
+// активацию PRO/сертификата нельзя. Каким ключом перепроверять — зависит от
+// того, в чьём магазине создан платёж: подписка PRO и чаевые живут в магазине
+// платформы (её пара shopId/secretKey), предоплата и сертификаты — в магазине
+// мастера, и перепроверяются его OAuth-токеном. Дополнительно принимаем
 // уведомления только с IP-адресов ЮKassa (HMAC-подписи у их вебхуков нет —
 // IP-фильтр это официальная рекомендация). Всегда отвечаем 2xx на
 // обработанные события, чтобы ЮKassa не слала повторы; 5xx — только при
 // внутренней ошибке (даём повтор).
 //
-// Один платёж всегда относится ровно к одной из двух своих таблиц
+// Один платёж всегда относится ровно к одной своей таблице
 // (subscription_payments — платит мастер за PRO, gift_certificates — платит
-// клиент за сертификат); metadata.kind в самом платеже ЮKassa указывает,
-// какую ветку проверять первой, но мы все равно смотрим на реальное
-// совпадение provider_payment_id, а не доверяем присланным метаданным вслепую.
+// клиент за сертификат, prepayments — предоплата за услугу, tips — чаевые);
+// metadata.kind в самом платеже ЮKassa указывает, какую ветку проверять
+// первой, но мы все равно смотрим на реальное совпадение
+// provider_payment_id, а не доверяем присланным метаданным вслепую.
 export async function POST(request: Request) {
   if (!isYooKassaConfigured) {
     return NextResponse.json({ error: "ЮKassa не настроена." }, { status: 503 });
@@ -63,13 +68,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: "no_payment_id" });
   }
 
-  // Предоплата за услугу (Модуль 2, okno-tz-rating-prepayment.md) и
-  // подписка PRO мастера используют один и тот же вебхук ЮKassa, но
-  // разные таблицы. metadata.kind — быстрая маршрутизация; если её нет
-  // (старые платежи PRO без поля kind), проверяем subscription_payments
-  // по умолчанию, как и раньше.
+  // Все платежи сервиса приходят в один вебхук, но лежат в разных таблицах.
+  // metadata.kind — быстрая маршрутизация; если её нет (старые платежи PRO
+  // без поля kind), проверяем subscription_payments по умолчанию, как и
+  // раньше. Предоплата и сертификаты выделены в свои ветки не ради скорости:
+  // их платежи созданы токеном мастера, и запрашивать их платформенными
+  // ключами бессмысленно — ЮKassa ответит 404.
   if (notificationKind === "prepayment") {
     return handlePrepaymentWebhook(paymentId);
+  }
+
+  if (notificationKind === "gift_certificate") {
+    return handleGiftCertificateWebhook(paymentId);
   }
 
   return handleSubscriptionWebhook(paymentId);
@@ -114,7 +124,7 @@ async function handleSubscriptionPayment(input: {
 
   const { data: paymentRow, error: rowError } = await supabase
     .from("subscription_payments")
-    .select("id, profile_id, period_days, status, plan")
+    .select(SUBSCRIPTION_PAYMENT_COLUMNS)
     .eq("provider_payment_id", paymentId)
     .maybeSingle();
 
@@ -127,102 +137,29 @@ async function handleSubscriptionPayment(input: {
     return NextResponse.json({ ok: true, ignored: "unknown_payment" });
   }
 
-  if (payment.status === "canceled") {
-    await supabase
-      .from("subscription_payments")
-      .update({ status: "canceled", updated_at: new Date().toISOString() })
-      .eq("id", paymentRow.id);
-    return NextResponse.json({ ok: true, status: "canceled" });
-  }
-
-  if (payment.status !== "succeeded") {
-    // Платёж ещё не оплачен — ждём следующего уведомления.
-    return NextResponse.json({ ok: true, status: payment.status });
-  }
-
-  if (paymentRow.status === "succeeded") {
-    return NextResponse.json({ ok: true, status: "already_succeeded" });
-  }
-
-  // Нужно узнать до обновления текущей записи: это первая успешная оплата
-  // подписки у мастера? Реферальный бонус пригласившему начисляется только
-  // за первую оплату приглашённого.
-  const { count: priorSucceededCount } = await supabase
-    .from("subscription_payments")
-    .select("id", { count: "exact", head: true })
-    .eq("profile_id", paymentRow.profile_id)
-    .eq("status", "succeeded");
-  const isFirstSuccessfulPayment = (priorSucceededCount ?? 0) === 0;
-
-  const periodDays = Number(paymentRow.period_days ?? planPeriodDays);
-
-  // Тариф берём из оплаченной строки, а не хардкодим: мастер мог купить любой
-  // из трёх. Неизвестное значение (старые платежи с plan='pro') трактуем как
-  // «Соло. Расширенный» — столько доступа они и оплачивали.
-  const paidPlanId: PlanId = isPlanId(paymentRow.plan)
-    ? paymentRow.plan
-    : "solo-plus";
-
-  // Продлеваем от большей из дат: оплата в середине оплаченного периода не
-  // должна сжигать остаток. Раньше здесь всегда стоял now(), из-за чего раннее
-  // продление отнимало у мастера уже оплаченные дни. Реферальный бонус
-  // (src/lib/referral-rewards.ts) считает так же.
-  const { data: currentProfile } = await supabase
-    .from("profiles")
-    .select("subscription_until")
-    .eq("id", paymentRow.profile_id)
-    .maybeSingle();
-
-  const currentUntil = currentProfile?.subscription_until
-    ? DateTime.fromISO(String(currentProfile.subscription_until))
-    : null;
-  const base =
-    currentUntil?.isValid && currentUntil > DateTime.now()
-      ? currentUntil
-      : DateTime.now();
-  const subscriptionUntil = base.plus({ days: periodDays }).toUTC().toISO();
-
-  await supabase
-    .from("subscription_payments")
-    .update({ status: "succeeded", updated_at: new Date().toISOString() })
-    .eq("id", paymentRow.id);
-
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .update({
-      subscription_tier: paidPlanId,
-      subscription_until: subscriptionUntil,
-    })
-    .eq("id", paymentRow.profile_id);
-
-  if (profileError) {
-    logError("Webhook: failed to activate PRO", {
-      paymentId,
-      profileId: paymentRow.profile_id,
-      error: profileError,
-    });
-    return NextResponse.json({ error: "Внутренняя ошибка." }, { status: 500 });
-  }
-
-  await writeAuditLog({
-    actorKind: "system",
-    profileId: paymentRow.profile_id,
-    eventType: "subscription.activated",
-    targetType: "subscription_payment",
-    targetId: paymentRow.id,
-    metadata: { until: subscriptionUntil },
+  // Вся работа — в общей функции: тем же кодом пользуется подборщик зависших
+  // платежей (src/lib/subscription-activation.ts). Здесь остаётся только
+  // перевод исхода в ответ, который ждёт ЮKassa.
+  const outcome = await applySubscriptionPaymentResult({
+    supabase,
+    row: mapSubscriptionPaymentRow(paymentRow as Record<string, unknown>),
+    payment,
   });
 
-  // Реферальная программа: за первую оплату PRO приглашённым мастером
-  // пригласивший получает +30 дней PRO. Не влияет на ответ вебхука ЮKassa —
-  // ошибки здесь не должны приводить к повторной отправке уведомления.
-  if (isFirstSuccessfulPayment) {
-    await applyReferralRewardForFirstPayment(supabase, {
-      referredProfileId: paymentRow.profile_id,
-    });
+  switch (outcome.kind) {
+    case "already_canceled":
+      return NextResponse.json({ ok: true, status: "already_canceled" });
+    case "canceled":
+      return NextResponse.json({ ok: true, status: "canceled" });
+    case "waiting":
+      return NextResponse.json({ ok: true, status: outcome.status });
+    case "already_succeeded":
+      return NextResponse.json({ ok: true, status: "already_succeeded" });
+    case "succeeded":
+      return NextResponse.json({ ok: true, status: "succeeded" });
+    case "failed":
+      return NextResponse.json({ error: "Внутренняя ошибка." }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true, status: "succeeded" });
 }
 
 async function handleTipPayment(input: {
@@ -280,9 +217,112 @@ async function handleTipPayment(input: {
     metadata: { amount: tipRow.amount, bookingId: tipRow.booking_id },
   });
 
+  // Чек НПД здесь не выбивается: чаевые — деньги клиента в адрес мастера, а
+  // не доход платформы (PRODUCT.md, «Деньги»). Чек по ним — обязанность
+  // мастера, и после переезда чаевых на CloudTips платформа их вообще не
+  // увидит (okno-todo.md).
+
   return NextResponse.json({ ok: true, status: "succeeded" });
 }
 
+const GIFT_CERTIFICATE_COLUMNS =
+  "id, profile_id, status, code, amount, master_yookassa_account_id";
+
+type GiftCertificateRow = {
+  id: string;
+  profile_id: string;
+  status: string;
+  amount: number;
+  master_yookassa_account_id: string | null;
+};
+
+// Сертификат покупает клиент у мастера, и платёж создан в магазине мастера его
+// OAuth-токеном (см. purchaseGiftCertificateAction) — статус перепроверяем тем
+// же Bearer-токеном, платформенная пара shopId/secretKey к этим деньгам
+// отношения не имеет (PRODUCT.md, «Деньги»). Сертификаты, купленные до
+// перехода на OAuth, лежат без master_yookassa_account_id: их платёж остался в
+// магазине платформы, и перепроверять его можно только её ключами.
+async function handleGiftCertificateWebhook(paymentId: string) {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data: certificateRow, error: rowError } = await supabase
+      .from("gift_certificates")
+      .select(GIFT_CERTIFICATE_COLUMNS)
+      .eq("provider_payment_id", paymentId)
+      .maybeSingle();
+
+    if (rowError) {
+      logError("Webhook: failed to load gift certificate row", {
+        paymentId,
+        error: rowError,
+      });
+      return NextResponse.json({ error: "Внутренняя ошибка." }, { status: 500 });
+    }
+
+    if (!certificateRow) {
+      // Платёж помечен как сертификатный, но сертификата под него нет — не
+      // молчим 404-кой, пробуем остальные ветки, как и раньше.
+      return handleSubscriptionWebhook(paymentId);
+    }
+
+    const row = certificateRow as unknown as GiftCertificateRow;
+    let payment: YooKassaPayment;
+
+    if (row.master_yookassa_account_id) {
+      const { data: accountRow, error: accountError } = await supabase
+        .from("master_yookassa_accounts")
+        .select("access_token_encrypted")
+        .eq("id", row.master_yookassa_account_id)
+        .maybeSingle();
+
+      if (accountError || !accountRow) {
+        logError("Webhook: failed to load master YooKassa account for gift certificate", {
+          paymentId,
+          certificateId: row.id,
+          error: accountError,
+        });
+        return NextResponse.json({ error: "Внутренняя ошибка." }, { status: 500 });
+      }
+
+      try {
+        const accessToken = decryptOAuthToken(String(accountRow.access_token_encrypted));
+        payment = await getYooKassaPaymentWithToken(accessToken, paymentId);
+      } catch (error) {
+        if (error instanceof YooKassaAuthError) {
+          // Мастер отозвал доступ напрямую в ЮKassa — синхронизируем статус и
+          // просим переподключиться. Сертификат остаётся pending: подтвердить
+          // оплату нечем, а выдавать его без подтверждения нельзя.
+          await markMasterYooKassaAccountRevoked(supabase, String(row.profile_id));
+
+          const { data: profileRow } = await supabase
+            .from("profiles")
+            .select("telegram_chat_id")
+            .eq("id", row.profile_id)
+            .maybeSingle();
+          await notifyMasterYooKassaRevoked({
+            chatId: profileRow?.telegram_chat_id ? String(profileRow.telegram_chat_id) : null,
+          });
+
+          return NextResponse.json({ ok: true, status: "master_token_revoked" });
+        }
+
+        throw error;
+      }
+    } else {
+      payment = await getYooKassaPayment(paymentId);
+    }
+
+    return applyGiftCertificatePayment({ supabase, certificateRow: row, payment });
+  } catch (error) {
+    logError("Webhook: unexpected error (gift certificate)", { paymentId, error });
+    return NextResponse.json({ error: "Внутренняя ошибка." }, { status: 500 });
+  }
+}
+
+// Ветка для платежей, у которых kind виден только в самом платеже, но не в теле
+// уведомления. Такое возможно лишь у сертификатов, купленных до перехода на
+// OAuth (платёж уже получен ключами платформы вызывающим кодом) — у новых
+// платёж платформенными ключами не читается вовсе.
 async function handleGiftCertificatePayment(input: {
   supabase: SupabaseAdminClient;
   paymentId: string;
@@ -292,7 +332,7 @@ async function handleGiftCertificatePayment(input: {
 
   const { data: certificateRow, error: rowError } = await supabase
     .from("gift_certificates")
-    .select("id, profile_id, status, code, amount")
+    .select(GIFT_CERTIFICATE_COLUMNS)
     .eq("provider_payment_id", paymentId)
     .maybeSingle();
 
@@ -307,6 +347,20 @@ async function handleGiftCertificatePayment(input: {
   if (!certificateRow) {
     return null;
   }
+
+  return applyGiftCertificatePayment({
+    supabase,
+    certificateRow: certificateRow as unknown as GiftCertificateRow,
+    payment,
+  });
+}
+
+async function applyGiftCertificatePayment(input: {
+  supabase: SupabaseAdminClient;
+  certificateRow: GiftCertificateRow;
+  payment: YooKassaPayment;
+}) {
+  const { supabase, certificateRow, payment } = input;
 
   if (payment.status === "canceled") {
     await supabase
@@ -343,6 +397,9 @@ async function handleGiftCertificatePayment(input: {
     targetId: certificateRow.id,
     metadata: { amount: certificateRow.amount },
   });
+
+  // Чек НПД не выбивается: сертификат покупает клиент у мастера, деньги —
+  // его, а не платформы (PRODUCT.md, «Деньги»).
 
   // Доставка сертификата покупателю — не SMS/email, а скачивание PDF по
   // возврату с оплаты (см. purchaseGiftCertificateAction: returnUrl несёт

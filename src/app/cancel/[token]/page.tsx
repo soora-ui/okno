@@ -3,9 +3,11 @@ import { Ban, CalendarX2, CheckCircle2 } from "lucide-react";
 import { ClientCancellationForm } from "@/components/forms/client-cancellation-form";
 import { ClientRescheduleForm } from "@/components/forms/client-reschedule-form";
 import { SiteShell } from "@/components/layout/site-shell";
+import { ServiceConsultantButton } from "@/components/support/service-consultant-widget";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getBookingCancellationData } from "@/lib/data";
+import { isConsultationAvailable } from "@/lib/service-consultant/availability";
 
 type CancelBookingPageProps = {
   params: Promise<{
@@ -30,8 +32,14 @@ export default async function CancelBookingPage({
 
   const isAlreadyCancelled = booking.status !== "confirmed";
 
+  // По отменённой записи консультировать не о чем: визита не было, срок
+  // повторного отсчитывать не от чего.
+  const showConsultant =
+    !isAlreadyCancelled &&
+    (await isConsultationAvailable({ serviceId: booking.serviceId }));
+
   return (
-    <SiteShell compact hideGuestMenu resolveAuth={false}>
+    <SiteShell compact hideGuestMenu resolveAuth={false} showSupportWidget={false}>
       <div className="mx-auto max-w-3xl py-10">
         <Card className="space-y-6 text-center">
           <div
@@ -83,6 +91,17 @@ export default async function CancelBookingPage({
               <p className="mt-3 text-sm text-muted">
                 Отменить можно до {booking.cancellationDeadlineLabel}.
               </p>
+            ) : null}
+
+            {/* Кнопка стоит прямо под деталями визита: вопросы про уход
+                возникают именно здесь, когда клиент смотрит на свою запись. */}
+            {showConsultant ? (
+              <div className="mt-4">
+                <ServiceConsultantButton
+                  token={booking.cancellationToken}
+                  serviceTitle={booking.serviceTitle}
+                />
+              </div>
             ) : null}
           </div>
 

@@ -4,7 +4,8 @@
 // ронял запрос. Импортировать ТОЛЬКО из серверного кода — тянет service-role
 // ключ; в logger.ts он подгружается ленивым import под проверкой `window`.
 
-import { isSupabaseConfigured } from "@/lib/env";
+import { isErrorEventsEnabled, isSupabaseConfigured } from "@/lib/env";
+import { sanitizeLogContext } from "@/lib/observability/sanitize";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type ErrorEventInput = {
@@ -17,23 +18,15 @@ export type ErrorEventInput = {
   context?: Record<string, unknown> | null;
 };
 
-const sensitiveKey = /phone|password|token|secret|authorization|cookie|hash/i;
-
-function sanitizeContext(
-  context: Record<string, unknown> | null | undefined,
-): Record<string, unknown> | null {
-  if (!context) {
-    return null;
+export async function recordErrorEvent(input: ErrorEventInput): Promise<void> {
+  // В dev-сборке не пишем: .env.local смотрит на тот же проект Supabase, что и
+  // прод, и ошибки локальной сборки (сломанный синтаксис, «Router action
+  // dispatched before initialization») оседали в общей ленте /admin/errors.
+  // Ошибки при этом никуда не деваются — logger по-прежнему пишет их в консоль.
+  if (!isErrorEventsEnabled) {
+    return;
   }
 
-  return Object.fromEntries(
-    Object.entries(context)
-      .filter(([key]) => !sensitiveKey.test(key))
-      .map(([key, value]) => [key, value ?? null]),
-  );
-}
-
-export async function recordErrorEvent(input: ErrorEventInput): Promise<void> {
   if (!isSupabaseConfigured) {
     return;
   }
@@ -47,7 +40,7 @@ export async function recordErrorEvent(input: ErrorEventInput): Promise<void> {
       route: input.route ?? null,
       digest: input.digest ?? null,
       profile_id: input.profileId ?? null,
-      context: sanitizeContext(input.context),
+      context: sanitizeLogContext(input.context),
     });
 
     if (error) {

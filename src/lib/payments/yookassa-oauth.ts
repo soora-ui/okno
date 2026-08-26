@@ -4,10 +4,12 @@ import {
   createHash,
   createHmac,
   randomBytes,
+  randomUUID,
   timingSafeEqual,
 } from "node:crypto";
 import { env, isYooKassaOAuthConfigured } from "@/lib/env";
 import { logError, logWarn } from "@/lib/observability/logger";
+import { YooKassaAuthError } from "@/lib/payments/yookassa";
 import type { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -23,8 +25,12 @@ const AUTHORIZE_URL = "https://yookassa.ru/oauth/v2/authorize";
 const TOKEN_URL = "https://yookassa.ru/oauth/v2/token";
 const REVOKE_URL = "https://yookassa.ru/oauth/v2/revoke_token";
 const ME_URL = "https://api.yookassa.ru/v3/me";
+const WEBHOOKS_URL = "https://api.yookassa.ru/v3/webhooks";
 
 export const yookassaOAuthCallbackPath = "/api/yookassa/oauth/callback";
+export const yookassaWebhookPath = "/api/payments/yookassa/webhook";
+
+export type MasterYooKassaWebhook = { id: string; event: string };
 
 type SupabaseClient =
   | Awaited<ReturnType<typeof createSupabaseServerClient>>
@@ -39,6 +45,7 @@ export type MasterYooKassaAccount = {
   status: "enabled" | "disabled" | "revoked";
   connectedAt: string;
   revokedAt: string | null;
+  webhooks: MasterYooKassaWebhook[];
 };
 
 // ---- Токен: AES-256-GCM, отдельный секрет от телефонов клиентов ----
@@ -237,6 +244,160 @@ export async function fetchYooKassaMe(accessToken: string): Promise<YooKassaMe> 
   };
 }
 
+// ---- Подписки на уведомления в магазине мастера ----
+// Уведомления по платежу приходят на адрес, привязанный к тому ключу, которым
+// платёж создан. Предоплата и сертификаты создаются OAuth-токеном мастера, а
+// значит настройка вебхука в кабинете платформы на них не распространяется —
+// подписку надо завести отдельно, тем же токеном. Без неё оплаченная
+// предоплата остаётся в pending и джоба /api/jobs/prepayments снимает бронь,
+// хотя деньги у клиента уже списаны.
+//
+// Подписываемся только на события, которые вебхук реально умеет разбирать:
+// на refund.succeeded в теле придёт возврат, а не платёж, и обработчик будет
+// бесконечно получать повторы по несуществующему платежу.
+export const MASTER_WEBHOOK_EVENTS = ["payment.succeeded", "payment.canceled"] as const;
+
+export function buildMasterWebhookUrl() {
+  return new URL(yookassaWebhookPath, env.appUrl).toString();
+}
+
+type WebhookListItem = { id: string; event: string; url: string };
+
+async function listMasterWebhooks(accessToken: string): Promise<WebhookListItem[]> {
+  const response = await fetch(WEBHOOKS_URL, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new YooKassaAuthError("Токен мастера отозван или недействителен.");
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`ЮKassa: список вебхуков вернул ${response.status}: ${text}`);
+  }
+
+  const data = (await response.json()) as { items?: unknown };
+
+  return Array.isArray(data.items)
+    ? data.items
+        .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+        .filter(
+          (item) =>
+            typeof item.id === "string" &&
+            typeof item.event === "string" &&
+            typeof item.url === "string",
+        )
+        .map((item) => ({
+          id: String(item.id),
+          event: String(item.event),
+          url: String(item.url),
+        }))
+    : [];
+}
+
+async function createMasterWebhook(
+  accessToken: string,
+  event: string,
+  url: string,
+): Promise<MasterYooKassaWebhook> {
+  const response = await fetch(WEBHOOKS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotence-Key": randomUUID(),
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ event, url }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new YooKassaAuthError("Токен мастера отозван или недействителен.");
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`ЮKassa: создание вебхука ${event} вернуло ${response.status}: ${text}`);
+  }
+
+  const data = (await response.json()) as { id?: unknown };
+  if (typeof data.id !== "string" || !data.id) {
+    throw new Error(`ЮKassa: ответ на создание вебхука ${event} без id.`);
+  }
+
+  return { id: data.id, event };
+}
+
+async function deleteMasterWebhook(accessToken: string, webhookId: string) {
+  const response = await fetch(`${WEBHOOKS_URL}/${encodeURIComponent(webhookId)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new YooKassaAuthError("Токен мастера отозван или недействителен.");
+  }
+
+  // 404 — подписки уже нет, для нас это тот же успех.
+  if (!response.ok && response.status !== 404) {
+    const text = await response.text();
+    throw new Error(`ЮKassa: удаление вебхука вернуло ${response.status}: ${text}`);
+  }
+}
+
+// Приводит подписки магазина мастера к нужному состоянию: по одной на каждое
+// событие из MASTER_WEBHOOK_EVENTS, все — на наш текущий адрес. Бросает
+// исключение, если хоть одну подписку завести не удалось: подключение с
+// частично настроенными уведомлениями опаснее, чем неподключенное (см.
+// callback — такой аккаунт сохраняется со status='disabled').
+export async function syncMasterYooKassaWebhooks(
+  accessToken: string,
+): Promise<MasterYooKassaWebhook[]> {
+  const url = buildMasterWebhookUrl();
+  // Список ограничен подписками, созданными этим же OAuth-токеном, — чужие
+  // интеграции мастера сюда не попадают и не пострадают.
+  const existing = await listMasterWebhooks(accessToken);
+  const result: MasterYooKassaWebhook[] = [];
+
+  for (const event of MASTER_WEBHOOK_EVENTS) {
+    const alreadyCorrect = existing.find((item) => item.event === event && item.url === url);
+    if (alreadyCorrect) {
+      result.push({ id: alreadyCorrect.id, event });
+      continue;
+    }
+
+    // На одно событие у токена может висеть только один адрес: если остался
+    // старый (сменился домен, переезд со staging) — снимаем, иначе ЮKassa не
+    // даст создать новый.
+    const stale = existing.find((item) => item.event === event);
+    if (stale) {
+      await deleteMasterWebhook(accessToken, stale.id);
+    }
+
+    result.push(await createMasterWebhook(accessToken, event, url));
+  }
+
+  return result;
+}
+
+// Best-effort снятие подписок при отключении магазина мастером. Отзыв токена
+// и так гасит уведомления, поэтому ошибки здесь только логируем.
+export async function deleteMasterYooKassaWebhooks(
+  accessToken: string,
+  webhooks: MasterYooKassaWebhook[],
+) {
+  for (const webhook of webhooks) {
+    try {
+      await deleteMasterWebhook(accessToken, webhook.id);
+    } catch (error) {
+      logWarn("YooKassa OAuth: failed to delete master webhook", {
+        webhookId: webhook.id,
+        error,
+      });
+    }
+  }
+}
+
 // ---- Отзыв токена на стороне ЮKassa ----
 // Best-effort: если ЮKassa недоступна или уже отозвала токен сама — все равно
 // помечаем аккаунт revoked локально (см. вызывающий код), чтобы мастер не
@@ -273,7 +434,16 @@ export async function revokeYooKassaTokenRemote(accessToken: string) {
 // (см. createSupabaseAdminClient в вызывающем коде).
 
 const ACCOUNT_COLUMNS =
-  "id, profile_id, yookassa_account_id, access_token_encrypted, token_expires_at, is_test_shop, payment_methods, status, connected_at, revoked_at";
+  "id, profile_id, yookassa_account_id, access_token_encrypted, token_expires_at, is_test_shop, payment_methods, status, connected_at, revoked_at, webhooks";
+
+function mapWebhooks(value: unknown): MasterYooKassaWebhook[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    .filter((item) => typeof item.id === "string" && typeof item.event === "string")
+    .map((item) => ({ id: String(item.id), event: String(item.event) }));
+}
 
 function mapAccountRow(row: Record<string, unknown>): MasterYooKassaAccount {
   return {
@@ -289,6 +459,7 @@ function mapAccountRow(row: Record<string, unknown>): MasterYooKassaAccount {
     status: row.status as MasterYooKassaAccount["status"],
     connectedAt: String(row.connected_at),
     revokedAt: row.revoked_at ? String(row.revoked_at) : null,
+    webhooks: mapWebhooks(row.webhooks),
   };
 }
 
@@ -310,17 +481,20 @@ export async function getMasterYooKassaAccount(
   return data ? mapAccountRow(data as Record<string, unknown>) : null;
 }
 
-// Для платежа/вебхука: расшифрованный токен + id аккаунта, только если
-// подключение активно (status='enabled'). Токен считается бессрочным, если
-// token_expires_at не задан (Partners API ЮKassa обычно не присылает
-// expires_in для боевых токенов) — expiry проверяем только когда он есть.
-export async function getActiveMasterYooKassaToken(
+type MasterYooKassaToken = {
+  accountId: string;
+  accessToken: string;
+  webhooks: MasterYooKassaWebhook[];
+};
+
+async function loadMasterYooKassaToken(
   supabase: SupabaseClient,
   profileId: string,
-): Promise<{ accountId: string; accessToken: string } | null> {
+  options: { requireEnabled: boolean },
+): Promise<MasterYooKassaToken | null> {
   const { data, error } = await supabase
     .from("master_yookassa_accounts")
-    .select("id, access_token_encrypted, token_expires_at, status")
+    .select("id, access_token_encrypted, token_expires_at, status, webhooks")
     .eq("profile_id", profileId)
     .maybeSingle();
 
@@ -329,23 +503,51 @@ export async function getActiveMasterYooKassaToken(
     return null;
   }
 
-  if (!data || data.status !== "enabled") {
+  if (!data) {
     return null;
   }
 
-  if (data.token_expires_at && new Date(data.token_expires_at as string).getTime() <= Date.now()) {
-    return null;
+  if (options.requireEnabled) {
+    if (data.status !== "enabled") {
+      return null;
+    }
+
+    if (data.token_expires_at && new Date(data.token_expires_at as string).getTime() <= Date.now()) {
+      return null;
+    }
   }
 
   try {
     return {
       accountId: String(data.id),
       accessToken: decryptOAuthToken(String(data.access_token_encrypted)),
+      webhooks: mapWebhooks(data.webhooks),
     };
   } catch (error) {
     logError("Failed to decrypt master YooKassa token", { profileId, error });
     return null;
   }
+}
+
+// Для платежа/вебхука: расшифрованный токен + id аккаунта, только если
+// подключение активно (status='enabled'). Токен считается бессрочным, если
+// token_expires_at не задан (Partners API ЮKassa обычно не присылает
+// expires_in для боевых токенов) — expiry проверяем только когда он есть.
+export async function getActiveMasterYooKassaToken(
+  supabase: SupabaseClient,
+  profileId: string,
+): Promise<MasterYooKassaToken | null> {
+  return loadMasterYooKassaToken(supabase, profileId, { requireEnabled: true });
+}
+
+// Для отключения: статус и срок не проверяем. Подключение, застрявшее в
+// 'disabled' (не удалось завести вебхуки) или с истёкшим токеном, тоже надо
+// уметь отозвать на стороне ЮKassa, а не только погасить у себя.
+export async function getMasterYooKassaTokenForRevoke(
+  supabase: SupabaseClient,
+  profileId: string,
+): Promise<MasterYooKassaToken | null> {
+  return loadMasterYooKassaToken(supabase, profileId, { requireEnabled: false });
 }
 
 export async function upsertMasterYooKassaAccount(
@@ -357,6 +559,11 @@ export async function upsertMasterYooKassaAccount(
     expiresInSeconds: number | null;
     isTestShop: boolean;
     paymentMethods: string[];
+    // 'disabled' — токен получен, но подписаться на уведомления не вышло:
+    // платежи через такой аккаунт проводить нельзя, статус оплаты до нас не
+    // дойдёт (см. callback).
+    status: "enabled" | "disabled";
+    webhooks: MasterYooKassaWebhook[];
   },
 ) {
   const tokenExpiresAt = input.expiresInSeconds
@@ -371,7 +578,8 @@ export async function upsertMasterYooKassaAccount(
       token_expires_at: tokenExpiresAt,
       is_test_shop: input.isTestShop,
       payment_methods: input.paymentMethods,
-      status: "enabled",
+      status: input.status,
+      webhooks: input.webhooks,
       connected_at: new Date().toISOString(),
       revoked_at: null,
       updated_at: new Date().toISOString(),
@@ -398,6 +606,9 @@ export async function markMasterYooKassaAccountRevoked(
       status: "revoked",
       revoked_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      // Подписки живут ровно столько же, сколько токен: после отзыва их id
+      // ничего не адресуют, и при переподключении заводятся новые.
+      webhooks: [],
     })
     .eq("profile_id", profileId);
 

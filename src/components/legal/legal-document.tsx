@@ -6,8 +6,11 @@ import {
   formatLegalDate,
   getArchivedLegalEditions,
   getCurrentLegalEdition,
+  getLegalDocument,
+  legalSiteOrigin,
   legalSubprocessors,
   type LegalDocument,
+  type LegalDocumentId,
 } from "@/config/legal";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +33,52 @@ export type LegalSection = {
   clauses: LegalClause[];
 };
 
-export const legalSectionAnchor = (index: number) => `p${index + 1}`;
+// У оферты два блока с собственной нумерацией — сам договор и Приложение № 1,
+// поэтому якорь строится с префиксом: иначе «1. Термины» договора и
+// «1. Общие положения» приложения делят один id.
+export const legalSectionAnchor = (index: number, prefix = "p") =>
+  `${prefix}${index + 1}`;
+
+// Ссылка на другой правовой документ. Показываем полный URL — договор читают
+// и на бумаге, где кликнуть по слову «Политика» не выйдет.
+export function LegalDocLink({ id }: { id: LegalDocumentId }) {
+  return <LegalUrl href={getLegalDocument(id).href} />;
+}
+
+export function LegalUrl({
+  href,
+  children,
+}: {
+  href: string;
+  children?: ReactNode;
+}) {
+  const external = href.startsWith("http");
+  // Корень пишем как «https://okno.business», без хвостового слэша.
+  const label = external ? href : `${legalSiteOrigin}${href}`.replace(/\/$/, "");
+
+  return (
+    <Link
+      href={external ? href : `${legalSiteOrigin}${href}`}
+      className="break-all text-ink underline underline-offset-4 transition hover:text-accent-deep"
+      {...(external
+        ? { target: "_blank", rel: "noreferrer noopener" }
+        : {})}
+    >
+      {children ?? label}
+    </Link>
+  );
+}
+
+export function LegalMail({ email }: { email: string }) {
+  return (
+    <a
+      href={`mailto:${email}`}
+      className="break-all text-ink underline underline-offset-4 transition hover:text-accent-deep"
+    >
+      {email}
+    </a>
+  );
+}
 
 // Место под реквизит, который ещё не определён. Показываем пропуск явно:
 // пустое место в договоре читатель заметит, а выдуманный ИНН — нет.
@@ -134,7 +182,37 @@ export function LegalDocumentHeader({ doc }: { doc: LegalDocument }) {
   );
 }
 
-export function LegalToc({ sections }: { sections: LegalSection[] }) {
+function LegalTocList({
+  sections,
+  anchorPrefix,
+}: {
+  sections: LegalSection[];
+  anchorPrefix?: string;
+}) {
+  return (
+    <ol className="space-y-2">
+      {sections.map((section, index) => (
+        <li key={section.title} className="flex gap-2 text-sm leading-6">
+          <span className="tabular-nums text-muted">{index + 1}.</span>
+          <a
+            href={`#${legalSectionAnchor(index, anchorPrefix)}`}
+            className="text-ink-soft transition hover:text-ink"
+          >
+            {section.title}
+          </a>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+export function LegalToc({
+  sections,
+  appendix,
+}: {
+  sections: LegalSection[];
+  appendix?: LegalAppendix;
+}) {
   return (
     <nav
       aria-label="Содержание документа"
@@ -143,19 +221,18 @@ export function LegalToc({ sections }: { sections: LegalSection[] }) {
       <p className="text-xs uppercase tracking-[0.18em] text-muted">
         Содержание
       </p>
-      <ol className="space-y-2">
-        {sections.map((section, index) => (
-          <li key={section.title} className="flex gap-2 text-sm leading-6">
-            <span className="tabular-nums text-muted">{index + 1}.</span>
-            <a
-              href={`#${legalSectionAnchor(index)}`}
-              className="text-ink-soft transition hover:text-ink"
-            >
-              {section.title}
-            </a>
-          </li>
-        ))}
-      </ol>
+      <LegalTocList sections={sections} />
+      {appendix ? (
+        <div className="space-y-3 border-t border-line pt-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-muted">
+            {appendix.navTitle}
+          </p>
+          <LegalTocList
+            sections={appendix.sections}
+            anchorPrefix={appendix.anchorPrefix}
+          />
+        </div>
+      ) : null}
     </nav>
   );
 }
@@ -205,13 +282,30 @@ function LegalClauseItems({
   );
 }
 
-export function LegalBody({ sections }: { sections: LegalSection[] }) {
+// Приложение к документу: собственная нумерация разделов и собственные якоря.
+export type LegalAppendix = {
+  // Заголовок над текстом приложения.
+  title: string;
+  // Короткое название для оглавления.
+  navTitle: string;
+  anchorPrefix: string;
+  intro?: ReactNode;
+  sections: LegalSection[];
+};
+
+export function LegalBody({
+  sections,
+  anchorPrefix,
+}: {
+  sections: LegalSection[];
+  anchorPrefix?: string;
+}) {
   return (
     <div className="space-y-12">
       {sections.map((section, sectionIndex) => (
         <section
           key={section.title}
-          id={legalSectionAnchor(sectionIndex)}
+          id={legalSectionAnchor(sectionIndex, anchorPrefix)}
           className="scroll-mt-28 space-y-4"
         >
           <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">

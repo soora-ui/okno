@@ -79,8 +79,6 @@
 ## 6. Отложенные находки аудита страниц (29.07.2026)
 
 - [ ] `src/components/settings/settings-tabs.tsx:310` — кнопка «Удалить аккаунт» без обработчика.
-- [ ] `src/components/settings/settings-tabs.tsx:129` — раздел Telegram-уведомлений без действия,
-      при этом с дашборда на него ведёт CTA «Подключить».
 - [ ] `src/components/dashboard/nav-tabs.tsx` — компонент нигде не импортируется.
 - [ ] `src/components/booking/booking-flow.tsx` — ветка `mode === "demo"` мёртвая, демо-запись
       живёт отдельной копией на 440 строк в `src/app/demo/public-page/book/page.tsx`.

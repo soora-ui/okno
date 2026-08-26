@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
 :root {
+  /* Высота нижней панели браузера, наехавшей на layout viewport.
+     Пишет BrowserToolbarOffset; ноль — пока он не смонтирован или API нет. */
+  --browser-toolbar-overlap: 0px;
   color-scheme: light;
   /* --font-manrope-loaded приходит из next/font (src/app/layout.tsx) и уже
      содержит метрически подогнанный фолбэк. Локальные имена оставлены на

@@ -50,7 +50,7 @@ const TEAM_SERVICE_COLUMNS = [
   "price",
   "is_active",
   "sort_order",
-  "repeat_interval_weeks",
+  "repeat_interval_days",
   "prepayment_type",
   "prepayment_value",
 ].join(",");

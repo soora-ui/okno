@@ -6,12 +6,16 @@ import { isPhoneVerificationRequired } from "@/lib/phone-verification";
 
 type Props = {
   params: Promise<{ username: string }>;
-  searchParams: Promise<{ service?: string }>;
+  searchParams: Promise<{ service?: string; date?: string; time?: string }>;
 };
 
 export default async function BookingPage({ params, searchParams }: Props) {
   const { username } = await params;
-  const { service: initialServiceId } = await searchParams;
+  const {
+    service: initialServiceId,
+    date: initialDate,
+    time: initialTime,
+  } = await searchParams;
   const data = await getPublicPageData(username, false);
 
   if (data.kind === "team") {
@@ -19,7 +23,7 @@ export default async function BookingPage({ params, searchParams }: Props) {
   }
 
   return (
-    <SiteShell compact hideGuestMenu>
+    <SiteShell compact hideGuestMenu showSupportWidget={false}>
       <div className="mx-auto max-w-4xl py-6">
         <BookingFlow
           username={username}
@@ -28,6 +32,8 @@ export default async function BookingPage({ params, searchParams }: Props) {
           themePresetId={data.profile.bookingThemePresetId}
           commentFieldMode={data.profile.bookingPageSettings.commentFieldMode}
           initialServiceId={initialServiceId}
+          initialDate={initialDate}
+          initialTime={initialTime}
           phoneVerificationRequired={isPhoneVerificationRequired}
         />
       </div>

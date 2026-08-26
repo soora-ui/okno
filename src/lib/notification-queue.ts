@@ -4,11 +4,19 @@ import { logError } from "@/lib/observability/logger";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   sendBookingConfirmationSms,
+  sendClientCancelledTelegram,
   sendClientReminderSms,
+  sendClientReminderTelegram,
   sendMasterReminderTelegram,
   sendMasterTelegramNotification,
   sendRepeatVisitReminderSms,
 } from "@/lib/notifications";
+import {
+  getClientChatForBooking,
+  getClientLinkedBooking,
+} from "@/lib/telegram/client-link";
+import { formatPublicProfileLink } from "@/lib/site";
+import { env } from "@/lib/env";
 
 type NotificationEventJob = {
   id: string;
@@ -16,6 +24,8 @@ type NotificationEventJob = {
     | "sms_confirmation"
     | "telegram_new_booking"
     | "sms_reminder_client"
+    | "telegram_reminder_client"
+    | "telegram_client_cancelled"
     | "telegram_reminder_master"
     | "sms_repeat_visit_reminder";
   target: string;
@@ -23,19 +33,31 @@ type NotificationEventJob = {
   attempts: number;
 };
 
+// Раньше здесь была лестница тернарников, и каждый новый тип требовал ещё
+// одной ступеньки. Набор держим рядом с типом: забыть добавить сюда — значит
+// молча получить sms_confirmation вместо своего события.
+const knownJobTypes = new Set<NotificationEventJob["type"]>([
+  "sms_confirmation",
+  "telegram_new_booking",
+  "sms_reminder_client",
+  "telegram_reminder_client",
+  "telegram_client_cancelled",
+  "telegram_reminder_master",
+  "sms_repeat_visit_reminder",
+]);
+
+// Ссылки в кнопках Telegram: только абсолютные и только https, иначе кнопка
+// не отрисуется. В разработке сообщение уходит без неё.
+const appOrigin = env.appUrl.replace(/\/$/, "");
+
+const isKnownJobType = (value: unknown): value is NotificationEventJob["type"] =>
+  typeof value === "string" &&
+  knownJobTypes.has(value as NotificationEventJob["type"]);
+
 function parseJob(row: Record<string, unknown>): NotificationEventJob {
   return {
     id: String(row.id),
-    type:
-      row.type === "telegram_new_booking"
-        ? "telegram_new_booking"
-        : row.type === "sms_reminder_client"
-          ? "sms_reminder_client"
-          : row.type === "telegram_reminder_master"
-            ? "telegram_reminder_master"
-            : row.type === "sms_repeat_visit_reminder"
-              ? "sms_repeat_visit_reminder"
-              : "sms_confirmation",
+    type: isKnownJobType(row.type) ? row.type : "sms_confirmation",
     target: String(row.target ?? ""),
     payload:
       row.payload && typeof row.payload === "object"
@@ -77,12 +99,24 @@ async function processNotificationJob(job: NotificationEventJob) {
     };
   }
 
+  // Клиентские события держат в payload только id записи: всё остальное
+  // читается в момент отправки. Так перенос не оставляет в очереди сообщение
+  // со старым временем — строка одна, а время в ней всегда актуальное.
+  if (job.type === "telegram_reminder_client") {
+    return sendClientBookingMessage(job, "reminder");
+  }
+
+  if (job.type === "telegram_client_cancelled") {
+    return sendClientBookingMessage(job, "cancelled");
+  }
+
   if (job.type === "telegram_reminder_master") {
     const result = await sendMasterReminderTelegram({
       chatId: String(job.payload.chatId ?? job.target ?? ""),
       clientName: String(job.payload.clientName ?? ""),
       serviceTitle: String(job.payload.serviceTitle ?? ""),
       startsAtLabel: String(job.payload.startsAtLabel ?? ""),
+      bookingId: job.payload.bookingId ? String(job.payload.bookingId) : null,
     });
 
     return {
@@ -117,6 +151,7 @@ async function processNotificationJob(job: NotificationEventJob) {
     clientName: String(job.payload.clientName ?? ""),
     serviceTitle: String(job.payload.serviceTitle ?? ""),
     startsAtLabel: String(job.payload.startsAtLabel ?? ""),
+    bookingId: job.payload.bookingId ? String(job.payload.bookingId) : null,
   });
 
   return {
@@ -124,6 +159,75 @@ async function processNotificationJob(job: NotificationEventJob) {
     skipped: result.skipped,
     lastError:
       result.ok || result.skipped ? null : "Уведомление в Telegram не отправилось.",
+  };
+}
+
+async function sendClientBookingMessage(
+  job: NotificationEventJob,
+  kind: "reminder" | "cancelled",
+) {
+  const bookingId = String(job.payload.bookingId ?? job.target ?? "");
+  const chatId = await getClientChatForBooking({ bookingId });
+
+  // Клиент не подключал Telegram или отписался. Это обычный исход, а не сбой:
+  // закрываем событие, чтобы очередь не ретраила его до конца попыток.
+  if (!chatId) {
+    return { ok: false, skipped: true, lastError: null };
+  }
+
+  const booking = await getClientLinkedBooking({ bookingId });
+
+  if (!booking) {
+    return {
+      ok: false,
+      skipped: true,
+      lastError: null,
+    };
+  }
+
+  const startsAtLabel = DateTime.fromISO(booking.startsAtIso, { zone: "utc" })
+    .setZone(booking.timezone)
+    .setLocale("ru")
+    .toFormat("d LLLL, HH:mm");
+
+  if (kind === "reminder") {
+    const result = await sendClientReminderTelegram({
+      chatId,
+      masterName: booking.masterName,
+      serviceTitle: booking.serviceTitle,
+      startsAtLabel,
+      cancelUrl: booking.cancellationToken
+        ? `${appOrigin}/cancel/${booking.cancellationToken}`
+        : null,
+    });
+
+    return {
+      ok: result.ok,
+      skipped: result.skipped,
+      lastError:
+        result.ok || result.skipped
+          ? null
+          : "Напоминание клиенту в Telegram не отправилось.",
+    };
+  }
+
+  const result = await sendClientCancelledTelegram({
+    chatId,
+    masterName: booking.masterName,
+    serviceTitle: booking.serviceTitle,
+    startsAtLabel,
+    bookingUrl: booking.masterUsername
+      ? `https://${formatPublicProfileLink(booking.masterUsername)}`
+      : null,
+  });
+
+  return {
+    ok: result.ok,
+    skipped: result.skipped,
+    lastError:
+      result.ok || result.skipped
+        ? null
+        : "Сообщение об отмене клиенту в Telegram не отправилось.",
   };
 }
 
@@ -270,6 +374,25 @@ export function buildReminderNotificationEvents(input: {
     }
   }
 
+  // Ставится независимо от того, привязал ли клиент Telegram: привязка
+  // происходит уже после записи, на странице подтверждения, и знать о ней в
+  // момент создания записи нельзя. Если чата не окажется — событие закроется
+  // как пропущенное при отправке.
+  if (input.profile.clientReminderHours > 0) {
+    const scheduledFor = startsAt.minus({ hours: input.profile.clientReminderHours });
+    if (scheduledFor > now) {
+      rows.push({
+        profile_id: input.profile.id,
+        booking_id: input.bookingId,
+        type: "telegram_reminder_client",
+        status: "queued",
+        target: input.bookingId,
+        scheduled_for: scheduledFor.toISO(),
+        payload: { bookingId: input.bookingId },
+      });
+    }
+  }
+
   if (input.profile.masterReminderHours > 0 && input.profile.telegramChatId) {
     const scheduledFor = startsAt.minus({ hours: input.profile.masterReminderHours });
     if (scheduledFor > now) {
@@ -285,6 +408,8 @@ export function buildReminderNotificationEvents(input: {
           clientName: input.clientName,
           serviceTitle: input.serviceTitle,
           startsAtLabel,
+          // Нужен боту, чтобы к напоминанию прицепить кнопку «Открыть запись».
+          bookingId: input.bookingId,
         },
       });
     }
@@ -295,8 +420,13 @@ export function buildReminderNotificationEvents(input: {
 
 // Отдельная функция (а не часть buildReminderNotificationEvents): напоминание
 // о повторном визите ставится только если клиент явно согласился (галочка на
-// форме записи) и зависит от repeat_interval_weeks конкретной услуги, а не от
+// форме записи) и зависит от repeat_interval_days конкретной услуги, а не от
 // профильных reminder-часов мастера.
+//
+// Срок берётся из того же поля, по которому AI-консультант предлагает клиенту
+// записаться повторно. Разойтись они не могут по построению — а если бы
+// считались из разных мест, клиент получил бы от сервиса две даты со ссылкой
+// на одного мастера.
 export function buildRepeatVisitReminderEvent(input: {
   profileId: string;
   bookingId: string;
@@ -304,15 +434,15 @@ export function buildRepeatVisitReminderEvent(input: {
   masterName: string;
   serviceTitle: string;
   startsAtIso: string;
-  repeatIntervalWeeks: number;
+  repeatIntervalDays: number;
 }) {
   const startsAt = DateTime.fromISO(input.startsAtIso, { zone: "utc" });
 
-  if (!startsAt.isValid || input.repeatIntervalWeeks <= 0) {
+  if (!startsAt.isValid || input.repeatIntervalDays <= 0) {
     return null;
   }
 
-  const scheduledFor = startsAt.plus({ weeks: input.repeatIntervalWeeks });
+  const scheduledFor = startsAt.plus({ days: input.repeatIntervalDays });
 
   return {
     profile_id: input.profileId,
@@ -341,8 +471,30 @@ export async function cancelQueuedReminderEvents(bookingId: string) {
     .eq("booking_id", bookingId)
     .in("type", [
       "sms_reminder_client",
+      "telegram_reminder_client",
       "telegram_reminder_master",
       "sms_repeat_visit_reminder",
     ])
     .eq("status", "queued");
+}
+
+// Сообщение клиенту о том, что мастер отменил визит.
+//
+// Отдельным событием, а не прямой отправкой из экшена: очередь уже умеет
+// повторы, статусы и разбор недоступного чата, и отмена записи не должна
+// падать из-за того, что Telegram ответил 502. scheduled_for не задаём —
+// заберётся ближайшим проходом cron, то есть в пределах минуты.
+export function buildClientCancelledNotificationEvent(input: {
+  profileId: string;
+  bookingId: string;
+}) {
+  return {
+    profile_id: input.profileId,
+    booking_id: input.bookingId,
+    type: "telegram_client_cancelled",
+    status: "queued",
+    target: input.bookingId,
+    scheduled_for: null,
+    payload: { bookingId: input.bookingId },
+  };
 }

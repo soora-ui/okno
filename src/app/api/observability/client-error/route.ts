@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isErrorEventsEnabled } from "@/lib/env";
 import { getCurrentAuthProfile } from "@/lib/data";
 import { recordErrorEvent } from "@/lib/observability/error-store";
 
@@ -6,6 +7,13 @@ import { recordErrorEvent } from "@/lib/observability/error-store";
 // необработанные исключения, чтобы они попадали в ленту ошибок админки (помимо
 // Sentry). Всегда отвечаем 2xx — сбор ошибок не должен ломать клиент.
 export async function POST(request: Request) {
+  // Сама запись всё равно отсечётся в recordErrorEvent, но выходим раньше:
+  // в dev нет смысла разбирать тело и ходить за профилем ради строки, которую
+  // никто не сохранит.
+  if (!isErrorEventsEnabled) {
+    return NextResponse.json({ ok: true, ignored: "disabled" });
+  }
+
   let body: {
     message?: unknown;
     route?: unknown;

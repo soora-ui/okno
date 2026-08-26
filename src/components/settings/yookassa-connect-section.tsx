@@ -63,6 +63,13 @@ export function YooKassaConnectSection({
               услугах.
             </p>
           ) : null}
+          {account?.status === "disabled" ? (
+            <p className="text-sm text-warning">
+              Магазин подключён, но ЮKassa не приняла настройку уведомлений об оплате — без
+              них платёж клиента до записи не дойдёт. Подключи заново; если не поможет,
+              напиши в поддержку.
+            </p>
+          ) : null}
           <ButtonLink href="/api/yookassa/oauth/start" documentNavigation>
             Подключить ЮKassa
           </ButtonLink>

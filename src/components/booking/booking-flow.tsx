@@ -37,24 +37,34 @@ type BookingFlowProps = {
   commentFieldMode?: CommentFieldMode;
   mode?: "live" | "demo";
   initialServiceId?: string;
+  /**
+   * Предвыбранные день и время. Приходят из ссылки, которую даёт консультант,
+   * когда предлагает записаться повторно: клиент уже нажал время в чате, и
+   * заставлять его искать тот же слот заново незачем.
+   *
+   * Подставляются только если слот действительно свободен — пока клиент шёл
+   * по ссылке, его могли занять.
+   */
+  initialDate?: string;
+  initialTime?: string;
   phoneVerificationRequired?: boolean;
 };
 
 const steps = ["Услуга", "Дата и время", "Контакты"];
 
-function pluralizeWeeks(weeks: number) {
-  const mod10 = weeks % 10;
-  const mod100 = weeks % 100;
+function pluralizeDays(days: number) {
+  const mod10 = days % 10;
+  const mod100 = days % 100;
 
   if (mod10 === 1 && mod100 !== 11) {
-    return "неделю";
+    return "день";
   }
 
   if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) {
-    return "недели";
+    return "дня";
   }
 
-  return "недель";
+  return "дней";
 }
 
 export function BookingFlow({
@@ -65,6 +75,8 @@ export function BookingFlow({
   commentFieldMode = defaultBookingPageSettings.commentFieldMode,
   mode = "live",
   initialServiceId,
+  initialDate,
+  initialTime,
   phoneVerificationRequired = false,
 }: BookingFlowProps) {
   const router = useRouter();
@@ -75,8 +87,22 @@ export function BookingFlow({
       : services[0]?.id ?? "";
   const [serviceId, setServiceId] = useState(resolvedInitialServiceId);
   const initialSlots = bookingSlotsByService[resolvedInitialServiceId] ?? [];
-  const [dateValue, setDateValue] = useState(initialSlots[0]?.value ?? "");
-  const [time, setTime] = useState(initialSlots[0]?.times[0] ?? "");
+  // Слот из ссылки проверяем по настоящей выдаче: если его уже заняли, форма
+  // молча откатывается на первый свободный, а не предлагает записаться на
+  // время, которого больше нет.
+  const requestedDay = initialDate
+    ? initialSlots.find((slot) => slot.value === initialDate)
+    : undefined;
+  const requestedTime =
+    requestedDay && initialTime && requestedDay.times.includes(initialTime)
+      ? initialTime
+      : undefined;
+  const [dateValue, setDateValue] = useState(
+    requestedTime ? requestedDay!.value : initialSlots[0]?.value ?? "",
+  );
+  const [time, setTime] = useState(
+    requestedTime ?? initialSlots[0]?.times[0] ?? "",
+  );
   const [name, setName] = useState("");
   const [countryCode, setCountryCode] = useState(defaultPhoneCountryCode);
   const [phone, setPhone] = useState("");
@@ -302,7 +328,7 @@ export function BookingFlow({
   const selectedDateLabel = useMemo(
     () =>
       dateValue
-        ? DateTime.fromISO(dateValue).setLocale("ru").toFormat("d LLLL")
+        ? DateTime.fromISO(dateValue).setLocale("ru").toFormat("d MMMM")
         : "",
     [dateValue],
   );
@@ -836,7 +862,7 @@ export function BookingFlow({
                 }
               />
             ) : null}
-            {selectedService?.repeatIntervalWeeks ? (
+            {selectedService?.repeatIntervalDays ? (
               <label className="flex items-start gap-3 rounded-panel border border-line bg-[var(--ui-field-bg)] p-4 text-sm leading-6 text-ink-soft">
                 <input
                   type="checkbox"
@@ -846,8 +872,8 @@ export function BookingFlow({
                 />
                 <span>
                   Напомнить про повторный визит через{" "}
-                  {selectedService.repeatIntervalWeeks}{" "}
-                  {pluralizeWeeks(selectedService.repeatIntervalWeeks)}
+                  {selectedService.repeatIntervalDays}{" "}
+                  {pluralizeDays(selectedService.repeatIntervalDays)}
                 </span>
               </label>
             ) : null}

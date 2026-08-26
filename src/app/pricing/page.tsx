@@ -7,7 +7,9 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/ui/reveal";
 import { SectionTitle } from "@/components/sections/section-title";
+import { PricingPlanCards } from "@/components/pricing/pricing-plan-cards";
 import {
+  billingPeriods,
   calculatePlanPriceRub,
   extraSeat,
   extraSeatPriceRub,
@@ -16,11 +18,11 @@ import {
   planComparisonGroups,
   planPeriodDays,
   pricingPlans,
+  seatTopUpThresholdDays,
   trialDays,
   trialOffer,
   type PlanComparisonValue,
 } from "@/config/plans";
-import { getPricingData } from "@/lib/data";
 
 export const metadata: Metadata = {
   title: "Тарифы — okno",
@@ -36,6 +38,11 @@ const studioPlan = getPlan("studio");
 const seatExampleTotal = calculatePlanPriceRub("studio", seatExampleSeats);
 const seatExamplePaid = seatExampleSeats - studioPlan.includedSeats;
 
+const prepaidPeriods = billingPeriods.filter((period) => period.discountPercent > 0);
+const prepaidSummary = prepaidPeriods
+  .map((period) => `${period.months} месяцев — минус ${period.discountPercent} %`)
+  .join(", ");
+
 const paymentFaq = [
   {
     question: "Что будет, когда закончится пробный месяц?",
@@ -43,18 +50,22 @@ const paymentFaq = [
       "Страница записи перестанет принимать новые записи. Уже созданные записи, база клиентов и выпущенные сертификаты останутся на месте — всё вернётся в работу после оплаты любого тарифа.",
   },
   {
+    question: "Что даёт оплата вперёд?",
+    answer: `Скидку на весь оплаченный срок: ${prepaidSummary}. Платёж один, доступ продлевается сразу на весь период. «Месяц» здесь везде означает расчётный период в ${planPeriodDays} дней, поэтому год — это 360 дней.`,
+  },
+  {
     question: "Деньги списываются автоматически?",
     answer:
-      "Нет. Автопродления в сервисе нет: платёжные данные не сохраняются, каждый следующий период вы оплачиваете сами. Оплата проходит разово через ЮKassa.",
+      "Только если вы сами поставили галочку «продлевать автоматически» при оплате. Тогда карта сохраняется, и следующий период списывается тем же сроком и по той же цене со скидкой — за несколько дней до списания приходит напоминание в Telegram. Без галочки платёжные данные не сохраняются и каждый период оплачивается вручную. Отключить автопродление и отвязать карту можно в настройках в любой момент.",
   },
   {
     question: "Можно ли перейти на другой тариф?",
     answer:
-      "Да, при оплате следующего периода — выбираете нужный тариф и платите по его цене. Внутри уже оплаченного периода перерасчёт не делается.",
+      "Да, при оплате следующего периода — выбираете нужный тариф и период и платите по его цене. Внутри уже оплаченного периода перерасчёт не делается.",
   },
   {
     question: "Как считается доплата за сотрудников?",
-    answer: `Три сотрудника входят в тариф «Студия и барбершоп». За каждого следующего — ${extraSeatPriceRub} ₽ в месяц. Количество считается на момент оплаты: если сотрудник добавлен в середине оплаченного периода, доплата за него войдёт в следующий платёж.`,
+    answer: `Три сотрудника входят в тариф «Студия и барбершоп». За каждого следующего — ${extraSeatPriceRub} ₽ в месяц. Количество считается на момент оплаты, и доплата за нового сотрудника входит в следующий платёж. Если до него больше ${seatTopUpThresholdDays} дней — так бывает при оплате на полгода или год, — место оплачивается сразу за оставшиеся дни периода и с той же скидкой.`,
   },
   {
     question: "Кто получает деньги клиентов за услуги?",
@@ -64,7 +75,7 @@ const paymentFaq = [
   {
     question: "Можно ли вернуть деньги?",
     answer:
-      "Первые 14 дней после первой оплаты — полный возврат без объяснения причин, один раз за всю историю аккаунта. Дальше деньги не возвращаются: доступ просто работает до конца оплаченного периода. Отдельно — технические случаи: двойное списание, длительная недоступность сервиса по нашей вине, оплата не того тарифа из-за бага. Тут возврат без сроков и лимитов.",
+      "Первые 14 дней после первой оплаты — полный возврат без объяснения причин, один раз за всю историю аккаунта. Дальше при отказе от подписки возвращаются деньги за неиспользованные полные месяцы: из оплаченной суммы вычитается стоимость использованных месяцев по обычной месячной цене тарифа. То есть скидка за оплату вперёд при досрочном отказе не сохраняется. Отдельно — технические случаи: двойное списание, длительная недоступность сервиса по нашей вине, оплата не того тарифа из-за бага. Тут возврат полный, без сроков и лимитов.",
   },
 ];
 
@@ -95,8 +106,6 @@ function ComparisonCell({ value }: { value: PlanComparisonValue }) {
 }
 
 export default function PricingPage() {
-  const pricingPlansData = getPricingData();
-
   return (
     <SiteShell resolveAuth={false} showFooter>
       <div className="space-y-16 py-6">
@@ -133,48 +142,7 @@ export default function PricingPage() {
             </Card>
           </Reveal>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {pricingPlansData.map((plan, index) => (
-              <Reveal key={plan.id} variant="fade-up" delay={index * 0.1}>
-                <Card
-                  className={`flex h-full flex-col ${plan.highlighted ? "bg-panel" : ""}`}
-                >
-                  {/* Заголовком идёт название тарифа, а не цена: по заголовкам
-                      навигируются с экранным диктором, и «690 ₽» без имени
-                      плана там бесполезно. Визуально название тоже больше не
-                      тише списка возможностей — выбирают именно между ними. */}
-                  <h2 className="text-xl font-semibold text-ink">
-                    {plan.title}
-                  </h2>
-                  <div className="mt-2 flex items-baseline gap-2">
-                    <p className="text-4xl font-semibold text-ink">
-                      {formatPlanPrice(plan.priceRub)}
-                    </p>
-                    <span className="text-sm text-muted">{plan.period}</span>
-                  </div>
-                  <p className="mt-3 text-base leading-7 text-ink-soft">
-                    {plan.description}
-                  </p>
-                  <div className="mt-6 space-y-3">
-                    {plan.features.map((feature) => (
-                      <div key={feature} className="flex gap-3">
-                        <CheckCircle2 size={18} className="mt-1 shrink-0 text-success" />
-                        <p className="text-base leading-7 text-ink-soft">{feature}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-auto pt-6">
-                    <ButtonLink
-                      href="/register"
-                      variant={plan.highlighted ? "primary" : "secondary"}
-                    >
-                      Попробовать месяц
-                    </ButtonLink>
-                  </div>
-                </Card>
-              </Reveal>
-            ))}
-          </div>
+          <PricingPlanCards />
         </div>
 
         <section className="space-y-6">
@@ -338,6 +306,14 @@ export default function PricingPage() {
                       внутри оплаченного периода ничего не пересчитывается.
                     </span>
                   </li>
+                  <li className="flex gap-3">
+                    <CheckCircle2 size={18} className="mt-1.5 shrink-0 text-success" />
+                    <span>
+                      Если период оплачен вперёд и до следующего платежа больше{" "}
+                      {seatTopUpThresholdDays} дней, место оплачивается сразу за
+                      оставшиеся дни — по той же скидке, что у оплаченного периода.
+                    </span>
+                  </li>
                 </ul>
               </Card>
             </div>
@@ -392,9 +368,14 @@ export default function PricingPage() {
               </div>
               <ul className="space-y-3 text-base leading-7 text-ink-soft">
                 <li>
-                  Цены указаны за расчётный период в {planPeriodDays} дней и
-                  оплачиваются разово через ЮKassa. Автосписания нет: каждый
-                  следующий период вы оплачиваете сами.
+                  Базовая цена указана за расчётный период в {planPeriodDays} дней.
+                  Оплата вперёд считается в тех же периодах: 3 месяца — это{" "}
+                  {planPeriodDays * 3} дней, год — {planPeriodDays * 12} дней.
+                </li>
+                <li>
+                  Оплата проходит через ЮKassa одним платежом за весь выбранный
+                  срок. Автосписание включается только вашей галочкой при оплате
+                  и отключается в настройках.
                 </li>
                 <li>
                   Изменение тарифов не затрагивает уже оплаченный период — новая

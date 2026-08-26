@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { getMasterYooKassaAccount } from "@/lib/payments/yookassa-oauth";
+import { getAutopayState } from "@/lib/payments/subscription-autopay";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   isNonFatalSupabaseSessionError,
@@ -59,7 +60,7 @@ const SERVICE_COLUMNS = [
   "price",
   "is_active",
   "sort_order",
-  "repeat_interval_weeks",
+  "repeat_interval_days",
   "prepayment_type",
   "prepayment_value",
 ].join(",");
@@ -593,4 +594,55 @@ export async function getOwnerCertificateTemplateRow(input: { profileId: string 
 export async function getOwnerYooKassaAccountRow(input: { profileId: string }) {
   const supabase = await createSupabaseServerClient();
   return getMasterYooKassaAccount(supabase, input.profileId);
+}
+
+export async function getOwnerAutopayState(input: { profileId: string }) {
+  const supabase = await createSupabaseServerClient();
+  return getAutopayState(supabase, input.profileId);
+}
+
+export type RecentSubscriptionPayment = {
+  status: "pending" | "succeeded" | "canceled";
+  cancellationReason: string | null;
+};
+
+// Чем кончилась последняя оплата тарифа, на которую мастер только что уходил.
+// Нужна странице настроек: возврат с ЮKassa сам по себе ничего не говорит об
+// исходе, а плашка «проверяем оплату» после отказа откровенно врёт.
+//
+// Берём только ручные платежи: автосписания мастер не инициирует и на возврат
+// с ЮKassa не попадает. Окно в два часа отсекает случай, когда ссылку с
+// ?subscription=processing открыли из старой вкладки или закладки.
+export async function getOwnerRecentSubscriptionPayment(input: {
+  profileId: string;
+}): Promise<RecentSubscriptionPayment | null> {
+  const supabase = await createSupabaseServerClient();
+  const since = DateTime.now().minus({ hours: 2 }).toUTC().toISO();
+
+  const { data, error } = await supabase
+    .from("subscription_payments")
+    .select("status, metadata, created_at")
+    .eq("profile_id", input.profileId)
+    .eq("is_recurring", false)
+    .gt("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const status = String(data.status);
+  if (status !== "pending" && status !== "succeeded" && status !== "canceled") {
+    return null;
+  }
+
+  const reason = (data.metadata as { cancellationReason?: unknown } | null)
+    ?.cancellationReason;
+
+  return {
+    status,
+    cancellationReason: typeof reason === "string" ? reason : null,
+  };
 }

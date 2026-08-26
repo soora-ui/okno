@@ -22,7 +22,7 @@ export default async function DemoConfirmPage({
   const name = typeof query.name === "string" ? query.name : "Клиент";
 
   return (
-    <SiteShell compact hideGuestMenu resolveAuth={false}>
+    <SiteShell compact hideGuestMenu resolveAuth={false} showSupportWidget={false}>
       <div className="mx-auto max-w-3xl py-10">
         <Card className="space-y-6 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success-soft">

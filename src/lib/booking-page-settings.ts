@@ -17,6 +17,16 @@ export type CommentFieldMode = (typeof commentFieldModes)[number];
 export const headlineMaxLength = 80;
 export const subheadlineMaxLength = 160;
 
+// Как клиенту связаться с мастером напрямую — телефон, ник в мессенджере,
+// ссылка. Свободная строка, а не телефон: мастера ведут переписку кто в
+// Telegram, кто в WhatsApp, и навязывать один канал не за что.
+//
+// Поле появилось под AI-консультанта: когда в мануале услуги нет ответа,
+// клиента надо отправить к живому мастеру, а отправлять было некуда —
+// telegram_chat_id профиля служебный (в него сервис шлёт уведомления самому
+// мастеру) и клиенту его показывать нельзя.
+export const masterContactMaxLength = 120;
+
 // Подарочные сертификаты: номинал в рублях, ограничен разумным диапазоном,
 // чтобы не пораниться о случайно введенное огромное число.
 export const giftCertificateMinAmount = 500;
@@ -29,6 +39,8 @@ export type BookingPageSettings = {
   headline: string;
   subheadline: string;
   commentFieldMode: CommentFieldMode;
+  /** Пустая строка — контакт не указан, консультант зовёт к мастеру без деталей. */
+  masterContact: string;
   giftCertificatesEnabled: boolean;
   giftCertificateDenominations: number[];
   // Срок действия сертификатов: либо бессрочно (по умолчанию), либо
@@ -44,6 +56,7 @@ export const defaultBookingPageSettings: BookingPageSettings = {
   headline: "",
   subheadline: "",
   commentFieldMode: "optional",
+  masterContact: "",
   giftCertificatesEnabled: false,
   giftCertificateDenominations: defaultGiftCertificateDenominations,
   giftCertificateNoExpiry: true,
@@ -61,6 +74,7 @@ export const bookingPageSettingsFormSchema = z.object({
   headline: z.string().trim().max(headlineMaxLength).default(""),
   subheadline: z.string().trim().max(subheadlineMaxLength).default(""),
   commentFieldMode: z.enum(commentFieldModes).default("optional"),
+  masterContact: z.string().trim().max(masterContactMaxLength).default(""),
 });
 
 export type BookingPageSettingsFormInput = z.infer<
@@ -116,6 +130,7 @@ const storedSchema = z
     headline: z.string().max(400).optional(),
     subheadline: z.string().max(800).optional(),
     commentFieldMode: z.enum(commentFieldModes).optional(),
+    masterContact: z.string().max(400).optional(),
     giftCertificatesEnabled: z.boolean().optional(),
     giftCertificateDenominations: z.array(denominationSchema).optional(),
     giftCertificateNoExpiry: z.boolean().optional(),
@@ -152,6 +167,7 @@ export function normalizeBookingPageSettings(raw: unknown): BookingPageSettings 
     headline: (data.headline ?? "").trim().slice(0, headlineMaxLength),
     subheadline: (data.subheadline ?? "").trim().slice(0, subheadlineMaxLength),
     commentFieldMode: data.commentFieldMode ?? defaultBookingPageSettings.commentFieldMode,
+    masterContact: (data.masterContact ?? "").trim().slice(0, masterContactMaxLength),
     giftCertificatesEnabled: data.giftCertificatesEnabled ?? false,
     giftCertificateDenominations: denominations.slice(0, maxGiftCertificateDenominations),
     giftCertificateNoExpiry: noExpiry,

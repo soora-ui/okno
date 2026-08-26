@@ -3,26 +3,36 @@
 import { useState, useTransition } from "react";
 import { updateCertificateSalesEnabledAction } from "@/app/actions/settings";
 import { FormMessage } from "@/components/forms/auth-form-state";
+import { ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Hard-gate тумблер (okno-tz-certificates-ui-flow.md, 2.3): пока нет
 // сгенерированного дизайна (hasTemplate=false), клик не переключает
 // продажу, а открывает модалку дизайна — тумблер физически не может быть
-// включен без шаблона. Настоящая защита всё равно на сервере
-// (updateCertificateSalesEnabledAction проверяет certificate_templates
-// заново) — здесь только UX, чтобы не бить по API вслепую.
+// включен без шаблона. Плюс продажу нельзя включить без подключенной
+// ЮKassa мастера (деньги за сертификат идут в его магазин): без неё вместо
+// вызова API показываем ошибку и кнопку «Подключить ЮKassa». Настоящая
+// защита всё равно на сервере (updateCertificateSalesEnabledAction
+// проверяет и certificate_templates, и аккаунт ЮKassa заново) — здесь
+// только UX, чтобы не бить по API вслепую.
 export function CertificateSalesToggle({
   enabled: initialEnabled,
   hasTemplate,
+  yookassaConnected,
   onRequireDesign,
 }: {
   enabled: boolean;
   hasTemplate: boolean;
+  yookassaConnected: boolean;
   onRequireDesign: () => void;
 }) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
+  // Показываем кнопку «Подключить ЮKassa» рядом с ошибкой, когда причина
+  // именно в неподключенной ЮKassa (клиентский гейт или серверная ошибка,
+  // если подключение отозвали между загрузкой страницы и кликом).
+  const [needsYooKassa, setNeedsYooKassa] = useState(false);
 
   const handleClick = () => {
     if (!hasTemplate) {
@@ -32,12 +42,25 @@ export function CertificateSalesToggle({
 
     const next = !enabled;
     setMessage("");
+    setNeedsYooKassa(false);
+
+    // Включить продажу без подключенной ЮKassa нельзя — не бьём по API,
+    // сразу показываем ошибку и кнопку подключения.
+    if (next && !yookassaConnected) {
+      setMessage("Сначала подключи ЮKassa, чтобы продавать сертификаты.");
+      setNeedsYooKassa(true);
+      return;
+    }
+
     startTransition(async () => {
       const result = await updateCertificateSalesEnabledAction({ enabled: next });
       if (result.success) {
         setEnabled(next);
       } else {
         setMessage(result.message);
+        // Серверная ошибка про ЮKassa (например, подключение отозвали) —
+        // тоже показываем кнопку подключения рядом с сообщением.
+        setNeedsYooKassa(result.message.includes("ЮKassa"));
       }
     });
   };
@@ -77,7 +100,16 @@ export function CertificateSalesToggle({
       {looksDisabled ? (
         <p className="text-xs text-muted">Нужен дизайн сертификата, чтобы включить продажу.</p>
       ) : null}
-      {message ? <FormMessage message={message} success={false} /> : null}
+      {message ? (
+        <div className="space-y-2">
+          <FormMessage message={message} success={false} />
+          {needsYooKassa ? (
+            <ButtonLink href="/api/yookassa/oauth/start" documentNavigation>
+              Подключить ЮKassa
+            </ButtonLink>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

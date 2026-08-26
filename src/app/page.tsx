@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   ArrowRight,
   BellRing,
@@ -12,6 +13,7 @@ import {
   Sparkles,
   Users2,
 } from "lucide-react";
+import { HeroLinkBuilder } from "@/components/landing/hero-link-builder";
 import { SiteShell } from "@/components/layout/site-shell";
 import { SectionTitle } from "@/components/sections/section-title";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +27,20 @@ import {
   landingDemoPublicPageHref,
   landingDemoServices,
 } from "@/lib/landing-demo";
-import { extraSeat, formatPlanPrice, pricingPlans } from "@/config/plans";
+import {
+  billingPeriods,
+  extraSeat,
+  formatPlanPrice,
+  pricingPlans,
+  trialDays,
+} from "@/config/plans";
+
+// Лендинг показывает месячную цену: переключатель периода — инструмент выбора,
+// а здесь мастер ещё не выбирает, а приценивается. Про скидку говорим строкой,
+// подробности и сам переключатель — на /pricing.
+const maxPrepaidDiscount = Math.max(
+  ...billingPeriods.map((period) => period.discountPercent),
+);
 
 const valueProps = [
   "Мастер запускается за 3 шага и получает ссылку сразу",
@@ -57,7 +72,7 @@ const features = [
   {
     icon: BellRing,
     title: "Напоминания и отмена по ссылке",
-    text: "Клиенту уходит SMS со ссылкой на самостоятельную отмену, мастеру — уведомление в Telegram.",
+    text: "Клиент добавляет визит в календарь телефона и отменяет по ссылке сам, мастеру — уведомление в Telegram.",
   },
   {
     icon: Users2,
@@ -94,7 +109,7 @@ export default function HomePage() {
       showFooter
     >
       <div className="space-y-20 pb-10">
-        <section className="grid gap-8 py-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+        <section className="grid gap-8 py-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
           <div className="space-y-8">
             <Reveal variant="blur">
               <Badge tone="accent">Для мастеров, студий, салонов и барбершопов</Badge>
@@ -114,14 +129,39 @@ export default function HomePage() {
               </Reveal>
             </div>
             <Reveal variant="blur" delay={0.3}>
-              <div className="flex flex-wrap gap-3">
-                <ButtonLink href="/register" className="gap-2">
-                  Начать бесплатно
-                  <ArrowRight size={16} />
-                </ButtonLink>
-                <ButtonLink href={landingDemoPublicPageHref} variant="secondary">
-                  Открыть демо-профиль
-                </ButtonLink>
+              {/* Мастер-одиночка и владелец салона приходят за разным, а раньше
+                  обе кнопки вели на один и тот же /register, где выбор формата
+                  начинался заново. Спрашиваем прямо здесь и передаём ответ
+                  дальше параметром mode. */}
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-3">
+                  <ButtonLink
+                    href="/register?mode=solo"
+                    variant="secondary"
+                    className="gap-2"
+                  >
+                    Я частный мастер
+                    <ArrowRight size={16} />
+                  </ButtonLink>
+                  <ButtonLink
+                    href="/register?mode=studio"
+                    variant="secondary"
+                    className="gap-2"
+                  >
+                    У меня студия или салон
+                    <ArrowRight size={16} />
+                  </ButtonLink>
+                </div>
+                <p className="text-sm leading-6 text-ink-soft">
+                  {trialDays} дней бесплатно, карта не нужна. Или{" "}
+                  <Link
+                    href={landingDemoPublicPageHref}
+                    className="underline underline-offset-4 transition hover:text-ink"
+                  >
+                    открыть демо-профиль
+                  </Link>
+                  .
+                </p>
               </div>
             </Reveal>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -136,41 +176,13 @@ export default function HomePage() {
           </div>
 
           <RoundedReveal finalRadius="28px">
-            <Card className="overflow-hidden p-0">
-              <div className="m-4 rounded-nested border border-line bg-panel p-5">
-                <p className="text-sm text-muted">Независимое demo-превью</p>
-                {/* Не заголовок: имя вымышленного мастера из демо-виджета
-                    попадало в оглавление страницы наравне с «Тарифами». */}
-                <p className="mt-2 text-2xl font-semibold text-ink">
-                  {landingDemoProfile.fullName}
-                </p>
-                <p className="mt-1 text-sm text-ink-soft">{landingDemoProfile.bio}</p>
-              </div>
-              <div className="space-y-4 px-4 pb-4">
-                {landingDemoServices.map((service) => (
-                  <div
-                    key={service.id}
-                    className="rounded-nested border border-line p-4"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <p className="font-medium text-ink">{service.title}</p>
-                        <p className="text-sm leading-6 text-muted">
-                          {service.description}
-                        </p>
-                      </div>
-                      <div className="shrink-0 whitespace-nowrap text-right text-sm text-ink-soft">
-                        <p>{service.durationMinutes} мин</p>
-                        <p>{service.price} ₽</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <ButtonLink href={landingDemoBookHref} className="w-full justify-center">
-                  Записаться онлайн
-                </ButtonLink>
-              </div>
-            </Card>
+            <HeroLinkBuilder
+              demoName={landingDemoProfile.fullName}
+              demoSpecialty={landingDemoProfile.specialty}
+              demoBio={landingDemoProfile.bio}
+              services={landingDemoServices}
+              bookHref={landingDemoBookHref}
+            />
           </RoundedReveal>
         </section>
 
@@ -260,7 +272,11 @@ export default function HomePage() {
                 Администратор видит сотрудников, общую загрузку и клиентов команды, а каждый
                 мастер продолжает работать в своем отдельном кабинете без лишней путаницы.
               </p>
-              <ButtonLink href="/register" variant="secondary" className="w-fit gap-2">
+              <ButtonLink
+                href="/register?mode=company"
+                variant="secondary"
+                className="w-fit gap-2"
+              >
                 Создать компанию или салон
                 <ArrowRight size={16} />
               </ButtonLink>
@@ -325,7 +341,7 @@ export default function HomePage() {
             <SectionTitle
               eyebrow="Тарифы"
               title="Первый месяц бесплатно, дальше — от 690 ₽."
-              description="Тариф зависит от того, работаете вы один или собираете команду."
+              description={`Тариф зависит от того, работаете вы один или собираете команду. При оплате вперёд — скидка до ${maxPrepaidDiscount} %.`}
             />
           </Reveal>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

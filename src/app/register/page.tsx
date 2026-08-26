@@ -6,14 +6,28 @@ import { Card } from "@/components/ui/card";
 import { RegisterForm } from "@/components/forms/register-form";
 import { publicLinkHost } from "@/lib/site";
 import { normalizeReferralCode } from "@/lib/referral";
+import { parseAccountMode } from "@/lib/account-modes";
 
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{
+    ref?: string;
+    mode?: string;
+    name?: string;
+    specialty?: string;
+  }>;
 }) {
   const query = await searchParams;
   const referralCode = normalizeReferralCode(query.ref);
+  // Развилка в герое лендинга уже спросила формат работы — переспрашивать с
+  // нуля незачем, поэтому приходим на нужную карточку заранее выбранной.
+  const initialAccountMode = parseAccountMode(query.mode);
+  // Имя и ниша приходят из конструктора ссылки в героe. Значения из адресной
+  // строки могут быть какими угодно, поэтому обрезаем до длины живого поля.
+  const prefill = (value: string | undefined) => (value ?? "").trim().slice(0, 80);
+  const initialFullName = prefill(query.name);
+  const initialSpecialty = prefill(query.specialty);
 
   return (
     <SiteShell compact resolveAuth={false} showFooter>
@@ -28,9 +42,17 @@ export default async function RegisterPage({
                 Можно стартовать как один мастер или сразу открыть рабочее пространство для команды.
               </p>
             </div>
-            <RegisterForm referralCode={referralCode} />
+            <RegisterForm
+              referralCode={referralCode}
+              initialAccountMode={initialAccountMode}
+              initialFullName={initialFullName}
+              initialSpecialty={initialSpecialty}
+            />
             {/* Оферта считает акцептом завершение регистрации — значит, момент
                 принятия условий должен быть виден прямо здесь. */}
+            {/* Оферта (п. 3.6) требует подтверждения, что мастер ознакомился и
+                с Правилами, а Согласие берётся отдельным действием — ссылки на
+                оба документа должны быть здесь же. */}
             <p className="text-center text-xs leading-5 text-muted">
               Создавая аккаунт, вы принимаете{" "}
               <Link
@@ -38,13 +60,27 @@ export default async function RegisterPage({
                 className="underline underline-offset-4 transition hover:text-ink"
               >
                 публичную оферту
+              </Link>
+              ,{" "}
+              <Link
+                href="/legal/rules"
+                className="underline underline-offset-4 transition hover:text-ink"
+              >
+                правила использования сервиса
               </Link>{" "}
               и{" "}
+              <Link
+                href="/legal/consent"
+                className="underline underline-offset-4 transition hover:text-ink"
+              >
+                согласие на обработку персональных данных
+              </Link>
+              , а также подтверждаете, что ознакомились с{" "}
               <Link
                 href="/legal/privacy"
                 className="underline underline-offset-4 transition hover:text-ink"
               >
-                политику обработки персональных данных
+                политикой обработки персональных данных
               </Link>
               .
             </p>

@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { AuthenticatedRoutePrefetch } from "@/components/layout/authenticated-route-prefetch";
 import { AccountMenu } from "@/components/layout/account-menu";
+import { BrowserToolbarOffset } from "@/components/layout/browser-toolbar-offset";
+import { CabinetBottomNav } from "@/components/dashboard/bottom-nav";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { PageTransition } from "@/components/layout/page-transition";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -49,6 +51,8 @@ export async function SiteShell({
   publicPageLabelOverride,
   resolveAuth = true,
   showFooter = false,
+  showSupportWidget = true,
+  bottomNav = false,
 }: {
   children: React.ReactNode;
   compact?: boolean;
@@ -61,6 +65,12 @@ export async function SiteShell({
   // публичных страницах записи он лишний: там оболочка принадлежит мастеру,
   // а не платформе.
   showFooter?: boolean;
+  // Виджет AI-поддержки отвечает на вопросы про устройство okno — тарифы,
+  // настройки, подключение платежей. Клиенту мастера он не нужен и вреден:
+  // тот пришёл записаться, а получает чат про чужой личный кабинет. По той же
+  // причине, что и футер, — на страницах записи оболочка принадлежит мастеру.
+  showSupportWidget?: boolean;
+  bottomNav?: boolean;
 }) {
   let authProfile: Awaited<ReturnType<typeof getCurrentAuthProfile>> | null = null;
 
@@ -145,11 +155,16 @@ export async function SiteShell({
                       <AccountNotificationsSlot authProfile={authProfile} />
                     </Suspense>
                   ) : null}
-                  <AccountMenu
-                    authenticated
-                    username={authProfile.profile.username}
-                    showTeamLink={isWorkspaceAdmin}
-                  />
+                  {/* Нижняя панель уже ведёт во все основные разделы, поэтому
+                      на мобильном бургер дублировал бы её. На десктопе панели
+                      нет — там меню остаётся единственной навигацией. */}
+                  <div className={bottomNav ? "max-md:hidden" : undefined}>
+                    <AccountMenu
+                      authenticated
+                      username={authProfile.profile.username}
+                      showTeamLink={isWorkspaceAdmin}
+                    />
+                  </div>
                 </>
               ) : (
                 <>
@@ -167,12 +182,27 @@ export async function SiteShell({
             </div>
           </div>
         </header>
-        <main className="flex-1">
+        <main
+          className={
+            // Панель перекрывает низ страницы, поэтому под контентом нужен
+            // запас её высоты плюс safe area — иначе последняя карточка
+            // оказывается под вкладками.
+            bottomNav
+              ? "flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0"
+              : "flex-1"
+          }
+        >
           <PageTransition>{children}</PageTransition>
         </main>
         {showFooter ? <SiteFooter /> : null}
       </div>
-      <SupportChatWidget />
+      {bottomNav ? (
+        <>
+          <BrowserToolbarOffset />
+          <CabinetBottomNav />
+        </>
+      ) : null}
+      {showSupportWidget ? <SupportChatWidget raised={bottomNav} /> : null}
     </div>
   );
 }

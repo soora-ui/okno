@@ -52,6 +52,36 @@ export type ErrorEventEntry = {
   context: Record<string, unknown> | null;
 };
 
+// Одна и та же поломка пишет по строке на каждое повторение: упавший каждый
+// час крон за двое суток даёт под сотню одинаковых записей. В панели такие
+// строки сворачиваются в одну группу — иначе живая ошибка теряется среди
+// копий давно починенной.
+export type ErrorEventGroup = {
+  key: string;
+  level: string;
+  source: string;
+  message: string;
+  route: string | null;
+  digest: string | null;
+  count: number;
+  unresolvedCount: number;
+  // Id нерешённых событий группы — по ним кнопка «Решено» закрывает её целиком.
+  unresolvedIds: string[];
+  firstSeen: string;
+  lastSeen: string;
+  // Контекст самого свежего события группы: у повторов он одинаковый, а если
+  // и разошёлся, смотреть нужно на последнее.
+  latestContext: Record<string, unknown> | null;
+};
+
+export type ErrorEventGroupsResult = {
+  groups: ErrorEventGroup[];
+  // Сколько событий попало в выборку и каков был потолок: если упёрлись в
+  // потолок, в панели честно пишем, что показана не вся история.
+  scanned: number;
+  scanLimit: number;
+};
+
 function countOf(result: { count: number | null }): number {
   return result.count ?? 0;
 }
@@ -181,20 +211,40 @@ export async function getRecentAuditLogs(limit = 50): Promise<AuditLogEntry[]> {
   });
 }
 
-export async function getUnresolvedErrorCount(): Promise<number> {
+// Число нерешённых проблем (не событий) — то же, что показывает список: в
+// значке навигации «338» из тридцати девяти копий одной поломки пугают
+// сильнее, чем помогают. Колонку context намеренно не тянем: запрос идёт на
+// каждой странице админки.
+export async function getUnresolvedErrorGroupCount(scanLimit = 1000): Promise<number> {
   const supabase = createSupabaseAdminClient();
   const result = await supabase
     .from("error_events")
-    .select("id", { count: "exact", head: true })
-    .eq("resolved", false);
+    .select("level, source, message, route, digest, context")
+    .eq("resolved", false)
+    .order("created_at", { ascending: false })
+    .limit(scanLimit);
 
-  // Таблица появляется после миграции 202606240001 — до неё панель не должна
-  // падать, просто показываем 0.
   if (result.error && isSupabaseMissingTableError(result.error, "error_events")) {
     return 0;
   }
 
-  return countOf(result);
+  const keys = new Set(
+    (result.data ?? []).map((row) => {
+      const record = row as Record<string, unknown>;
+      const context = (record.context as Record<string, unknown> | null) ?? null;
+      return [
+        String(record.level ?? "error"),
+        String(record.source ?? "server"),
+        String(record.message ?? ""),
+        (record.route as string | null) ??
+          (typeof context?.routePath === "string" ? context.routePath : ""),
+        (record.digest as string | null) ??
+          (typeof context?.digest === "string" ? context.digest : ""),
+      ].join("\u0000");
+    }),
+  );
+
+  return keys.size;
 }
 
 export async function getRecentErrorEvents(input?: {
@@ -229,6 +279,156 @@ export async function getRecentErrorEvents(input?: {
       resolved: Boolean(record.resolved),
       createdAt: String(record.created_at ?? ""),
       context: (record.context as Record<string, unknown> | null) ?? null,
+    };
+  });
+}
+
+// Свёртка событий в группы. Postgres сделал бы это одним group by, но у
+// supabase-js нет агрегатов без RPC, поэтому берём окно последних событий и
+// группируем в памяти: таблица админская, окна в тысячу строк хватает с
+// запасом, а его размер виден в интерфейсе.
+export async function getGroupedErrorEvents(input?: {
+  scanLimit?: number;
+  onlyUnresolved?: boolean;
+}): Promise<ErrorEventGroupsResult> {
+  const scanLimit = input?.scanLimit ?? 1000;
+  const supabase = createSupabaseAdminClient();
+
+  let query = supabase
+    .from("error_events")
+    .select("id, level, source, message, route, digest, resolved, created_at, context")
+    .order("created_at", { ascending: false })
+    .limit(scanLimit);
+
+  if (input?.onlyUnresolved) {
+    query = query.eq("resolved", false);
+  }
+
+  const { data, error } = await query;
+
+  if (error && isSupabaseMissingTableError(error, "error_events")) {
+    return { groups: [], scanned: 0, scanLimit };
+  }
+
+  const rows = data ?? [];
+  const groups = new Map<string, ErrorEventGroup>();
+
+  for (const row of rows) {
+    const record = row as Record<string, unknown>;
+    const level = String(record.level ?? "error");
+    const source = String(record.source ?? "server");
+    const message = String(record.message ?? "");
+    const context = (record.context as Record<string, unknown> | null) ?? null;
+    // У событий, записанных до того, как logger стал раскладывать route и
+    // digest по колонкам, они лежат только в контексте — читаем оттуда, иначе
+    // вся старая история схлопнется в одну огромную группу.
+    const route =
+      (record.route as string | null) ??
+      (typeof context?.routePath === "string" ? context.routePath : null);
+    // Разные digest — разные баги под одним заголовком «Unhandled application
+    // error», поэтому в ключ он входит наравне с текстом.
+    const digest =
+      (record.digest as string | null) ??
+      (typeof context?.digest === "string" ? context.digest : null);
+    const createdAt = String(record.created_at ?? "");
+    const key = [level, source, message, route ?? "", digest ?? ""].join("\u0000");
+
+    const existing = groups.get(key);
+
+    if (!existing) {
+      // Строки идут от свежих к старым, поэтому первая встреченная — последняя
+      // по времени.
+      groups.set(key, {
+        key,
+        level,
+        source,
+        message,
+        route,
+        digest,
+        count: 1,
+        unresolvedCount: record.resolved ? 0 : 1,
+        unresolvedIds: record.resolved ? [] : [String(record.id)],
+        firstSeen: createdAt,
+        lastSeen: createdAt,
+        latestContext: context,
+      });
+      continue;
+    }
+
+    existing.count += 1;
+    if (!record.resolved) {
+      existing.unresolvedCount += 1;
+      existing.unresolvedIds.push(String(record.id));
+    }
+    if (createdAt && createdAt < existing.firstSeen) existing.firstSeen = createdAt;
+    if (createdAt && createdAt > existing.lastSeen) existing.lastSeen = createdAt;
+  }
+
+  return {
+    // Сверху то, что случилось недавно: чинить надо живое, а не самое частое.
+    groups: [...groups.values()].sort((a, b) => b.lastSeen.localeCompare(a.lastSeen)),
+    scanned: rows.length,
+    scanLimit,
+  };
+}
+
+// Обращения, на которые AI-поддержка не смогла ответить сама. Список
+// работает как перечень пробелов в карте сервиса: каждая строка — вопрос, на
+// который бот не нашёл ответа, вместе с тем, что в итоге ответил человек.
+// Из этих пар и дописываются новые темы в src/lib/support-assistant/sitemap.ts.
+export type SupportEscalationEntry = {
+  id: string;
+  code: string;
+  status: string;
+  summary: string;
+  question: string;
+  draftAnswer: string;
+  operatorReply: string | null;
+  deliveredReply: string | null;
+  masterName: string | null;
+  masterEmail: string | null;
+  createdAt: string;
+  answeredAt: string | null;
+};
+
+export async function getSupportEscalations(
+  limit = 100,
+): Promise<SupportEscalationEntry[]> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("support_escalations")
+    .select(
+      "id, code, status, summary, question, draft_answer, operator_reply, delivered_reply, created_at, answered_at, profiles(full_name, email)",
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error && isSupabaseMissingTableError(error, "support_escalations")) {
+    return [];
+  }
+
+  return (data ?? []).map((row) => {
+    const record = row as Record<string, unknown>;
+    // Supabase отдаёт связанную строку объектом или массивом в зависимости от
+    // того, как разобрал связь, — приводим к одному виду.
+    const rawMaster = record.profiles;
+    const master = (Array.isArray(rawMaster) ? rawMaster[0] : rawMaster) as
+      | Record<string, unknown>
+      | undefined;
+
+    return {
+      id: String(record.id),
+      code: String(record.code ?? ""),
+      status: String(record.status ?? "pending"),
+      summary: String(record.summary ?? ""),
+      question: String(record.question ?? ""),
+      draftAnswer: String(record.draft_answer ?? ""),
+      operatorReply: (record.operator_reply as string | null) ?? null,
+      deliveredReply: (record.delivered_reply as string | null) ?? null,
+      masterName: (master?.full_name as string | null) ?? null,
+      masterEmail: (master?.email as string | null) ?? null,
+      createdAt: String(record.created_at ?? ""),
+      answeredAt: (record.answered_at as string | null) ?? null,
     };
   });
 }

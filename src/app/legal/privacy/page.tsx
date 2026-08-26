@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LegalDocumentPage } from "@/components/legal/legal-document-page";
 import { getLegalDocument } from "@/config/legal";
-import { privacySections } from "@/content/legal/privacy";
+import { privacyPreamble, privacySections } from "@/content/legal/privacy";
 
 const doc = getLegalDocument("privacy");
 
@@ -12,5 +12,11 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPage() {
-  return <LegalDocumentPage doc={doc} sections={privacySections} />;
+  return (
+    <LegalDocumentPage
+      doc={doc}
+      sections={privacySections}
+      intro={privacyPreamble}
+    />
+  );
 }

@@ -1,65 +1,26 @@
+import { sanitizeLogContext } from "./sanitize";
+
 type LogLevel = "info" | "warn" | "error";
 
 type LogContext = Record<string, unknown>;
 
-function sanitizeValue(value: unknown, depth = 0): unknown {
-  if (depth > 3) {
-    return "[truncated]";
-  }
-
-  if (
-    value === null ||
-    value === undefined ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    return value.length > 300 ? `${value.slice(0, 300)}…` : value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.slice(0, 20).map((item) => sanitizeValue(item, depth + 1));
-  }
-
-  if (value instanceof Error) {
-    return {
-      name: value.name,
-      message: value.message,
-      stack: value.stack?.split("\n").slice(0, 5).join("\n"),
-    };
-  }
-
-  if (typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => {
-        if (/phone|password|token|secret|authorization|cookie|hash/i.test(key)) {
-          return [key, "[redacted]"];
-        }
-
-        return [key, sanitizeValue(nestedValue, depth + 1)];
-      }),
-    );
-  }
-
-  return String(value);
-}
-
 function writeLog(level: LogLevel, message: string, context?: LogContext) {
+  // Санитайзим один раз: раньше в консоль уходил разобранный контекст, а в
+  // error_events — сырой, и любой Error там сплющивался в {}.
+  const safeContext = sanitizeLogContext(context);
+
   const payload = {
     app: "okno",
     level,
     message,
     timestamp: new Date().toISOString(),
-    context: context ? sanitizeValue(context) : undefined,
+    context: safeContext ?? undefined,
   };
 
   const serialized = JSON.stringify(payload);
 
   if (level === "error" || level === "warn") {
-    persistServerError(level, message, context);
+    persistServerError(level, message, safeContext);
   }
 
   if (level === "error") {
@@ -81,11 +42,23 @@ function writeLog(level: LogLevel, message: string, context?: LogContext) {
 function persistServerError(
   level: "warn" | "error",
   message: string,
-  context?: LogContext,
+  context: LogContext | null,
 ) {
   if (typeof window !== "undefined") {
     return;
   }
+
+  // route и digest вытаскиваем в отдельные колонки: по ним панель группирует
+  // повторы. У ошибок рендера ключи называются иначе (routePath из
+  // onRequestError), и раньше обе колонки оставались пустыми — все пятисотые
+  // с разных страниц выглядели одной проблемой.
+  const route =
+    typeof context?.route === "string"
+      ? context.route
+      : typeof context?.routePath === "string"
+        ? context.routePath
+        : null;
+  const digest = typeof context?.digest === "string" ? context.digest : null;
 
   void import("./error-store")
     .then(({ recordErrorEvent }) =>
@@ -93,7 +66,8 @@ function persistServerError(
         level,
         source: "server",
         message,
-        route: typeof context?.route === "string" ? context.route : null,
+        route,
+        digest,
         context: context ?? null,
       }),
     )

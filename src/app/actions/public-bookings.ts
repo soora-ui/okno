@@ -306,7 +306,7 @@ export async function rescheduleBookingByTokenAction(
 
   const { data: serviceRow, error: serviceError } = await admin
     .from("services")
-    .select("title, duration_minutes, repeat_interval_weeks")
+    .select("title, duration_minutes, repeat_interval_days")
     .eq("id", bookingRow.service_id)
     .maybeSingle();
 
@@ -444,7 +444,7 @@ export async function rescheduleBookingByTokenAction(
       masterName: String(profileRow.full_name ?? bookingData.masterName),
       serviceTitle: String(serviceRow.title ?? bookingData.serviceTitle),
       startsAtIso: nextStartIso,
-      repeatIntervalWeeks: Number(serviceRow.repeat_interval_weeks ?? 0),
+      repeatIntervalDays: Number(serviceRow.repeat_interval_days ?? 0),
     });
 
     if (repeatVisitRow) {

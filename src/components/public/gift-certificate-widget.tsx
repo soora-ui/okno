@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Download, Gift, QrCode, ShieldCheck, X } from "lucide-react";
+import { Download, Gift, X } from "lucide-react";
 import {
   purchaseGiftCertificateAction,
   type GiftCertificatePurchaseActionState,
@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/mock-data";
 import type { Service } from "@/lib/mock-data";
-import { cn } from "@/lib/utils";
 
 const initialState: GiftCertificatePurchaseActionState = {
   success: false,
@@ -35,21 +34,19 @@ type GiftCertificateWidgetProps = {
 };
 
 /**
- * Модалка со скачиванием после оплаты.
- *
- * Раньше на месте формы просто отрисовывалась карточка «Сертификат оплачен».
- * Покупатель возвращался из ЮKassa на длинную страницу мастера и оказывался
- * наверху — про то, что внизу лежит кнопка скачивания, догадывались не все.
- * Модалка перехватывает внимание сразу и закрыть её можно только осознанно.
+ * Общая оболочка модалки: затемнение, блокировка прокрутки фона, Escape и
+ * клик по подложке. Используется и формой покупки, и экраном скачивания.
  */
-function CertificateDownloadModal({
-  masterName,
-  href,
+function CertificateModal({
+  title,
+  titleId,
   onClose,
+  children,
 }: {
-  masterName: string;
-  href: string;
+  title: string;
+  titleId: string;
   onClose: () => void;
+  children: React.ReactNode;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -59,7 +56,6 @@ function CertificateDownloadModal({
       if (event.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    // Фон не должен уезжать под модалкой.
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -72,18 +68,18 @@ function CertificateDownloadModal({
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="certificate-paid-title"
+      aria-labelledby={titleId}
       className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(22,24,20,0.55)] p-4 backdrop-blur-sm sm:items-center"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <Card className="w-full max-w-md space-y-5">
+      <Card className="max-h-[90vh] w-full max-w-md space-y-5 overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <Gift size={20} className="text-accent-deep" />
-            <h2 id="certificate-paid-title" className="text-xl font-semibold text-ink">
-              Сертификат оплачен
+            <h2 id={titleId} className="text-xl font-semibold text-ink">
+              {title}
             </h2>
           </div>
           <button
@@ -96,24 +92,7 @@ function CertificateDownloadModal({
             <X size={18} />
           </button>
         </div>
-
-        <p className="text-sm leading-6 text-ink-soft">
-          Скачай PDF — на нём есть QR-код, который {masterName} отсканирует при
-          погашении. Файл можно переслать тому, кому даришь.
-        </p>
-
-        <a
-          href={href}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-medium text-ink-contrast transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
-        >
-          <Download size={16} />
-          Скачать сертификат (PDF)
-        </a>
-
-        <p className="text-xs leading-5 text-muted">
-          Ссылка на скачивание живёт в адресной строке этой вкладки. Скачай файл
-          сейчас — так его точно не придётся искать.
-        </p>
+        {children}
       </Card>
     </div>
   );
@@ -128,10 +107,14 @@ export function GiftCertificateWidget({
   returnedCertificateToken,
 }: GiftCertificateWidgetProps) {
   const [state, action] = useActionState(purchaseGiftCertificateAction, initialState);
-  const [amount, setAmount] = useState(denominations[0] ?? 0);
+
+  // Номинал выбирается кликом по карточке — он же открывает форму. Пока
+  // номинал не выбран, форма не показывается вовсе: витрина остаётся
+  // чистой сеткой сумм.
+  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
 
   const paid = Boolean(returnedCertificateId && returnedCertificateToken);
-  const [isModalOpen, setIsModalOpen] = useState(paid);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(paid);
 
   const downloadHref = paid
     ? `/api/certificates/${returnedCertificateId}/download?t=${returnedCertificateToken}`
@@ -142,8 +125,8 @@ export function GiftCertificateWidget({
     ...services.map((service) => ({ value: service.id, label: service.title })),
   ];
 
-  // Оплаченное состояние: форма покупки уже не нужна, вместо неё — карточка
-  // со скачиванием (на случай, если модалку закрыли) и сама модалка.
+  // Оплаченное состояние: витрина номиналов уже не нужна, вместо неё —
+  // карточка со скачиванием (на случай, если модалку закрыли) и сама модалка.
   if (paid) {
     return (
       <>
@@ -166,106 +149,100 @@ export function GiftCertificateWidget({
           </a>
         </Card>
 
-        {isModalOpen ? (
-          <CertificateDownloadModal
-            masterName={masterName}
-            href={downloadHref}
-            onClose={() => setIsModalOpen(false)}
-          />
+        {isDownloadOpen ? (
+          <CertificateModal
+            title="Сертификат оплачен"
+            titleId="certificate-paid-title"
+            onClose={() => setIsDownloadOpen(false)}
+          >
+            <p className="text-sm leading-6 text-ink-soft">
+              Скачай PDF — на нём есть QR-код, который {masterName} отсканирует при
+              погашении. Файл можно переслать тому, кому даришь.
+            </p>
+            <a
+              href={downloadHref}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-medium text-ink-contrast transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
+            >
+              <Download size={16} />
+              Скачать сертификат (PDF)
+            </a>
+            <p className="text-xs leading-5 text-muted">
+              Ссылка на скачивание живёт в адресной строке этой вкладки. Скачай файл
+              сейчас — так его точно не придётся искать.
+            </p>
+          </CertificateModal>
         ) : null}
       </>
     );
   }
 
   return (
-    // Две колонки во всю ширину контента: раньше виджет был max-w-2xl и
-    // висел узкой полосой под широкой страницей.
-    <Card className="grid gap-8 lg:grid-cols-2">
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Gift size={20} className="text-accent-deep" />
-          <h2 className="text-xl font-semibold text-ink">Подарочный сертификат</h2>
-        </div>
-        <p className="text-sm leading-6 text-ink-soft">
-          Оплати онлайн — сразу после оплаты откроется скачивание PDF-сертификата
-          с QR-кодом. Подарок можно использовать при записи к {masterName}.
-        </p>
+    <div className="space-y-6">
+      <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
+        Подарочные сертификаты
+      </p>
 
-        <ul className="space-y-3 text-sm leading-6 text-ink-soft">
-          <li className="flex items-start gap-3">
-            <QrCode size={17} className="mt-0.5 shrink-0 text-accent-deep" />
-            PDF с уникальным QR-кодом — его можно переслать или распечатать.
-          </li>
-          <li className="flex items-start gap-3">
-            <ShieldCheck size={17} className="mt-0.5 shrink-0 text-accent-deep" />
-            Оплата проходит через ЮKassa мастера, деньги идут напрямую ему.
-          </li>
-        </ul>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {denominations.map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setSelectedAmount(value)}
+            className="card-hover flex flex-col items-center justify-center gap-3 rounded-section border border-transparent px-6 py-10 text-center transition active:scale-[0.98]"
+            style={{ backgroundColor: "var(--color-accent-soft)" }}
+          >
+            <span className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+              {formatCurrency(value)}
+            </span>
+            <span className="text-sm font-medium uppercase tracking-[0.18em] text-accent-deep">
+              Купить
+            </span>
+          </button>
+        ))}
       </div>
 
-      <form action={action} className="space-y-4">
-        <input type="hidden" name="username" value={username} />
-        <input type="hidden" name="amount" value={amount} />
+      {selectedAmount !== null ? (
+        <CertificateModal
+          title={`Сертификат на ${formatCurrency(selectedAmount)}`}
+          titleId="certificate-purchase-title"
+          onClose={() => setSelectedAmount(null)}
+        >
+          <form action={action} className="space-y-4">
+            <input type="hidden" name="username" value={username} />
+            <input type="hidden" name="amount" value={selectedAmount} />
 
-        <div className="space-y-2">
-          <span className="text-sm font-medium text-ink">Номинал</span>
-          <div className="flex flex-wrap gap-2">
-            {denominations.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setAmount(value)}
-                aria-pressed={value === amount}
-                className={cn(
-                  "min-h-11 touch-manipulation rounded-full border px-4 py-2 text-sm font-medium transition active:scale-[0.98]",
-                  value === amount
-                    ? "border-ink bg-ink text-ink-contrast"
-                    : "border-line bg-[var(--ui-field-bg)] text-ink hover:bg-panel",
-                )}
-              >
-                {formatCurrency(value)}
-              </button>
-            ))}
-          </div>
-        </div>
+            {services.length > 0 ? (
+              <Select label="Услуга" name="serviceId" options={serviceOptions} />
+            ) : null}
 
-        {services.length > 0 ? (
-          <Select
-            label="На какую услугу"
-            name="serviceId"
-            options={serviceOptions}
-            hint="Или оставь «На любую услугу» — сертификат подойдет к любой записи."
-          />
-        ) : null}
+            <Input
+              label="Почта"
+              name="purchaserEmail"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              required
+              placeholder="you@example.com"
+            />
 
-        <Input
-          label="Почта"
-          name="purchaserEmail"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          required
-          placeholder="you@example.com"
-          hint="Продублируем сертификат на почту — на случай, если вкладка закроется."
-        />
+            <Input
+              label="Телефон (необязательно)"
+              name="purchaserContact"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="+7 978 000-00-00"
+            />
 
-        <Input
-          label="Телефон (необязательно)"
-          name="purchaserContact"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder="+7 978 000-00-00"
-          hint="Нужен только на случай спорных ситуаций."
-        />
-
-        <FormMessage message={state.message} success={state.success} />
-        <SubmitButton
-          idleLabel={`Купить за ${formatCurrency(amount)}`}
-          pendingLabel="Переходим к оплате..."
-          className="w-full justify-center"
-        />
-      </form>
-    </Card>
+            <FormMessage message={state.message} success={state.success} />
+            <SubmitButton
+              idleLabel={`Оплатить ${formatCurrency(selectedAmount)}`}
+              pendingLabel="Переходим к оплате..."
+              className="w-full justify-center"
+            />
+          </form>
+        </CertificateModal>
+      ) : null}
+    </div>
   );
 }

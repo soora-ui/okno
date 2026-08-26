@@ -1,13 +1,14 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
-import { AddToCalendar } from "@/components/booking/add-to-calendar";
+import { ReminderChannels } from "@/components/booking/reminder-channels";
 import { SiteShell } from "@/components/layout/site-shell";
 import { TipForm } from "@/components/booking/tip-form";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { bookingThemeAttr } from "@/lib/booking-theme-presets";
 import { getBookingConfirmationData } from "@/lib/data";
+import { isTelegramBotConfigured } from "@/lib/env";
 import { detectCalendarPlatformFromUserAgent } from "@/lib/ics";
 
 type ConfirmPageProps = {
@@ -59,7 +60,7 @@ export default async function ConfirmPage({
       : `${booking.clientName}, запись принята. Сохрани это время, чтобы не потерять его.`;
 
   return (
-    <SiteShell compact hideGuestMenu resolveAuth={false}>
+    <SiteShell compact hideGuestMenu resolveAuth={false} showSupportWidget={false}>
       <div
         {...bookingThemeAttr(booking.themePresetId)}
         className="mx-auto max-w-3xl py-10"
@@ -99,7 +100,11 @@ export default async function ConfirmPage({
               ) : null}
             </div>
             {booking.bookingId ? (
-              <AddToCalendar bookingId={booking.bookingId} platform={calendarPlatform} />
+              <ReminderChannels
+                bookingId={booking.bookingId}
+                platform={calendarPlatform}
+                telegramAvailable={isTelegramBotConfigured}
+              />
             ) : null}
             <TipForm bookingId={booking.bookingId} />
             <div className="flex flex-wrap justify-center gap-3">

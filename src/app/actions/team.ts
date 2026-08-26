@@ -15,7 +15,10 @@ import {
   canManageWorkspace,
   isTeamWorkspaceKind,
 } from "@/lib/workspace";
-import { hasCapability } from "@/lib/subscription";
+import { hasCapability, resolveSubscription } from "@/lib/subscription";
+import { loadSeatBalance } from "@/lib/subscription-seats";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Profile } from "@/lib/mock-data";
 
 export type TeamActionState = {
   success: boolean;
@@ -155,6 +158,31 @@ export async function updateWorkspaceSettingsAction(
   };
 }
 
+// Хватает ли оплаченных мест ещё на одного активного сотрудника. Возвращает
+// готовый отказ или null, если добавлять можно.
+async function checkSeatAvailability(
+  admin: SupabaseClient,
+  profile: Profile,
+): Promise<TeamActionState | null> {
+  const access = resolveSubscription(profile);
+  const balance = await loadSeatBalance(admin, {
+    profileId: profile.id,
+    workspaceId: profile.workspaceId,
+    planId: access.planId,
+    subscriptionUntil: access.activeUntil,
+    extraSeats: 1,
+  });
+
+  if (!balance.topUpRequired) {
+    return null;
+  }
+
+  return {
+    success: false,
+    message: `Мест в оплаченном периоде не осталось. Период оплачен вперёд, до его конца ${balance.remainingDays} дн. — доплата за место ${balance.amountRub} ₽. Оплатить можно в настройках, вкладка «Аккаунт».`,
+  };
+}
+
 export async function createTeamMemberAction(
   _prevState: TeamActionState,
   formData: FormData,
@@ -194,6 +222,15 @@ export async function createTeamMemberAction(
   }
 
   const admin = createSupabaseAdminClient();
+
+  // Место сверх оплаченных внутри длинного периода нужно оплатить сразу:
+  // иначе год, купленный на одного мастера, покрывал бы команду любого
+  // размера. При месячной оплате проверка молчит — там сотрудник просто
+  // войдёт в следующий платёж, как и раньше.
+  const seatBlock = await checkSeatAvailability(admin, profile);
+  if (seatBlock) {
+    return seatBlock;
+  }
   const { data: existingProfile } = await admin
     .from("profiles")
     .select("id")
@@ -439,6 +476,15 @@ export async function toggleTeamMemberStatusAction(
           ? "Кабинет уже отключен."
           : "Кабинет уже активен.",
     };
+  }
+
+  // Включение отключённого кабинета занимает место так же, как создание
+  // нового сотрудника, — и проверяется так же.
+  if (parsed.data.nextStatus === "active") {
+    const seatBlock = await checkSeatAvailability(admin, profile);
+    if (seatBlock) {
+      return seatBlock;
+    }
   }
 
   const banDuration = parsed.data.nextStatus === "disabled" ? "876000h" : "none";

@@ -21,6 +21,7 @@ import {
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { DemoThemeSwitcher } from "@/components/public/demo-theme-switcher";
 import { PortfolioModal } from "@/components/public/portfolio-modal";
+import { ServiceConsultantButton } from "@/components/support/service-consultant-widget";
 import {
   getClosestSlots,
   publicDemoStorySteps,
@@ -45,6 +46,7 @@ export function PublicProfileView({
   guidedDemo = false,
   guidedDemoCleanHref,
   certificateSlot,
+  consultantServiceIds,
 }: PublicProfileViewProps) {
   const [isPortfolioOpen, setIsPortfolioOpen] = useState(false);
   const closestSlots = getClosestSlots(services, bookingSlotsByService);
@@ -521,21 +523,30 @@ export function PublicProfileView({
                       {service.description}
                     </p>
 
-                    <div className="flex items-center justify-between gap-3 pt-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                       <span className="text-sm text-muted">
                         {showDemoSections
                           ? "Запись без регистрации и звонка"
                           : `${service.durationMinutes} мин • ${formatCurrency(service.price)}`}
                       </span>
-                      <ButtonLink
-                        href={bookingHref}
-                        documentNavigation={guidedDemo}
-                        variant="secondary"
-                        className="gap-2"
-                      >
-                        Выбрать
-                        <ArrowRight size={16} />
-                      </ButtonLink>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {consultantServiceIds?.includes(service.id) ? (
+                          <ServiceConsultantButton
+                            serviceId={service.id}
+                            serviceTitle={service.title}
+                            label="Задать вопрос"
+                          />
+                        ) : null}
+                        <ButtonLink
+                          href={bookingHref}
+                          documentNavigation={guidedDemo}
+                          variant="secondary"
+                          className="gap-2"
+                        >
+                          Выбрать
+                          <ArrowRight size={16} />
+                        </ButtonLink>
+                      </div>
                     </div>
                   </div>
                 </article>

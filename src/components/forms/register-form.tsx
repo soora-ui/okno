@@ -14,36 +14,22 @@ import {
   defaultCityValue,
 } from "@/lib/cities";
 import { publicLinkHost, suggestUsername } from "@/lib/site";
-
-const accountModes = [
-  {
-    value: "solo",
-    title: "Одиночный мастер",
-    description: "Свой кабинет, первая услуга и личная ссылка для записи.",
-  },
-  {
-    value: "studio",
-    title: "Студия",
-    description: "Администратор создает сотрудников и следит за всей командой.",
-  },
-  {
-    value: "barbershop",
-    title: "Барбершоп",
-    description: "Подходит для команды с разными мастерами и отдельными кабинетами.",
-  },
-  {
-    value: "company",
-    title: "Компания",
-    description: "Для салона, сети или бренда, где нужны роли и общая админка.",
-  },
-] as const;
-
-type AccountMode = (typeof accountModes)[number]["value"];
+import {
+  accountModes,
+  defaultAccountMode,
+  type AccountMode,
+} from "@/lib/account-modes";
 
 export function RegisterForm({
   referralCode = null,
+  initialAccountMode = defaultAccountMode,
+  initialFullName = "",
+  initialSpecialty = "",
 }: {
   referralCode?: string | null;
+  initialAccountMode?: AccountMode;
+  initialFullName?: string;
+  initialSpecialty?: string;
 }) {
   const [state, formAction] = useActionState(
     registerMasterAction,
@@ -51,18 +37,24 @@ export function RegisterForm({
   );
   const values = state.values;
   const [accountMode, setAccountMode] = useState<AccountMode>(
-    (values?.accountMode as AccountMode) ?? "solo",
+    (values?.accountMode as AccountMode) ?? initialAccountMode,
   );
   const isSolo = accountMode === "solo";
 
   // Публичная ссылка автогенерируется от имени и ниши, пока мастер не
   // отредактирует её вручную. Имя/ниша — неконтролируемые поля, поэтому их
   // текущие значения держим в ref и пересчитываем ссылку по onChange.
+  // Значения после неудачной отправки важнее того, что пришло из конструктора
+  // в героe: мастер уже успел их поправить руками.
+  const seedFullName = values?.fullName ?? initialFullName;
+  const seedSpecialty = values?.specialty ?? initialSpecialty;
   const nameParts = useRef({
-    fullName: values?.fullName ?? "",
-    specialty: values?.specialty ?? "",
+    fullName: seedFullName,
+    specialty: seedSpecialty,
   });
-  const [username, setUsername] = useState(values?.username ?? "");
+  const [username, setUsername] = useState(
+    values?.username ?? suggestUsername(seedFullName, seedSpecialty),
+  );
   const [usernameEdited, setUsernameEdited] = useState(
     Boolean(values?.username),
   );
@@ -138,7 +130,7 @@ export function RegisterForm({
             label={isSolo ? "Имя мастера" : "Имя администратора"}
             name="fullName"
             placeholder={isSolo ? "Алина" : "Алина Мороз"}
-            defaultValue={values?.fullName}
+            defaultValue={seedFullName}
             onChange={(event) => {
               nameParts.current.fullName = event.target.value;
               refreshSuggestedUsername();
@@ -149,7 +141,7 @@ export function RegisterForm({
             label={isSolo ? "Ниша" : "Роль или специализация"}
             name="specialty"
             placeholder={isSolo ? "Маникюр и брови" : "Управляющий студией"}
-            defaultValue={values?.specialty}
+            defaultValue={seedSpecialty}
             onChange={(event) => {
               nameParts.current.specialty = event.target.value;
               refreshSuggestedUsername();

@@ -46,10 +46,21 @@ import {
   getOwnerScheduleRows,
   getOwnerServiceManualRows,
   getOwnerSettingsRows,
+  getOwnerAutopayState,
   getOwnerYooKassaAccountRow,
 } from "@/lib/repositories/owner-repository";
 import type { ReferralInviteSummary } from "@/lib/referral";
 import type { MasterYooKassaAccount } from "@/lib/payments/yookassa-oauth";
+import {
+  type AutopayState,
+  emptyAutopayState,
+} from "@/lib/payments/subscription-autopay";
+import { resolveSubscription } from "@/lib/subscription";
+import {
+  type SeatBalance,
+  emptySeatBalance,
+  loadSeatBalance,
+} from "@/lib/subscription-seats";
 import {
   countActiveWorkspaceSeats,
   getWorkspaceTeamRows,
@@ -222,7 +233,7 @@ const PUBLIC_SERVICE_COLUMNS = [
   "price",
   "is_active",
   "sort_order",
-  "repeat_interval_weeks",
+  "repeat_interval_days",
   "prepayment_type",
   "prepayment_value",
 ].join(",");
@@ -801,7 +812,9 @@ export async function getSettingsData() {
         referralInvites: [] as ReferralInviteSummary[],
         certificateTemplate: null as CertificateTemplateSummary | null,
         yookassaAccount: null as MasterYooKassaAccount | null,
+        autopay: emptyAutopayState as AutopayState,
         activeSeats: 0,
+        seatBalance: emptySeatBalance as SeatBalance,
         source: "mock" as const,
       };
     }
@@ -818,7 +831,9 @@ export async function getSettingsData() {
       referralInvites: [] as ReferralInviteSummary[],
       certificateTemplate: null as CertificateTemplateSummary | null,
       yookassaAccount: null as MasterYooKassaAccount | null,
+      autopay: emptyAutopayState as AutopayState,
       activeSeats: 0,
+      seatBalance: emptySeatBalance as SeatBalance,
       source: "mock" as const,
     };
   }
@@ -830,7 +845,9 @@ export async function getSettingsData() {
     referralRows,
     certificateTemplateRow,
     yookassaAccount,
+    autopay,
     activeSeats,
+    seatBalance,
   ] = await Promise.all([
     getOwnerSettingsRows({
       profileId: authProfile.profile.id,
@@ -850,10 +867,19 @@ export async function getSettingsData() {
     getOwnerYooKassaAccountRow({
       profileId: authProfile.profile.id,
     }),
+    getOwnerAutopayState({
+      profileId: authProfile.profile.id,
+    }),
     countActiveWorkspaceSeats(
       createSupabaseAdminClient(),
       authProfile.profile.workspaceId,
     ),
+    loadSeatBalance(createSupabaseAdminClient(), {
+      profileId: authProfile.profile.id,
+      workspaceId: authProfile.profile.workspaceId,
+      planId: resolveSubscription(authProfile.profile).planId,
+      subscriptionUntil: authProfile.profile.subscriptionUntil,
+    }),
   ]);
 
   return {
@@ -869,7 +895,9 @@ export async function getSettingsData() {
     referralInvites: mapReferralInvites(referralRows),
     certificateTemplate: await mapCertificateTemplate(certificateTemplateRow),
     yookassaAccount,
+    autopay,
     activeSeats,
+    seatBalance,
     source: "supabase" as const,
   };
 }

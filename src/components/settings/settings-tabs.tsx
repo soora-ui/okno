@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import {
-  BellRing,
   CalendarRange,
   Gift,
   Globe2,
@@ -18,6 +17,8 @@ import {
 import type { CertificateTemplateSummary } from "@/lib/data";
 import type { AvailabilityRule, Profile, Service } from "@/lib/mock-data";
 import type { MasterYooKassaAccount } from "@/lib/payments/yookassa-oauth";
+import type { AutopayState } from "@/lib/payments/subscription-autopay";
+import type { SeatBalance } from "@/lib/subscription-seats";
 import type { ReferralInviteSummary } from "@/lib/referral";
 import type { ServiceManualSummary } from "@/lib/service-manuals";
 import { hasCapability } from "@/lib/subscription";
@@ -33,6 +34,7 @@ import {
   SubscriptionSettingsForm,
 } from "@/components/forms/settings-forms";
 import { ReferralSettings } from "@/components/settings/referral-settings";
+import { TelegramConnectSection } from "@/components/settings/telegram-connect-section";
 import { YooKassaConnectSection } from "@/components/settings/yookassa-connect-section";
 import {
   RecordSectionNav,
@@ -87,6 +89,8 @@ export function SettingsTabs({
   certificateTemplate = null,
   yookassaAccount = null,
   activeSeats = 0,
+  autopay,
+  seatBalance,
 }: {
   profile: Profile;
   services: Service[];
@@ -98,6 +102,8 @@ export function SettingsTabs({
   // Активные сотрудники рабочего пространства — от них считается доплата
   // за места сверх включённых в тариф.
   activeSeats?: number;
+  autopay?: AutopayState;
+  seatBalance?: SeatBalance;
 }) {
   const [activeTab, setActiveTab] =
     useState<(typeof tabs)[number]["id"]>("profile");
@@ -130,27 +136,13 @@ export function SettingsTabs({
       </Card>
     ),
     certificates: (
-      <CertificateSection profile={profile} certificateTemplate={certificateTemplate} />
+      <CertificateSection
+        profile={profile}
+        certificateTemplate={certificateTemplate}
+        yookassaConnected={yookassaAccount?.status === "enabled"}
+      />
     ),
-    telegram: (
-      <Card className="space-y-4">
-        <div className="flex items-center gap-3">
-          <BellRing size={18} className="text-success" />
-          <h2 className="text-xl font-semibold text-ink">
-            Telegram-уведомления
-          </h2>
-        </div>
-        <div className="rounded-panel bg-panel p-4">
-          <p className="text-sm font-medium text-ink">
-            {profile.telegramChatId ? "Бот подключен" : "Бот не подключен"}
-          </p>
-          <p className="mt-2 text-sm leading-6 text-ink-soft">
-            Подключи Telegram, чтобы получать уведомления о новых записях и будущие
-            напоминания о визитах мастера.
-          </p>
-        </div>
-      </Card>
-    ),
+    telegram: <TelegramConnectSection profile={profile} />,
     "color-palette": (
       <Card className="space-y-4">
         <div className="flex items-center gap-3">
@@ -290,7 +282,12 @@ export function SettingsTabs({
               <Sparkles size={18} className="text-accent-deep" />
               <h2 className="text-xl font-semibold text-ink">Подписка</h2>
             </div>
-            <SubscriptionSettingsForm profile={profile} activeSeats={activeSeats} />
+            <SubscriptionSettingsForm
+              profile={profile}
+              activeSeats={activeSeats}
+              autopay={autopay}
+              seatBalance={seatBalance}
+            />
           </Card>
 
           <Card className="space-y-4">
