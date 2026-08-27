@@ -61,15 +61,69 @@ await callTelegram("setWebhook", {
   max_connections: 20,
 });
 
-await callTelegram("setMyCommands", {
-  commands: [
-    { command: "today", description: "Записи на сегодня" },
-    { command: "week", description: "Записи на неделю" },
-    { command: "link", description: "Ссылка на страницу записи" },
-    { command: "help", description: "Что умеет бот" },
-    { command: "stop", description: "Отключить уведомления" },
-  ],
-});
+// Глобальное меню — клиентское. Клиентов на порядок больше, чем мастеров, и
+// человек, впервые открывший бота, почти наверняка клиент. Мастерские
+// /today, /week и /link ставятся отдельно, на конкретный чат (область chat
+// перекрывает глобальную), — этим занимается сам бот при привязке.
+const clientCommands = [
+  { command: "help", description: "Мои записи" },
+  { command: "stop", description: "Больше не напоминать" },
+];
+
+const masterCommands = [
+  { command: "today", description: "Записи на сегодня" },
+  { command: "week", description: "Записи на неделю" },
+  { command: "link", description: "Ссылка на страницу записи" },
+  { command: "help", description: "Что умеет бот" },
+  { command: "stop", description: "Отключить уведомления" },
+];
+
+async function applyMasterCommandsToLinkedChats() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.log("Supabase не настроен — мастерские меню проставит бот при /start.");
+    return;
+  }
+
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/auth_telegram_links?select=chat_id&unlinked_at=is.null&chat_id=not.is.null`,
+    { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } },
+  );
+
+  if (!response.ok) {
+    console.log("Не получилось прочитать привязки — меню проставит бот при /start.");
+    return;
+  }
+
+  const rows = await response.json();
+  let done = 0;
+
+  for (const row of rows) {
+    // Чат мог быть удалён или бот заблокирован: одна такая привязка не должна
+    // ронять настройку остальных.
+    try {
+      await callTelegram("setMyCommands", {
+        commands: masterCommands,
+        scope: { type: "chat", chat_id: String(row.chat_id) },
+      });
+      done += 1;
+    } catch (error) {
+      console.log(`Чат ${row.chat_id}: ${error.message}`);
+    }
+  }
+
+  console.log(`Мастерское меню проставлено чатам: ${done} из ${rows.length}.`);
+}
+
+await callTelegram("setMyCommands", { commands: clientCommands });
+
+// Мастера, привязавшиеся до появления областей, живут с глобальным меню — и
+// после смены глобального на клиентское потеряли бы команды кабинета. Бот
+// проставит область при следующем /start, но ждать этого не нужно: проходим
+// по живым привязкам сразу.
+await applyMasterCommandsToLinkedChats();
 
 await callTelegram("setMyDescription", {
   description:

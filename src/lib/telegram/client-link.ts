@@ -315,6 +315,40 @@ export async function getClientBookingsByChat(input: {
     .filter((booking): booking is ClientLinkedBooking => booking !== null);
 }
 
+// Был ли этот чат когда-нибудь клиентским — включая погашенные привязки.
+//
+// Нужно ровно в одном месте: когда показывать нечего. Незнакомый чат получает
+// мастерскую подсказку про настройки, а человеку, который просто отписался,
+// она непонятна — он никогда не видел кабинета okno и не собирался.
+//
+// Запрос делается только на этой ветке, а не на каждом сообщении: у активного
+// клиента записи находятся раньше и сюда дело не доходит.
+export async function hasClientHistory(input: {
+  telegramUserId: string;
+}): Promise<boolean> {
+  const admin = createSupabaseAdminClient();
+
+  const { data: linkRow } = await admin
+    .from("client_telegram_links")
+    .select("id")
+    .eq("telegram_user_id", input.telegramUserId)
+    .limit(1)
+    .maybeSingle();
+
+  if (linkRow) {
+    return true;
+  }
+
+  const { data: identityRow } = await admin
+    .from("client_telegram_identities")
+    .select("id")
+    .eq("telegram_user_id", input.telegramUserId)
+    .limit(1)
+    .maybeSingle();
+
+  return Boolean(identityRow);
+}
+
 // Отписка клиента: гасим все его привязки разом. Он не выбирал мастера при
 // подключении — не должен выбирать и при отказе.
 export async function detachClientTelegramChat(input: {

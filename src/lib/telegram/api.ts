@@ -9,9 +9,19 @@ export type TelegramInlineButton = {
   text: string;
   callback_data?: string;
   url?: string;
+  // Кнопка запуска мини-аппа. Telegram принимает её только с https-адреса,
+  // поэтому в разработке такие кнопки не показываем.
+  web_app?: { url: string };
 };
 
 export type TelegramInlineKeyboard = TelegramInlineButton[][];
+
+// Обычная клавиатура под полем ввода — единственный способ попросить контакт:
+// у inline-кнопок request_contact нет. Нужна ровно в одном месте, поэтому
+// описана минимально: одна кнопка, которая присылает телефон отправителя.
+export type TelegramReplyKeyboard = {
+  requestContactText: string;
+};
 
 type TelegramResponse<T> = {
   ok: boolean;
@@ -96,6 +106,12 @@ export async function sendTelegramMessage(input: {
   chatId: string;
   text: string;
   keyboard?: TelegramInlineKeyboard;
+  // Клавиатура запроса контакта. Взаимоисключима с inline: Telegram
+  // принимает в сообщении только одну reply_markup.
+  replyKeyboard?: TelegramReplyKeyboard;
+  // Убрать ранее показанную клавиатуру запроса контакта — иначе она висит
+  // под полем ввода и после того, как человек уже поделился номером.
+  removeReplyKeyboard?: boolean;
   disableWebPagePreview?: boolean;
   // Ответом на какое сообщение отправить. Нужно группе поддержки: реплики по
   // одному обращению должны собираться в одну ветку, иначе разговор с
@@ -106,6 +122,7 @@ export async function sendTelegramMessage(input: {
     chat_id: input.chatId,
     text: input.text,
     parse_mode: "HTML",
+    ...(buildReplyMarkup(input)),
     link_preview_options: {
       is_disabled: input.disableWebPagePreview ?? true,
     },
@@ -119,8 +136,38 @@ export async function sendTelegramMessage(input: {
           },
         }
       : {}),
-    ...(input.keyboard ? { reply_markup: { inline_keyboard: input.keyboard } } : {}),
   });
+}
+
+// Telegram принимает в сообщении ровно одну reply_markup, поэтому выбор один
+// на всех: клавиатура запроса контакта важнее inline-кнопок — она появляется
+// в единственном месте разговора, где без неё дальше не пройти.
+function buildReplyMarkup(input: {
+  keyboard?: TelegramInlineKeyboard;
+  replyKeyboard?: TelegramReplyKeyboard;
+  removeReplyKeyboard?: boolean;
+}) {
+  if (input.replyKeyboard) {
+    return {
+      reply_markup: {
+        keyboard: [
+          [{ text: input.replyKeyboard.requestContactText, request_contact: true }],
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    };
+  }
+
+  if (input.keyboard) {
+    return { reply_markup: { inline_keyboard: input.keyboard } };
+  }
+
+  if (input.removeReplyKeyboard) {
+    return { reply_markup: { remove_keyboard: true } };
+  }
+
+  return {};
 }
 
 // Повторное нажатие той же кнопки даёт тот же текст, и Telegram отвечает
@@ -168,6 +215,35 @@ let cachedBotUsername: string | null = null;
 // Имя бота нужно только для ссылки t.me/<bot>?start=…. Берём из переменной
 // окружения, иначе один раз спрашиваем у getMe и держим в памяти процесса:
 // имя бота меняется вручную в BotFather, инвалидация не нужна.
+export type TelegramCommand = {
+  command: string;
+  description: string;
+};
+
+// Меню команд у Telegram привязано к области видимости. Глобальная область —
+// одна на всех, поэтому мастерские /today и /week раньше видел и клиент,
+// которому они ничего не покажут. Область chat перекрывает глобальную только
+// для одного чата, и это ровно то разделение, которое нужно: по умолчанию
+// команды клиентские, а чат мастера получает свои поверх.
+export async function setChatCommands(input: {
+  chatId: string;
+  commands: TelegramCommand[];
+}) {
+  return callTelegram<boolean>("setMyCommands", {
+    commands: input.commands,
+    scope: { type: "chat", chat_id: input.chatId },
+  });
+}
+
+// Снимает область чата: меню возвращается к глобальному, то есть к
+// клиентскому. Нужно, когда мастер отвязал чат — команды кабинета в нём
+// больше не работают, и висеть в меню не должны.
+export async function clearChatCommands(input: { chatId: string }) {
+  return callTelegram<boolean>("deleteMyCommands", {
+    scope: { type: "chat", chat_id: input.chatId },
+  });
+}
+
 export async function getTelegramBotUsername() {
   if (env.telegramBotUsername) {
     return env.telegramBotUsername.replace(/^@/, "");

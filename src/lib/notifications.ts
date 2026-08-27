@@ -7,6 +7,7 @@ import {
   sendTelegramMessage,
   type TelegramInlineKeyboard,
 } from "@/lib/telegram/api";
+import { markClientIdentityUnavailable } from "@/lib/telegram/client-identity";
 import { markClientChatUnavailable } from "@/lib/telegram/client-link";
 import { markTelegramChatUnavailable } from "@/lib/telegram/link";
 
@@ -141,6 +142,7 @@ async function sendClientTelegram(
 
   if (isTelegramChatUnavailable(result)) {
     await markClientChatUnavailable({ chatId });
+    await markClientIdentityUnavailable({ chatId });
     return { ok: false as const, skipped: true as const };
   }
 

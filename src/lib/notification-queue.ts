@@ -15,6 +15,7 @@ import {
   getClientChatForBooking,
   getClientLinkedBooking,
 } from "@/lib/telegram/client-link";
+import { getClientChatByBookingIdentity } from "@/lib/telegram/client-identity";
 import { formatPublicProfileLink } from "@/lib/site";
 import { env } from "@/lib/env";
 
@@ -167,7 +168,13 @@ async function sendClientBookingMessage(
   kind: "reminder" | "cancelled",
 ) {
   const bookingId = String(job.payload.bookingId ?? job.target ?? "");
-  const chatId = await getClientChatForBooking({ bookingId });
+
+  // Две дороги до чата, и порядок важен. Привязка по записи точнее: её сделали
+  // именно для этого визита. Личность по телефону — шире: она покрывает записи,
+  // о которых клиент нас не просил, потому что один раз поделился номером.
+  const chatId =
+    (await getClientChatForBooking({ bookingId })) ??
+    (await getClientChatByBookingIdentity({ bookingId }));
 
   // Клиент не подключал Telegram или отписался. Это обычный исход, а не сбой:
   // закрываем событие, чтобы очередь не ретраила его до конца попыток.
