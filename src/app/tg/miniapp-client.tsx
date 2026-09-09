@@ -3,7 +3,9 @@
 import { useCallback, useState } from "react";
 import Script from "next/script";
 import { CalendarClock, RefreshCw, Share2 } from "lucide-react";
+import { ConsultantChat } from "@/app/tg/consultant-chat";
 import { PhoneVerify } from "@/app/tg/phone-verify";
+import { TipForm } from "@/app/tg/tip-form";
 import { Button, ButtonLink } from "@/components/ui/button";
 
 type MiniAppBooking = {
@@ -15,12 +17,16 @@ type MiniAppBooking = {
   startsAtIso: string;
   startsAtLabel: string;
   cancelUrl: string | null;
+  repeatUrl: string;
+  consultantAvailable: boolean;
+  consultantToken: string | null;
 };
 
 type MiniAppData = {
   firstName: string | null;
   hasIdentity: boolean;
   bookings: MiniAppBooking[];
+  past: MiniAppBooking[];
 };
 
 type State =
@@ -38,6 +44,20 @@ type TelegramWebApp = {
   openLink: (url: string) => void;
   requestContact?: (callback: (shared: boolean) => void) => void;
 };
+
+// Открыть ссылку наружу, а не внутри вебвью. Нужно оплате: 3-D Secure уводит
+// в банковское приложение, откуда возврата в мини-апп нет. Вне Telegram
+// (отладка в браузере) — обычная новая вкладка.
+function openExternal(url: string) {
+  const webApp = getWebApp();
+
+  if (webApp?.openLink) {
+    webApp.openLink(url);
+    return;
+  }
+
+  window.open(url, "_blank", "noopener");
+}
 
 function getWebApp(): TelegramWebApp | null {
   const telegram = (window as unknown as { Telegram?: { WebApp?: TelegramWebApp } })
@@ -209,27 +229,31 @@ export function MiniAppClient() {
       ) : (
         <ul className="space-y-3">
           {data.bookings.map((booking) => (
-            <li key={booking.bookingId} className="rounded-card bg-panel p-5">
-              <p className="font-medium text-ink">{booking.serviceTitle}</p>
-              <p className="mt-1 text-sm text-ink-soft">{booking.masterName}</p>
-              <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-ink">
-                <CalendarClock size={14} className="shrink-0" />
-                {booking.startsAtLabel}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {booking.cancelUrl ? (
-                  <ButtonLink href={booking.cancelUrl} variant="secondary">
-                    Перенести или отменить
-                  </ButtonLink>
-                ) : null}
-                <ButtonLink href={booking.masterUrl} variant="secondary" documentNavigation>
-                  Записаться ещё
-                </ButtonLink>
-              </div>
-            </li>
+            <BookingCard
+              key={booking.bookingId}
+              booking={booking}
+              past={false}
+              initData={initData}
+            />
           ))}
         </ul>
       )}
+
+      {data.past.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-base font-semibold text-ink">Прошедшие визиты</h2>
+          <ul className="space-y-3">
+            {data.past.map((booking) => (
+              <BookingCard
+                key={booking.bookingId}
+                booking={booking}
+                past
+                initData={initData}
+              />
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {data.hasIdentity ? null : (
         <div className="space-y-3 rounded-card border border-line p-5">
@@ -266,5 +290,76 @@ export function MiniAppClient() {
         </div>
       )}
     </div>
+  );
+}
+
+function BookingCard({
+  booking,
+  past,
+  initData,
+}: {
+  booking: MiniAppBooking;
+  past: boolean;
+  initData: string;
+}) {
+  // Одна раскрытая панель за раз. Две одновременно на телефоне не помещаются,
+  // а две кнопки «Свернуть» рядом друг с другом неразличимы.
+  const [panel, setPanel] = useState<"consultant" | "tip" | null>(null);
+  const toggle = (next: "consultant" | "tip") =>
+    setPanel((current) => (current === next ? null : next));
+  // Консультант живёт при прошедшем визите: вопросы про уход возникают после
+  // процедуры, а не до неё.
+  const canAsk = past && booking.consultantAvailable && booking.consultantToken;
+
+  return (
+    <li className="rounded-card bg-panel p-5">
+      <p className="font-medium text-ink">{booking.serviceTitle}</p>
+      <p className="mt-1 text-sm text-ink-soft">{booking.masterName}</p>
+      <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-ink">
+        <CalendarClock size={14} className="shrink-0" />
+        {booking.startsAtLabel}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {/* Перенос и отмена живут на той же странице, что и в ссылке из
+            записи: слот-пикер там уже есть, а внутри мини-аппа она
+            открывается своим же вебвью. */}
+        {!past && booking.cancelUrl ? (
+          <ButtonLink href={booking.cancelUrl} variant="secondary">
+            Перенести или отменить
+          </ButtonLink>
+        ) : null}
+        {/* Подпись не меняется на «Свернуть»: открытое состояние показывает
+            заливка, а одинаковые подписи у соседних кнопок читать невозможно. */}
+        {canAsk ? (
+          <Button
+            variant={panel === "consultant" ? "primary" : "secondary"}
+            onClick={() => toggle("consultant")}
+          >
+            Спросить про уход
+          </Button>
+        ) : null}
+        {past ? (
+          <Button
+            variant={panel === "tip" ? "primary" : "secondary"}
+            onClick={() => toggle("tip")}
+          >
+            Оставить чаевые
+          </Button>
+        ) : null}
+        <ButtonLink href={booking.repeatUrl} variant="secondary" documentNavigation>
+          {past ? "Записаться снова" : "Записаться ещё"}
+        </ButtonLink>
+      </div>
+      {canAsk && panel === "consultant" ? (
+        <ConsultantChat token={booking.consultantToken as string} />
+      ) : null}
+      {past && panel === "tip" ? (
+        <TipForm
+          initData={initData}
+          bookingId={booking.bookingId}
+          onOpenLink={openExternal}
+        />
+      ) : null}
+    </li>
   );
 }

@@ -92,6 +92,9 @@ export async function createClientLinkInvite(input: {
 export type ClientLinkedBooking = {
   bookingId: string;
   profileId: string;
+  // Нужен кабинету: повторная запись ведёт на ту же услугу, а консультант
+  // отвечает только по той, на которой человек был.
+  serviceId: string | null;
   masterName: string;
   masterUsername: string;
   serviceTitle: string;
@@ -104,6 +107,7 @@ export type ClientLinkedBooking = {
 const linkedBookingSelect = `
   id,
   profile_id,
+  service_id,
   starts_at,
   status,
   cancellation_token,
@@ -132,6 +136,7 @@ function mapLinkedBooking(row: Record<string, unknown>): ClientLinkedBooking | n
   return {
     bookingId: String(row.id),
     profileId: String(row.profile_id),
+    serviceId: row.service_id ? String(row.service_id) : null,
     masterName: String(profile.full_name ?? ""),
     masterUsername: String(profile.username ?? ""),
     serviceTitle: String(service?.title ?? ""),

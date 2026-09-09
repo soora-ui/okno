@@ -215,34 +215,25 @@ export async function markClientIdentityUnavailable(input: { chatId: string }) {
     .is("unlinked_at", null);
 }
 
-// Все будущие визиты человека — у всех мастеров сразу. Это и есть то, чего
-// не даёт привязка по записи: два запроса вместо джойна, потому что clients
-// и bookings связаны через profile_id, а фильтруем мы по телефону.
+// Все визиты человека — у всех мастеров сразу. Это и есть то, чего не даёт
+// привязка по записи: два запроса вместо джойна, потому что clients и bookings
+// связаны через profile_id, а фильтруем мы по телефону.
 export async function getClientBookingsByPhoneHash(input: {
   phoneHash: string;
   includePast?: boolean;
   limit?: number;
 }): Promise<ClientLinkedBooking[]> {
-  const admin = createSupabaseAdminClient();
+  const clientIds = await getClientIdsByPhoneHash(input.phoneHash);
 
-  const { data: clientRows, error: clientError } = await admin
-    .from("clients")
-    .select("id")
-    .eq("phone_hash", input.phoneHash);
-
-  if (clientError || !clientRows || clientRows.length === 0) {
+  if (clientIds.length === 0) {
     return [];
   }
 
+  const admin = createSupabaseAdminClient();
   let query = admin
     .from("bookings")
-    .select(
-      "id, profile_id, starts_at, status, cancellation_token, services(title), profiles(username, full_name, timezone, client_reminder_hours)",
-    )
-    .in(
-      "client_id",
-      clientRows.map((row) => String(row.id)),
-    )
+    .select(bookingSelect)
+    .in("client_id", clientIds)
     .limit(input.limit ?? 20);
 
   query = input.includePast
@@ -262,6 +253,61 @@ export async function getClientBookingsByPhoneHash(input: {
     .map(mapBookingRow)
     .filter((booking): booking is ClientLinkedBooking => booking !== null);
 }
+
+// Прошедшие визиты. Отдельный запрос, а не хвост общего списка: к ним
+// привязано всё, что можно сделать только после процедуры — отзыв, чаевые,
+// повторная запись, вопрос консультанту.
+//
+// Берём и записи без отметки: мастер мог просто не проставить «пришёл», и
+// молчать об услуге из-за этого неправильно. Отменённые и «не пришёл»
+// отсеиваем — по ним делать нечего.
+export async function getClientPastBookings(input: {
+  phoneHash: string;
+  limit?: number;
+}): Promise<ClientLinkedBooking[]> {
+  const clientIds = await getClientIdsByPhoneHash(input.phoneHash);
+
+  if (clientIds.length === 0) {
+    return [];
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("bookings")
+    .select(bookingSelect)
+    .in("client_id", clientIds)
+    .eq("status", "confirmed")
+    .lt("starts_at", new Date().toISOString())
+    .not("visit_status", "in", "(no_show,cancelled_late,cancelled_ok)")
+    .order("starts_at", { ascending: false })
+    .limit(input.limit ?? 20);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return (data as Record<string, unknown>[])
+    .map(mapBookingRow)
+    .filter((booking): booking is ClientLinkedBooking => booking !== null);
+}
+
+async function getClientIdsByPhoneHash(phoneHash: string): Promise<string[]> {
+  const admin = createSupabaseAdminClient();
+
+  const { data, error } = await admin
+    .from("clients")
+    .select("id")
+    .eq("phone_hash", phoneHash);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map((row) => String(row.id));
+}
+
+const bookingSelect =
+  "id, profile_id, service_id, starts_at, status, visit_status, cancellation_token, services(title), profiles(username, full_name, timezone, client_reminder_hours)";
 
 // Тот же разбор вложенных связей, что в client-link.ts: Supabase отдаёт их
 // объектом или массивом в зависимости от выведенной кардинальности.
@@ -284,6 +330,7 @@ function mapBookingRow(row: Record<string, unknown>): ClientLinkedBooking | null
   return {
     bookingId: String(row.id),
     profileId: String(row.profile_id),
+    serviceId: row.service_id ? String(row.service_id) : null,
     masterName: String(profile.full_name ?? ""),
     masterUsername: String(profile.username ?? ""),
     serviceTitle: String(service?.title ?? ""),
