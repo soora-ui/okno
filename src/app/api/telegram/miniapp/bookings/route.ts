@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { formatPublicProfileLink } from "@/lib/site";
 import { getConsultantContext } from "@/lib/repositories/consultant-repository";
+import { getClientCertificates } from "@/lib/telegram/client-certificates";
 import { hasCapability } from "@/lib/subscription";
 import {
   getClientBookingsByPhoneHash,
@@ -76,6 +77,10 @@ export async function POST(request: Request) {
     ? await getClientPendingPayments({ phoneHash: identity.phoneHash })
     : [];
 
+  const certificates = identity
+    ? await getClientCertificates({ phoneHash: identity.phoneHash })
+    : [];
+
   return NextResponse.json(
     {
       ok: true,
@@ -83,6 +88,7 @@ export async function POST(request: Request) {
       hasIdentity: Boolean(identity),
       bookings: await Promise.all(bookings.map(toMiniAppBooking)),
       past: await Promise.all(past.map(toMiniAppBooking)),
+      certificates,
       pendingPayment: await Promise.all(
         pendingPayment.map(async (booking) => ({
           ...(await toMiniAppBooking(booking)),

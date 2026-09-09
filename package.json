@@ -13,6 +13,7 @@
     "telegram:setup": "node --env-file=.env.local scripts/telegram-setup.mjs",
     "email:test": "node --env-file=.env.local scripts/test-email.mjs",
     "sms:check": "node --env-file=.env.local scripts/sms-check.mjs",
+    "certificates:backfill": "node --env-file=.env.local scripts/backfill-certificate-owner.mjs",
     "email:webhook": "node --env-file=.env.local scripts/unisender-webhook-setup.mjs",
     "nalog:check": "node --env-file=.env.local scripts/nalog-check.mjs"
   },

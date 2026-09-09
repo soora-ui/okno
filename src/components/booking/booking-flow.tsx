@@ -131,6 +131,9 @@ export function BookingFlow({
   const [callcheckFor, setCallcheckFor] = useState("");
   const [callcheckExpired, setCallcheckExpired] = useState(false);
   const [startingCallcheck, setStartingCallcheck] = useState(false);
+  // Флеш-звонок не ушёл — переключились на запасной канал автоматически, а не
+  // по нажатию «Звонок не пришёл?». Флаг нужен только для поясняющей подписи.
+  const [callcheckAutoFallback, setCallcheckAutoFallback] = useState(false);
 
   const fullPhone = useMemo(
     () => buildFullPhone(countryCode, phone),
@@ -158,6 +161,50 @@ export function BookingFlow({
     return () => clearTimeout(timer);
   }, [resendSecondsLeft]);
 
+  // Запасной канал: клиент сам звонит на номер от sms.ru. Возвращает true,
+  // если проверку удалось запустить — тогда UI переходит в режим обратного
+  // звонка. isAutoFallback помечает автоматическое переключение после сбоя
+  // флеш-звонка, чтобы показать поясняющую подпись.
+  const startCallcheckFlow = useCallback(
+    async ({ isAutoFallback = false }: { isAutoFallback?: boolean } = {}) => {
+      // Защита от двойного запуска: если проверка уже стартует, повторно не
+      // дёргаем sms.ru (иначе упрёмся в лимит запасного канала).
+      if (startingCallcheck) {
+        return false;
+      }
+
+      setVerifyError("");
+      setStartingCallcheck(true);
+
+      try {
+        const response = await fetch("/api/phone-verification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "callcheck", phone: fullPhone }),
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          setVerifyError(payload.error || "Не получилось запустить проверку звонком.");
+          return false;
+        }
+
+        setCallcheckPhone(String(payload.callPhone ?? ""));
+        setCallcheckPretty(String(payload.callPhonePretty ?? payload.callPhone ?? ""));
+        setCallcheckFor(fullPhone);
+        setCallcheckExpired(false);
+        setCallcheckAutoFallback(isAutoFallback);
+        return true;
+      } catch {
+        setVerifyError("Не получилось запустить проверку звонком. Попробуй еще раз.");
+        return false;
+      } finally {
+        setStartingCallcheck(false);
+      }
+    },
+    [fullPhone, startingCallcheck],
+  );
+
   const sendVerificationCode = useCallback(async () => {
     setVerifyError("");
     setSendingCode(true);
@@ -171,6 +218,31 @@ export function BookingFlow({
       const payload = await response.json();
 
       if (!response.ok) {
+        // Флеш-звонок не ушёл (лимит номера/флуд по IP/иной сбой). Вместо
+        // тупика прозрачно переключаемся на запасной канал — обратный звонок
+        // клиента. Если и он не запустился, показываем ошибку как раньше.
+        //
+        // Если обратный звонок для этого же номера уже активен (например,
+        // повторное нажатие «Отправить ещё раз»), заново sms.ru не дёргаем —
+        // клиент и так видит режим звонка.
+        const callcheckAlreadyLive =
+          Boolean(callcheckPhone) && callcheckFor === fullPhone && !callcheckExpired;
+        if (callcheckAlreadyLive) {
+          setCodeSentPhone(fullPhone);
+          return;
+        }
+
+        const startedFallback = await startCallcheckFlow({ isAutoFallback: true });
+        if (startedFallback) {
+          // callcheck-UI показывается только для «отправленного» номера.
+          setCodeSentPhone(fullPhone);
+          setCodeInput("");
+          if (typeof payload.retryAfterSeconds === "number") {
+            setResendSecondsLeft(payload.retryAfterSeconds);
+          }
+          return;
+        }
+
         setVerifyError(payload.error || "Не получилось отправить SMS.");
         if (typeof payload.retryAfterSeconds === "number") {
           setCodeSentPhone(fullPhone);
@@ -190,35 +262,7 @@ export function BookingFlow({
     } finally {
       setSendingCode(false);
     }
-  }, [fullPhone]);
-
-  const startCallcheckFlow = useCallback(async () => {
-    setVerifyError("");
-    setStartingCallcheck(true);
-
-    try {
-      const response = await fetch("/api/phone-verification", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "callcheck", phone: fullPhone }),
-      });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        setVerifyError(payload.error || "Не получилось запустить проверку звонком.");
-        return;
-      }
-
-      setCallcheckPhone(String(payload.callPhone ?? ""));
-      setCallcheckPretty(String(payload.callPhonePretty ?? payload.callPhone ?? ""));
-      setCallcheckFor(fullPhone);
-      setCallcheckExpired(false);
-    } catch {
-      setVerifyError("Не получилось запустить проверку звонком. Попробуй еще раз.");
-    } finally {
-      setStartingCallcheck(false);
-    }
-  }, [fullPhone]);
+  }, [fullPhone, startCallcheckFlow, callcheckPhone, callcheckFor, callcheckExpired]);
 
   const callcheckActive =
     Boolean(callcheckPhone) &&
@@ -790,7 +834,7 @@ export function BookingFlow({
                       </div>
                       <button
                         type="button"
-                        onClick={startCallcheckFlow}
+                        onClick={() => startCallcheckFlow()}
                         disabled={startingCallcheck}
                         className="w-fit text-sm text-ink-soft underline underline-offset-4 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                       >
@@ -801,6 +845,12 @@ export function BookingFlow({
                     </>
                   ) : (
                     <div className="space-y-2 rounded-panel bg-panel p-4 text-sm leading-6 text-ink-soft">
+                      {callcheckAutoFallback ? (
+                        <p className="text-xs font-medium text-ink">
+                          Звонок с кодом временно недоступен — подтверди номер
+                          обратным звонком.
+                        </p>
+                      ) : null}
                       <p>
                         Позвони с номера {fullPhone} на{" "}
                         <a

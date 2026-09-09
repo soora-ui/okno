@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import Script from "next/script";
 import { CalendarClock, RefreshCw, Share2 } from "lucide-react";
+import { Certificates, type ClientCertificate } from "@/app/tg/certificates";
 import { ConsultantChat } from "@/app/tg/consultant-chat";
 import { PhoneVerify } from "@/app/tg/phone-verify";
 import { TipForm } from "@/app/tg/tip-form";
@@ -33,6 +34,7 @@ type MiniAppData = {
   bookings: MiniAppBooking[];
   past: MiniAppBooking[];
   pendingPayment: PendingPaymentBooking[];
+  certificates: ClientCertificate[];
 };
 
 type State =
@@ -290,6 +292,17 @@ export function MiniAppClient() {
             ))}
           </ul>
         </section>
+      ) : null}
+
+      {data.hasIdentity ? (
+        <Certificates
+          initData={initData}
+          certificates={data.certificates}
+          onClaimed={() => {
+            setState({ kind: "loading" });
+            void load(initData);
+          }}
+        />
       ) : null}
 
       {data.hasIdentity ? null : (

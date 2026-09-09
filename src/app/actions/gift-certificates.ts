@@ -25,6 +25,7 @@ import {
   isSupabaseMissingTableError,
 } from "@/lib/supabase/auth-errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { purchaserPhoneHashFromContact } from "@/lib/telegram/client-certificates";
 
 export type GiftCertificatePurchaseActionState = {
   success: boolean;
@@ -140,6 +141,9 @@ export async function purchaseGiftCertificateAction(
     .maybeSingle();
 
   const code = generateGiftCertificateCode();
+  const purchaserContact = [parsed.data.purchaserEmail, parsed.data.purchaserContact]
+    .filter(Boolean)
+    .join(" · ");
   const idempotenceKey = randomUUID();
   const token = generateCertificateToken();
   const tokenHash = hashCertificateToken(token);
@@ -159,9 +163,11 @@ export async function purchaseGiftCertificateAction(
       template_id: templateRow?.id ?? null,
       token_hash: tokenHash,
       status: "pending",
-      purchaser_contact: [parsed.data.purchaserEmail, parsed.data.purchaserContact]
-        .filter(Boolean)
-        .join(" · "),
+      purchaser_contact: purchaserContact,
+      // Если в контакте был телефон — сертификат сам появится в кабинете
+      // покупателя. Купил в подарок и оставил только почту: привяжется у
+      // того, кто введёт код.
+      purchaser_phone_hash: purchaserPhoneHashFromContact(purchaserContact),
       provider: "yookassa",
       master_yookassa_account_id: masterYooKassaToken.accountId,
       idempotence_key: idempotenceKey,
