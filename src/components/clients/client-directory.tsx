@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, Star } from "lucide-react";
 import { useDeferredValue, useEffect, useState } from "react";
 import { ClientNotesForm } from "@/components/forms/booking-operations";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,14 @@ export type ClientDirectoryHistoryItem = {
   note: string;
 };
 
+export type ClientDirectoryReview = {
+  id: string;
+  rating: number;
+  comment: string;
+  serviceTitle: string;
+  dateLabel: string;
+};
+
 export type ClientDirectoryItem = {
   id: string;
   name: string;
@@ -31,6 +39,7 @@ export type ClientDirectoryItem = {
     visitsLabel: string;
   }>;
   history: ClientDirectoryHistoryItem[];
+  reviews: ClientDirectoryReview[];
   searchText: string;
   reliability: ReliabilityBadge;
 };
@@ -176,6 +185,41 @@ function ClientDetailsModal({
                   </div>
                 )}
               </div>
+
+              {/* Отзывы этого клиента — те же данные, что в ленте /reviews,
+                  просто рядом с его историей: там смотрят «что обо мне пишут»,
+                  здесь «что писал именно он». */}
+              {client.reviews.length > 0 ? (
+                <div className="mt-5 border-t border-line pt-4">
+                  <h3 className="text-base font-semibold text-ink">Отзывы клиента</h3>
+                  <div className="mt-3 space-y-3">
+                    {client.reviews.map((review) => (
+                      <div
+                        key={review.id}
+                        className="rounded-panel border border-line bg-surface px-4 py-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className="font-medium text-ink">{review.serviceTitle}</p>
+                          <span className="inline-flex items-center gap-1 text-sm text-ink">
+                            <Star
+                              size={14}
+                              style={{ color: "var(--color-warning)" }}
+                              fill="currentColor"
+                            />
+                            {review.rating}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-muted">{review.dateLabel}</p>
+                        {review.comment ? (
+                          <p className="mt-2 text-sm leading-6 text-ink-soft">
+                            {review.comment}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </section>
 
             <section className="rounded-nested border border-line bg-panel p-4">

@@ -5,11 +5,14 @@ import {
   type ClientDirectoryHistoryItem,
   type ClientDirectoryItem,
 } from "@/components/clients/client-directory";
+import { Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buildReliabilityBadge, computeReliabilityAggregate } from "@/lib/client-reliability";
 import { getClientsData } from "@/lib/data";
+import { getReviewsForProfile, summarizeReviews, type ReviewWithContext } from "@/lib/reviews";
 import { hasCapability } from "@/lib/subscription";
 import type { Booking, Client, Service } from "@/lib/mock-data";
 
@@ -63,9 +66,23 @@ function buildClientDirectoryItems(input: {
   bookings: Booking[];
   services: Service[];
   timezone: string;
+  reviews: ReviewWithContext[];
 }) {
   const now = DateTime.now().setZone(input.timezone);
   const serviceMap = new Map(input.services.map((service) => [service.id, service]));
+
+  // Отзывы по клиенту: те же данные, что в ленте, просто разложенные по людям.
+  const reviewsByClient = new Map<string, ReviewWithContext[]>();
+
+  for (const review of input.reviews) {
+    if (!review.clientId) {
+      continue;
+    }
+
+    const current = reviewsByClient.get(review.clientId) ?? [];
+    current.push(review);
+    reviewsByClient.set(review.clientId, current);
+  }
 
   const items = input.clients.map((client) => {
     const clientBookings = input.bookings
@@ -178,6 +195,16 @@ function buildClientDirectoryItems(input: {
       totalVisitsLabel: formatVisitCountLabel(confirmedBookings.length),
       preferredServices,
       history,
+      reviews: (reviewsByClient.get(client.id) ?? []).map((review) => ({
+        id: review.id,
+        rating: review.rating,
+        comment: review.comment,
+        serviceTitle: review.serviceTitle,
+        dateLabel: DateTime.fromISO(review.createdAtIso, { zone: "utc" })
+          .setZone(input.timezone)
+          .setLocale("ru")
+          .toFormat("d LLLL yyyy"),
+      })),
       searchText,
       reliability,
     } satisfies ClientDirectoryItem;
@@ -194,11 +221,14 @@ export default async function ClientsPage() {
   }
 
   const { bookings, clients, profile, services } = data;
+  const reviews = await getReviewsForProfile({ profileId: profile.id });
+  const summary = summarizeReviews(reviews);
   const clientItems = buildClientDirectoryItems({
     clients,
     bookings,
     services,
     timezone: profile.timezone,
+    reviews,
   });
 
   return (
@@ -208,6 +238,10 @@ export default async function ClientsPage() {
           <Badge tone="accent">Клиенты</Badge>
           <h1 className="text-4xl font-semibold text-ink">Клиенты и история визитов</h1>
         </div>
+        <ButtonLink href="/reviews" variant="secondary" className="gap-2">
+          <Star size={16} />
+          {summary.count > 0 ? `Отзывы · ${summary.average}` : "Отзывы"}
+        </ButtonLink>
       </div>
 
       <Card className="space-y-5">

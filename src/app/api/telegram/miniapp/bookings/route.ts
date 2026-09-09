@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { formatPublicProfileLink } from "@/lib/site";
 import { getConsultantContext } from "@/lib/repositories/consultant-repository";
+import { getReviewsByAuthor } from "@/lib/reviews";
 import { getClientCertificates } from "@/lib/telegram/client-certificates";
 import { hasCapability } from "@/lib/subscription";
 import {
@@ -81,6 +82,12 @@ export async function POST(request: Request) {
     ? await getClientCertificates({ phoneHash: identity.phoneHash })
     : [];
 
+  // Отзывы отдаём вместе с визитами: карточка должна сразу показать, что уже
+  // оценено, иначе человек оставит второй отзыв на тот же визит и удивится.
+  const reviews = identity
+    ? await getReviewsByAuthor({ authorPhoneHash: identity.phoneHash })
+    : [];
+
   return NextResponse.json(
     {
       ok: true,
@@ -89,6 +96,11 @@ export async function POST(request: Request) {
       bookings: await Promise.all(bookings.map(toMiniAppBooking)),
       past: await Promise.all(past.map(toMiniAppBooking)),
       certificates,
+      reviews: reviews.map((review) => ({
+        bookingId: review.bookingId,
+        rating: review.rating,
+        comment: review.comment,
+      })),
       pendingPayment: await Promise.all(
         pendingPayment.map(async (booking) => ({
           ...(await toMiniAppBooking(booking)),

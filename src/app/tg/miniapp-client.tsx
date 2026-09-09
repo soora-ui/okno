@@ -5,6 +5,7 @@ import Script from "next/script";
 import { CalendarClock, RefreshCw, Share2 } from "lucide-react";
 import { Certificates, type ClientCertificate } from "@/app/tg/certificates";
 import { ConsultantChat } from "@/app/tg/consultant-chat";
+import { ReviewForm } from "@/app/tg/review-form";
 import { PhoneVerify } from "@/app/tg/phone-verify";
 import { TipForm } from "@/app/tg/tip-form";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -35,6 +36,7 @@ type MiniAppData = {
   past: MiniAppBooking[];
   pendingPayment: PendingPaymentBooking[];
   certificates: ClientCertificate[];
+  reviews: { bookingId: string; rating: number; comment: string }[];
 };
 
 type State =
@@ -133,6 +135,13 @@ export function MiniAppClient() {
     void load(webApp.initData);
   }, [load]);
 
+  // Перечитать кабинет после действия, которое меняет данные: отзыв,
+  // привязанный сертификат, поделившийся контакт.
+  const reload = useCallback(() => {
+    setState({ kind: "loading" });
+    void load(initData);
+  }, [initData, load]);
+
   // Просим номер прямо из мини-аппа. Метод появился не сразу, поэтому если
   // его нет — честно отправляем в чат, где есть кнопка под полем ввода.
   const requestContact = useCallback(() => {
@@ -202,10 +211,7 @@ export function MiniAppClient() {
         <p className="text-sm leading-6 text-ink-soft">{state.message}</p>
         <Button
           variant="secondary"
-          onClick={() => {
-            setState({ kind: "loading" });
-            void load(initData);
-          }}
+          onClick={reload}
           className="gap-2"
         >
           <RefreshCw size={14} />
@@ -273,6 +279,7 @@ export function MiniAppClient() {
               booking={booking}
               past={false}
               initData={initData}
+              onReload={reload}
             />
           ))}
         </ul>
@@ -288,6 +295,10 @@ export function MiniAppClient() {
                 booking={booking}
                 past
                 initData={initData}
+                review={data.reviews.find(
+                  (item) => item.bookingId === booking.bookingId,
+                )}
+                onReload={reload}
               />
             ))}
           </ul>
@@ -298,10 +309,7 @@ export function MiniAppClient() {
         <Certificates
           initData={initData}
           certificates={data.certificates}
-          onClaimed={() => {
-            setState({ kind: "loading" });
-            void load(initData);
-          }}
+          onClaimed={reload}
         />
       ) : null}
 
@@ -324,8 +332,7 @@ export function MiniAppClient() {
               initData={initData}
               onVerified={() => {
                 setShowPhoneVerify(false);
-                setState({ kind: "loading" });
-                void load(initData);
+                reload();
               }}
             />
           ) : (
@@ -343,19 +350,25 @@ export function MiniAppClient() {
   );
 }
 
+type Panel = "consultant" | "tip" | "review" | null;
+
 function BookingCard({
   booking,
   past,
   initData,
+  review,
+  onReload,
 }: {
   booking: MiniAppBooking;
   past: boolean;
   initData: string;
+  review?: { rating: number; comment: string };
+  onReload: () => void;
 }) {
   // Одна раскрытая панель за раз. Две одновременно на телефоне не помещаются,
   // а две кнопки «Свернуть» рядом друг с другом неразличимы.
-  const [panel, setPanel] = useState<"consultant" | "tip" | null>(null);
-  const toggle = (next: "consultant" | "tip") =>
+  const [panel, setPanel] = useState<Panel>(null);
+  const toggle = (next: NonNullable<Panel>) =>
     setPanel((current) => (current === next ? null : next));
   // Консультант живёт при прошедшем визите: вопросы про уход возникают после
   // процедуры, а не до неё.
@@ -396,12 +409,32 @@ function BookingCard({
             Оставить чаевые
           </Button>
         ) : null}
+        {past ? (
+          <Button
+            variant={panel === "review" ? "primary" : "secondary"}
+            onClick={() => toggle("review")}
+          >
+            {review ? `Отзыв: ${review.rating}★` : "Оставить отзыв"}
+          </Button>
+        ) : null}
         <ButtonLink href={booking.repeatUrl} variant="secondary" documentNavigation>
           {past ? "Записаться снова" : "Записаться ещё"}
         </ButtonLink>
       </div>
       {canAsk && panel === "consultant" ? (
         <ConsultantChat token={booking.consultantToken as string} />
+      ) : null}
+      {past && panel === "review" ? (
+        <ReviewForm
+          initData={initData}
+          bookingId={booking.bookingId}
+          existingRating={review?.rating ?? null}
+          existingComment={review?.comment ?? ""}
+          onSaved={() => {
+            setPanel(null);
+            onReload();
+          }}
+        />
       ) : null}
       {past && panel === "tip" ? (
         <TipForm
