@@ -6,6 +6,7 @@ import {
   sendBookingConfirmationSms,
   sendClientCancelledTelegram,
   sendClientReminderSms,
+  sendClientRepeatVisitTelegram,
   sendClientReminderTelegram,
   sendMasterReminderTelegram,
   sendMasterTelegramNotification,
@@ -28,7 +29,8 @@ type NotificationEventJob = {
     | "telegram_reminder_client"
     | "telegram_client_cancelled"
     | "telegram_reminder_master"
-    | "sms_repeat_visit_reminder";
+    | "sms_repeat_visit_reminder"
+    | "telegram_repeat_visit_client";
   target: string;
   payload: Record<string, unknown>;
   attempts: number;
@@ -45,6 +47,7 @@ const knownJobTypes = new Set<NotificationEventJob["type"]>([
   "telegram_client_cancelled",
   "telegram_reminder_master",
   "sms_repeat_visit_reminder",
+  "telegram_repeat_visit_client",
 ]);
 
 // Ссылки в кнопках Telegram: только абсолютные и только https, иначе кнопка
@@ -111,6 +114,10 @@ async function processNotificationJob(job: NotificationEventJob) {
     return sendClientBookingMessage(job, "cancelled");
   }
 
+  if (job.type === "telegram_repeat_visit_client") {
+    return sendClientBookingMessage(job, "repeat_visit");
+  }
+
   if (job.type === "telegram_reminder_master") {
     const result = await sendMasterReminderTelegram({
       chatId: String(job.payload.chatId ?? job.target ?? ""),
@@ -165,7 +172,7 @@ async function processNotificationJob(job: NotificationEventJob) {
 
 async function sendClientBookingMessage(
   job: NotificationEventJob,
-  kind: "reminder" | "cancelled",
+  kind: "reminder" | "cancelled" | "repeat_visit",
 ) {
   const bookingId = String(job.payload.bookingId ?? job.target ?? "");
 
@@ -215,6 +222,27 @@ async function sendClientBookingMessage(
         result.ok || result.skipped
           ? null
           : "Напоминание клиенту в Telegram не отправилось.",
+    };
+  }
+
+  if (kind === "repeat_visit") {
+    const result = await sendClientRepeatVisitTelegram({
+      chatId,
+      masterName: booking.masterName,
+      serviceTitle: booking.serviceTitle,
+      bookingUrl:
+        booking.masterUsername && booking.serviceId
+          ? `https://${formatPublicProfileLink(booking.masterUsername)}/book?service=${booking.serviceId}`
+          : null,
+    });
+
+    return {
+      ok: result.ok,
+      skipped: result.skipped,
+      lastError:
+        result.ok || result.skipped
+          ? null
+          : "Напоминание о повторном визите в Telegram не отправилось.",
     };
   }
 
@@ -446,24 +474,38 @@ export function buildRepeatVisitReminderEvent(input: {
   const startsAt = DateTime.fromISO(input.startsAtIso, { zone: "utc" });
 
   if (!startsAt.isValid || input.repeatIntervalDays <= 0) {
-    return null;
+    return [];
   }
 
   const scheduledFor = startsAt.plus({ days: input.repeatIntervalDays });
 
-  return {
-    profile_id: input.profileId,
-    booking_id: input.bookingId,
-    type: "sms_repeat_visit_reminder",
-    status: "queued",
-    target: input.phone,
-    scheduled_for: scheduledFor.toISO(),
-    payload: {
-      phone: input.phone,
-      masterName: input.masterName,
-      serviceTitle: input.serviceTitle,
+  // Два канала на одно напоминание, как и у напоминания о визите. SMS остаётся
+  // ради материковых номеров и мастеров со своим ключом; Telegram — то, что
+  // реально доходит. Оба закроются как пропущенные, если канала нет.
+  return [
+    {
+      profile_id: input.profileId,
+      booking_id: input.bookingId,
+      type: "sms_repeat_visit_reminder",
+      status: "queued",
+      target: input.phone,
+      scheduled_for: scheduledFor.toISO(),
+      payload: {
+        phone: input.phone,
+        masterName: input.masterName,
+        serviceTitle: input.serviceTitle,
+      },
     },
-  };
+    {
+      profile_id: input.profileId,
+      booking_id: input.bookingId,
+      type: "telegram_repeat_visit_client",
+      status: "queued",
+      target: input.bookingId,
+      scheduled_for: scheduledFor.toISO(),
+      payload: { bookingId: input.bookingId },
+    },
+  ];
 }
 
 export async function cancelQueuedReminderEvents(bookingId: string) {
@@ -481,6 +523,7 @@ export async function cancelQueuedReminderEvents(bookingId: string) {
       "telegram_reminder_client",
       "telegram_reminder_master",
       "sms_repeat_visit_reminder",
+      "telegram_repeat_visit_client",
     ])
     .eq("status", "queued");
 }

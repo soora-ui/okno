@@ -447,7 +447,7 @@ export async function rescheduleBookingByTokenAction(
       repeatIntervalDays: Number(serviceRow.repeat_interval_days ?? 0),
     });
 
-    if (repeatVisitRow) {
+    if (repeatVisitRow.length > 0) {
       await admin.from("notification_events").insert(repeatVisitRow);
     }
   }

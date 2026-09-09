@@ -7,6 +7,7 @@ import {
   getClientBookingsByPhoneHash,
   getClientIdentity,
   getClientPastBookings,
+  getClientPendingPayments,
 } from "@/lib/telegram/client-identity";
 import { getClientBookingsByChat } from "@/lib/telegram/client-link";
 import { validateMiniAppInitData } from "@/lib/telegram/miniapp-auth";
@@ -71,6 +72,10 @@ export async function POST(request: Request) {
     ? await getClientPastBookings({ phoneHash: identity.phoneHash })
     : [];
 
+  const pendingPayment = identity
+    ? await getClientPendingPayments({ phoneHash: identity.phoneHash })
+    : [];
+
   return NextResponse.json(
     {
       ok: true,
@@ -78,6 +83,13 @@ export async function POST(request: Request) {
       hasIdentity: Boolean(identity),
       bookings: await Promise.all(bookings.map(toMiniAppBooking)),
       past: await Promise.all(past.map(toMiniAppBooking)),
+      pendingPayment: await Promise.all(
+        pendingPayment.map(async (booking) => ({
+          ...(await toMiniAppBooking(booking)),
+          amountRub: booking.amountRub,
+          confirmationUrl: booking.confirmationUrl,
+        })),
+      ),
     },
     { headers: { "Cache-Control": "no-store" } },
   );

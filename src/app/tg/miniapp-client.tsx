@@ -22,11 +22,17 @@ type MiniAppBooking = {
   consultantToken: string | null;
 };
 
+type PendingPaymentBooking = MiniAppBooking & {
+  amountRub: number;
+  confirmationUrl: string;
+};
+
 type MiniAppData = {
   firstName: string | null;
   hasIdentity: boolean;
   bookings: MiniAppBooking[];
   past: MiniAppBooking[];
+  pendingPayment: PendingPaymentBooking[];
 };
 
 type State =
@@ -221,6 +227,37 @@ export function MiniAppClient() {
             : "Записи, которые ты подключил к боту."}
         </p>
       </div>
+
+      {/* Первым делом — то, что горит: слот под предоплату держится 15 минут,
+          и человек, вернувшийся с полдороги, должен увидеть это сразу. */}
+      {data.pendingPayment.length > 0 ? (
+        <ul className="space-y-3">
+          {data.pendingPayment.map((booking) => (
+            <li
+              key={booking.bookingId}
+              className="rounded-card border p-5"
+              style={{ borderColor: "var(--color-warning)" }}
+            >
+              <p className="text-sm font-medium" style={{ color: "var(--color-warning)" }}>
+                Ждём оплату
+              </p>
+              <p className="mt-2 font-medium text-ink">{booking.serviceTitle}</p>
+              <p className="mt-1 text-sm text-ink-soft">
+                {booking.masterName} · {booking.startsAtLabel}
+              </p>
+              <p className="mt-3 text-sm text-ink-soft">
+                Слот держится, пока не пройдёт предоплата {booking.amountRub} ₽.
+              </p>
+              <Button
+                className="mt-4 w-full"
+                onClick={() => openExternal(booking.confirmationUrl)}
+              >
+                Оплатить {booking.amountRub} ₽
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {data.bookings.length === 0 ? (
         <div className="rounded-card bg-panel p-5 text-sm leading-6 text-ink-soft">

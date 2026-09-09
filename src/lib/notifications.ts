@@ -204,6 +204,30 @@ export async function sendClientCancelledTelegram(input: {
   );
 }
 
+// Пора повторить процедуру. Единственное сообщение, которое приходит не по
+// поводу конкретной ближайшей записи, поэтому и ведёт не на запись, а сразу
+// на выбор времени для той же услуги.
+export async function sendClientRepeatVisitTelegram(input: {
+  chatId: string | null;
+  masterName: string;
+  serviceTitle: string;
+  bookingUrl: string | null;
+}) {
+  return sendClientTelegram(
+    input.chatId,
+    [
+      "<b>Пора повторить</b>",
+      "",
+      `${escapeTelegramHtml(input.serviceTitle)} — ${escapeTelegramHtml(input.masterName)}`,
+      "",
+      "Подошёл срок по этой процедуре. Выбрать время можно кнопкой ниже.",
+    ].join("\n"),
+    input.bookingUrl && input.bookingUrl.startsWith("https://")
+      ? [[{ text: "Записаться", url: input.bookingUrl }]]
+      : undefined,
+  );
+}
+
 export async function sendRepeatVisitReminderSms(input: {
   phone: string;
   masterName: string;

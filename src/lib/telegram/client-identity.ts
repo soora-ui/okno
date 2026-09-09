@@ -291,6 +291,69 @@ export async function getClientPastBookings(input: {
     .filter((booking): booking is ClientLinkedBooking => booking !== null);
 }
 
+export type PendingPaymentBooking = ClientLinkedBooking & {
+  amountRub: number;
+  confirmationUrl: string;
+  expiresAtIso: string;
+};
+
+// Записи, ждущие предоплаты. Слот держится 15 минут: человек ушёл на оплату,
+// отвлёкся и вернулся — без этого списка он бы не узнал, что время утекает,
+// и просто потерял бы запись.
+export async function getClientPendingPayments(input: {
+  phoneHash: string;
+}): Promise<PendingPaymentBooking[]> {
+  const clientIds = await getClientIdsByPhoneHash(input.phoneHash);
+
+  if (clientIds.length === 0) {
+    return [];
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("bookings")
+    .select(`${bookingSelect}, prepayments(amount, status, confirmation_url, expires_at)`)
+    .in("client_id", clientIds)
+    .eq("status", "pending_payment")
+    .gte("starts_at", new Date().toISOString())
+    .order("starts_at", { ascending: true });
+
+  if (error || !data) {
+    return [];
+  }
+
+  const nowIso = new Date().toISOString();
+
+  return (data as Record<string, unknown>[])
+    .map((row) => {
+      const booking = mapBookingRow(row);
+      const prepayments = Array.isArray(row.prepayments)
+        ? (row.prepayments as Record<string, unknown>[])
+        : [];
+
+      // Ссылка живёт вместе со строкой предоплаты: просроченную не показываем,
+      // по ней ЮKassa всё равно откажет.
+      const pending = prepayments.find(
+        (item) =>
+          item.status === "pending" &&
+          item.confirmation_url &&
+          String(item.expires_at) > nowIso,
+      );
+
+      if (!booking || !pending) {
+        return null;
+      }
+
+      return {
+        ...booking,
+        amountRub: Number(pending.amount ?? 0),
+        confirmationUrl: String(pending.confirmation_url),
+        expiresAtIso: String(pending.expires_at),
+      };
+    })
+    .filter((booking): booking is PendingPaymentBooking => booking !== null);
+}
+
 async function getClientIdsByPhoneHash(phoneHash: string): Promise<string[]> {
   const admin = createSupabaseAdminClient();
 
