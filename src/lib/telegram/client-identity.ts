@@ -52,7 +52,38 @@ export async function linkClientIdentityFromContact(input: {
     return { status: "invalid" };
   }
 
-  const phoneHash = hashPhone(digits);
+  const identity = await storeClientIdentity({
+    telegramUserId: input.telegramUserId,
+    chatId: input.chatId,
+    handle: input.handle,
+    phone: digits,
+  });
+
+  return identity ? { status: "linked", identity } : { status: "failed" };
+}
+
+// Номер, подтверждённый звонком в кабинете. Нужен, потому что телефон в
+// Telegram и телефон, на который человек записывался, — разные вещи: два
+// номера у одного человека это норма, и без этого пути кабинет для него
+// оставался бы пустым.
+//
+// Доверие к номеру здесь даёт не Telegram, а пройденная проверка звонком;
+// вызывающий обязан убедиться в ней до вызова.
+export async function linkClientIdentityByVerifiedPhone(input: {
+  telegramUserId: string;
+  chatId: string;
+  phone: string;
+}): Promise<ClientIdentity | null> {
+  return storeClientIdentity({ ...input, handle: null });
+}
+
+async function storeClientIdentity(input: {
+  telegramUserId: string;
+  chatId: string;
+  handle: string | null;
+  phone: string;
+}): Promise<ClientIdentity | null> {
+  const phoneHash = hashPhone(normalizePhoneDigits(input.phone));
   const admin = createSupabaseAdminClient();
   const nowIso = new Date().toISOString();
 
@@ -66,7 +97,7 @@ export async function linkClientIdentityFromContact(input: {
 
   if (resetError) {
     logError("Failed to reset client telegram identity", { error: resetError });
-    return { status: "failed" };
+    return null;
   }
 
   const { error } = await admin.from("client_telegram_identities").insert({
@@ -80,13 +111,10 @@ export async function linkClientIdentityFromContact(input: {
 
   if (error) {
     logError("Failed to link client telegram identity", { error });
-    return { status: "failed" };
+    return null;
   }
 
-  return {
-    status: "linked",
-    identity: { telegramUserId: input.telegramUserId, phoneHash, chatId: input.chatId },
-  };
+  return { telegramUserId: input.telegramUserId, phoneHash, chatId: input.chatId };
 }
 
 export async function getClientIdentity(input: {

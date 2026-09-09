@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import Script from "next/script";
 import { CalendarClock, RefreshCw, Share2 } from "lucide-react";
+import { PhoneVerify } from "@/app/tg/phone-verify";
+import { Button, ButtonLink } from "@/components/ui/button";
 
 type MiniAppBooking = {
   bookingId: string;
@@ -46,10 +48,13 @@ function getWebApp(): TelegramWebApp | null {
 
 export function MiniAppClient() {
   const [state, setState] = useState<State>({ kind: "loading" });
-  // Подпись запуска нужна и для повторов: после ошибки и после того, как
-  // человек поделился номером, данные перечитываются той же строкой.
-  const initDataRef = useRef("");
+  // Подпись запуска нужна и для повторов: после ошибки, после того как человек
+  // поделился номером, и для формы подтверждения другого номера. Живёт в
+  // состоянии, а не в ref: форма получает её пропсом, то есть значение
+  // участвует в рендере.
+  const [initData, setInitData] = useState("");
   const [sharing, setSharing] = useState(false);
+  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
 
   const load = useCallback(async (initData: string) => {
     try {
@@ -94,7 +99,7 @@ export function MiniAppClient() {
       return;
     }
 
-    initDataRef.current = webApp.initData;
+    setInitData(webApp.initData);
     webApp.ready();
     webApp.expand();
     void load(webApp.initData);
@@ -127,10 +132,10 @@ export function MiniAppClient() {
       // Контакт уходит боту отдельным сообщением, и личность появляется не
       // мгновенно. Перечитываем с небольшой задержкой.
       setTimeout(() => {
-        void load(initDataRef.current);
+        void load(initData);
       }, 1200);
     });
-  }, [load]);
+  }, [initData, load]);
 
   // Скрипт грузится afterInteractive намеренно. При beforeInteractive Telegram
   // успевает поставить свои CSS-переменные на <html> до гидратации, и React
@@ -167,17 +172,17 @@ export function MiniAppClient() {
     return (
       <div className="space-y-4 py-16 text-center">
         <p className="text-sm leading-6 text-ink-soft">{state.message}</p>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => {
             setState({ kind: "loading" });
-            void load(initDataRef.current);
+            void load(initData);
           }}
-          className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm text-ink transition hover:bg-panel"
+          className="gap-2"
         >
           <RefreshCw size={14} />
           Обновить
-        </button>
+        </Button>
       </div>
     );
   }
@@ -213,19 +218,13 @@ export function MiniAppClient() {
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {booking.cancelUrl ? (
-                  <a
-                    href={booking.cancelUrl}
-                    className="rounded-full border border-line px-3 py-1.5 text-sm text-ink transition hover:bg-surface"
-                  >
+                  <ButtonLink href={booking.cancelUrl} variant="secondary">
                     Перенести или отменить
-                  </a>
+                  </ButtonLink>
                 ) : null}
-                <a
-                  href={booking.masterUrl}
-                  className="rounded-full border border-line px-3 py-1.5 text-sm text-ink transition hover:bg-surface"
-                >
+                <ButtonLink href={booking.masterUrl} variant="secondary" documentNavigation>
                   Записаться ещё
-                </a>
+                </ButtonLink>
               </div>
             </li>
           ))}
@@ -238,15 +237,32 @@ export function MiniAppClient() {
             Поделись номером — и я покажу все твои визиты у любого мастера okno, а не
             только подключённые вручную.
           </p>
-          <button
-            type="button"
-            onClick={requestContact}
-            disabled={sharing}
-            className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm text-surface transition disabled:opacity-60"
-          >
+          <Button onClick={requestContact} disabled={sharing} className="w-full gap-2">
             <Share2 size={14} />
             {sharing ? "Ждём номер…" : "Поделиться номером"}
-          </button>
+          </Button>
+
+          {/* Номер в Telegram и номер, на который человек записывался, — разные
+              вещи. Без этого пути у владельца двух номеров кабинет остаётся
+              пустым, а кнопка контакта ему не поможет. */}
+          {showPhoneVerify ? (
+            <PhoneVerify
+              initData={initData}
+              onVerified={() => {
+                setShowPhoneVerify(false);
+                setState({ kind: "loading" });
+                void load(initData);
+              }}
+            />
+          ) : (
+            <Button
+              variant="ghost"
+              onClick={() => setShowPhoneVerify(true)}
+              className="w-full"
+            >
+              В Telegram другой номер
+            </Button>
+          )}
         </div>
       )}
     </div>

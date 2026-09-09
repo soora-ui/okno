@@ -267,11 +267,16 @@ export type VerifyCodeResult =
   | { ok: true; token: string }
   | { ok: false; error: string };
 
-export async function verifyPhoneVerificationCode(input: {
+export type CheckCodeResult = { ok: true } | { ok: false; error: string };
+
+// Токен подтверждения привязан к username мастера — так подтверждение с одной
+// страницы записи нельзя переиспользовать на другой. Кабинету клиента мастер
+// не нужен: там подтверждается не право записаться, а то, что номер твой.
+// Поэтому проверка кода живёт отдельно, а выдача токена надстроена над ней.
+export async function checkPhoneVerificationCode(input: {
   phone: string;
   code: string;
-  username: string;
-}): Promise<VerifyCodeResult> {
+}): Promise<CheckCodeResult> {
   const phoneDigits = normalizePhoneDigits(input.phone);
   const phoneHash = hashPhone(phoneDigits);
   const admin = createSupabaseAdminClient();
@@ -325,10 +330,24 @@ export async function verifyPhoneVerificationCode(input: {
     return { ok: false, error: "Код не подходит. Проверь цифры и попробуй еще раз." };
   }
 
+  return { ok: true };
+}
+
+export async function verifyPhoneVerificationCode(input: {
+  phone: string;
+  code: string;
+  username: string;
+}): Promise<VerifyCodeResult> {
+  const result = await checkPhoneVerificationCode(input);
+
+  if (!result.ok) {
+    return result;
+  }
+
   return {
     ok: true,
     token: issuePhoneVerificationToken({
-      phone: phoneDigits,
+      phone: normalizePhoneDigits(input.phone),
       username: input.username,
     }),
   };
@@ -405,10 +424,14 @@ export type CallcheckPollResult =
   | { ok: true; confirmed: false; expired: boolean }
   | { ok: false; error: string };
 
-export async function checkPhoneCallcheckStatus(input: {
+export type CallcheckStatusResult =
+  | { ok: true; confirmed: true }
+  | { ok: true; confirmed: false; expired: boolean }
+  | { ok: false; error: string };
+
+export async function checkCallcheckStatus(input: {
   phone: string;
-  username: string;
-}): Promise<CallcheckPollResult> {
+}): Promise<CallcheckStatusResult> {
   const phoneDigits = normalizePhoneDigits(input.phone);
   const phoneHash = hashPhone(phoneDigits);
   const admin = createSupabaseAdminClient();
@@ -432,14 +455,7 @@ export async function checkPhoneCallcheckStatus(input: {
   }
 
   if (row.verified_at) {
-    return {
-      ok: true,
-      confirmed: true,
-      token: issuePhoneVerificationToken({
-        phone: phoneDigits,
-        username: input.username,
-      }),
-    };
+    return { ok: true, confirmed: true };
   }
 
   if (new Date(String(row.expires_at)).getTime() < Date.now()) {
@@ -458,15 +474,28 @@ export async function checkPhoneCallcheckStatus(input: {
       .update({ verified_at: new Date().toISOString() })
       .eq("id", row.id);
 
-    return {
-      ok: true,
-      confirmed: true,
-      token: issuePhoneVerificationToken({
-        phone: phoneDigits,
-        username: input.username,
-      }),
-    };
+    return { ok: true, confirmed: true };
   }
 
   return { ok: true, confirmed: false, expired: status.expired };
+}
+
+export async function checkPhoneCallcheckStatus(input: {
+  phone: string;
+  username: string;
+}): Promise<CallcheckPollResult> {
+  const result = await checkCallcheckStatus({ phone: input.phone });
+
+  if (!result.ok || !result.confirmed) {
+    return result;
+  }
+
+  return {
+    ok: true,
+    confirmed: true,
+    token: issuePhoneVerificationToken({
+      phone: normalizePhoneDigits(input.phone),
+      username: input.username,
+    }),
+  };
 }
