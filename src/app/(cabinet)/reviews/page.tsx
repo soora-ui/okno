@@ -53,7 +53,7 @@ export default async function ReviewsPage() {
             {summary.average}
           </p>
           <p className="text-sm text-ink-soft">
-            {summary.count} {pluralizeRu(summary.count, "отзыв", "отзыва", "отзывов")}
+            {pluralizeRu(summary.count, "отзыв", "отзыва", "отзывов")}
           </p>
         </Card>
       ) : null}
