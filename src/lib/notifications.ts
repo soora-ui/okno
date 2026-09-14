@@ -228,6 +228,28 @@ export async function sendClientRepeatVisitTelegram(input: {
   );
 }
 
+// Напоминание «давно не были» от имени мастера. Текст пишет ИИ и правит
+// мастер, поэтому сюда он приходит готовым; от нас — подпись, кнопка записи и
+// та же обработка заблокированного чата, что у остальных клиентских сообщений.
+export async function sendClientReturnReminderTelegram(input: {
+  chatId: string | null;
+  masterName: string;
+  text: string;
+  bookingUrl: string | null;
+}) {
+  return sendClientTelegram(
+    input.chatId,
+    [
+      `<b>${escapeTelegramHtml(input.masterName)}</b>`,
+      "",
+      escapeTelegramHtml(input.text),
+    ].join("\n"),
+    input.bookingUrl && input.bookingUrl.startsWith("https://")
+      ? [[{ text: "Записаться", url: input.bookingUrl }]]
+      : undefined,
+  );
+}
+
 export async function sendRepeatVisitReminderSms(input: {
   phone: string;
   masterName: string;

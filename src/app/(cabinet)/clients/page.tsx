@@ -11,9 +11,14 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buildReliabilityBadge, computeReliabilityAggregate } from "@/lib/client-reliability";
+import { assessClientReturn, formatDaysAgo } from "@/lib/client-return";
 import { getClientsData } from "@/lib/data";
 import { getReviewsForProfile, summarizeReviews, type ReviewWithContext } from "@/lib/reviews";
 import { hasCapability } from "@/lib/subscription";
+import {
+  getClientReturnReachability,
+  type ClientReturnReachability,
+} from "@/lib/telegram/client-return-reminder";
 import type { Booking, Client, Service } from "@/lib/mock-data";
 
 function formatVisitMoment(startsAt: string, timezone: string) {
@@ -67,6 +72,7 @@ function buildClientDirectoryItems(input: {
   services: Service[];
   timezone: string;
   reviews: ReviewWithContext[];
+  reachability: Map<string, ClientReturnReachability>;
 }) {
   const now = DateTime.now().setZone(input.timezone);
   const serviceMap = new Map(input.services.map((service) => [service.id, service]));
@@ -180,6 +186,24 @@ function buildClientDirectoryItems(input: {
       computeReliabilityAggregate(clientBookings.map((booking) => booking.visitStatus)),
     );
 
+    // «Давно не был» — по сроку повтора услуги или собственной частоте
+    // клиента (src/lib/client-return.ts). Несостоявшиеся визиты в расчёт не
+    // идут: после «не пришёл» напоминать «после маникюра» — мимо.
+    const returnAssessment = assessClientReturn({
+      pastVisits: pastConfirmedBookings
+        .filter(
+          (booking) =>
+            !booking.visitStatus ||
+            !["no_show", "cancelled_late", "cancelled_ok"].includes(booking.visitStatus),
+        )
+        .map((booking) => ({ startsAtIso: booking.startsAt, serviceId: booking.serviceId })),
+      hasUpcomingVisit: upcomingConfirmedBookings.length > 0,
+      services: input.services,
+      timezone: input.timezone,
+      now,
+    });
+    const reachability = input.reachability.get(client.id) ?? { chatId: null, lastSentAtIso: null };
+
     return {
       id: client.id,
       name: client.name,
@@ -207,6 +231,22 @@ function buildClientDirectoryItems(input: {
       })),
       searchText,
       reliability,
+      returnStatus: {
+        due: returnAssessment.status === "due",
+        sinceLabel:
+          returnAssessment.daysSinceLastVisit !== null
+            ? `${formatDaysAgo(returnAssessment.daysSinceLastVisit)} назад`
+            : null,
+      },
+      telegram: {
+        reachable: Boolean(reachability.chatId),
+        lastRemindedLabel: reachability.lastSentAtIso
+          ? DateTime.fromISO(reachability.lastSentAtIso, { zone: "utc" })
+              .setZone(input.timezone)
+              .setLocale("ru")
+              .toFormat("d LLLL")
+          : null,
+      },
     } satisfies ClientDirectoryItem;
   });
 
@@ -221,7 +261,14 @@ export default async function ClientsPage() {
   }
 
   const { bookings, clients, profile, services } = data;
-  const reviews = await getReviewsForProfile({ profileId: profile.id });
+  // В демо базы нет: ни отзывов, ни того, кому напоминать.
+  const isLive = data.source === "supabase";
+  const [reviews, reachability] = await Promise.all([
+    isLive ? getReviewsForProfile({ profileId: profile.id }) : Promise.resolve([]),
+    isLive
+      ? getClientReturnReachability({ profileId: profile.id })
+      : Promise.resolve(new Map<string, ClientReturnReachability>()),
+  ]);
   const summary = summarizeReviews(reviews);
   const clientItems = buildClientDirectoryItems({
     clients,
@@ -229,6 +276,7 @@ export default async function ClientsPage() {
     services,
     timezone: profile.timezone,
     reviews,
+    reachability,
   });
 
   return (
