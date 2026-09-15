@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import {
   cancelBookingByMasterAction,
   createManualBookingAction,
@@ -9,6 +9,7 @@ import {
   type BookingOperationActionState,
 } from "@/app/actions/bookings";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -153,31 +154,16 @@ export function ClientNotesForm({
 // Отметка статуса прошедшего визита — Модуль 1 (рейтинг надёжности клиентов)
 // из okno-tz-rating-prepayment.md, ТЗ 1.3.А. Система лишь подсказывает
 // "поздно/заранее" по факту времени; финальное решение остаётся за мастером.
-function VisitStatusButton({
-  bookingId,
-  visitStatus,
-  label,
-}: {
-  bookingId: string;
-  visitStatus: VisitStatus;
-  label: string;
-}) {
-  const [, action, isPending] = useActionState(setVisitStatusAction, initialState);
-
-  return (
-    <form action={action}>
-      <input type="hidden" name="bookingId" value={bookingId} />
-      <input type="hidden" name="visitStatus" value={visitStatus} />
-      <button
-        type="submit"
-        disabled={isPending}
-        className="w-full rounded-tight border border-line px-3 py-2 text-xs font-medium text-ink transition hover:bg-panel disabled:opacity-60"
-      >
-        {label}
-      </button>
-    </form>
-  );
-}
+//
+// Выбор фиксируется сразу на клиенте: после клика остальные варианты
+// прячутся, чтобы мастер не успел нажать второй статус, пока сервер думает.
+// Если сервер ответил ошибкой — кнопки возвращаются вместе с текстом ошибки.
+const visitStatusChoices: Array<{ visitStatus: VisitStatus; label: string }> = [
+  { visitStatus: "completed", label: "Пришёл" },
+  { visitStatus: "no_show", label: "Не пришёл" },
+  { visitStatus: "cancelled_ok", label: "Отменил заранее" },
+  { visitStatus: "cancelled_late", label: "Отменил поздно" },
+];
 
 export function VisitStatusForm({
   bookingId,
@@ -190,6 +176,10 @@ export function VisitStatusForm({
   timezone: string;
   lateCancelThresholdHours: number;
 }) {
+  const [state, formAction, isPending] = useActionState(setVisitStatusAction, initialState);
+  const [chosen, setChosen] = useState<VisitStatus | null>(null);
+  const [, startTransition] = useTransition();
+
   const suggestedCancelStatus = suggestCancelVisitStatus({
     startsAtIso,
     cancelledAtIso: new Date().toISOString(),
@@ -197,25 +187,57 @@ export function VisitStatusForm({
     lateCancelThresholdHours,
   });
 
+  const choose = (visitStatus: VisitStatus) => {
+    if (isPending) {
+      return;
+    }
+
+    setChosen(visitStatus);
+    const formData = new FormData();
+    formData.set("bookingId", bookingId);
+    formData.set("visitStatus", visitStatus);
+    startTransition(() => formAction(formData));
+  };
+
+  // После успеха карточку перерисует сервер уже с бейджем; до этого момента
+  // (и всё время, пока запрос в пути) держим выбранный статус на экране.
+  const chosenChoice =
+    chosen && (isPending || state.success)
+      ? visitStatusChoices.find((choice) => choice.visitStatus === chosen) ?? null
+      : null;
+
+  if (chosenChoice) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs uppercase tracking-[0.16em] text-muted">Отметка визита</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone="accent">{chosenChoice.label}</Badge>
+          <span className="text-xs text-muted">Сохраняю…</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       <p className="text-xs uppercase tracking-[0.16em] text-muted">
         Отметь, что было с визитом
       </p>
       <div className="grid grid-cols-2 gap-2">
-        <VisitStatusButton bookingId={bookingId} visitStatus="completed" label="Пришёл" />
-        <VisitStatusButton bookingId={bookingId} visitStatus="no_show" label="Не пришёл" />
-        <VisitStatusButton
-          bookingId={bookingId}
-          visitStatus="cancelled_ok"
-          label="Отменил заранее"
-        />
-        <VisitStatusButton
-          bookingId={bookingId}
-          visitStatus="cancelled_late"
-          label="Отменил поздно"
-        />
+        {visitStatusChoices.map((choice) => (
+          <button
+            key={choice.visitStatus}
+            type="button"
+            onClick={() => choose(choice.visitStatus)}
+            className="w-full rounded-tight border border-line px-3 py-2 text-xs font-medium text-ink transition hover:bg-panel"
+          >
+            {choice.label}
+          </button>
+        ))}
       </div>
+      {!state.success && state.message ? (
+        <FormMessage message={state.message} success={false} />
+      ) : null}
       <p className="text-xs text-muted">
         Подсказка по времени отмены: «
         {suggestedCancelStatus === "cancelled_late" ? "отменил поздно" : "отменил заранее"}

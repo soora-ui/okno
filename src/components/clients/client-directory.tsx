@@ -14,7 +14,7 @@ export type ClientDirectoryHistoryItem = {
   serviceTitle: string;
   startsAtLabel: string;
   statusLabel: string;
-  statusTone: "neutral" | "success" | "accent" | "warning";
+  statusTone: "neutral" | "success" | "accent" | "warning" | "danger";
   note: string;
 };
 

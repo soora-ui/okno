@@ -10,7 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { buildReliabilityBadge, computeReliabilityAggregate } from "@/lib/client-reliability";
+import {
+  buildReliabilityBadge,
+  computeReliabilityAggregate,
+  visitStatusLabels,
+  type VisitStatus,
+} from "@/lib/client-reliability";
 import { assessClientReturn, formatDaysAgo } from "@/lib/client-return";
 import { getClientsData } from "@/lib/data";
 import { getReviewsForProfile, summarizeReviews, type ReviewWithContext } from "@/lib/reviews";
@@ -20,6 +25,52 @@ import {
   type ClientReturnReachability,
 } from "@/lib/telegram/client-return-reminder";
 import type { Booking, Client, Service } from "@/lib/mock-data";
+
+// Отметки, после которых визит не считается состоявшимся: не идут в счётчик
+// визитов, любимые услуги и частоту возврата — «не пришёл» это не визит.
+const NOT_ATTENDED_VISIT_STATUSES = new Set<VisitStatus>([
+  "no_show",
+  "cancelled_late",
+  "cancelled_ok",
+]);
+
+function isAttendedBooking(booking: Booking) {
+  return booking.status === "confirmed" && !NOT_ATTENDED_VISIT_STATUSES.has(booking.visitStatus);
+}
+
+// Бейдж визита в истории карточки: отметка мастера (visit_status) главнее
+// жизненного цикла записи — та же логика, что в архиве (booking-card.tsx).
+function describeVisit(
+  booking: Booking,
+  isUpcoming: boolean,
+): Pick<ClientDirectoryHistoryItem, "statusLabel" | "statusTone"> {
+  if (booking.visitStatus !== "pending") {
+    const tone: ClientDirectoryHistoryItem["statusTone"] =
+      booking.visitStatus === "completed"
+        ? "success"
+        : booking.visitStatus === "cancelled_ok"
+          ? "neutral"
+          : booking.visitStatus === "cancelled_late"
+            ? "warning"
+            : "danger";
+
+    return { statusLabel: visitStatusLabels[booking.visitStatus], statusTone: tone };
+  }
+
+  if (booking.status === "cancelled_by_client") {
+    return { statusLabel: "Отменил клиент", statusTone: "warning" };
+  }
+
+  if (booking.status === "cancelled_by_master") {
+    return { statusLabel: "Отменено мастером", statusTone: "neutral" };
+  }
+
+  if (isUpcoming) {
+    return { statusLabel: "Предстоит", statusTone: "accent" };
+  }
+
+  return { statusLabel: "Состоялся", statusTone: "success" };
+}
 
 function formatVisitMoment(startsAt: string, timezone: string) {
   return DateTime.fromISO(startsAt, { zone: "utc" })
@@ -95,13 +146,13 @@ function buildClientDirectoryItems(input: {
       .filter((booking) => booking.clientId === client.id)
       .sort((left, right) => right.startsAt.localeCompare(left.startsAt));
 
-    const confirmedBookings = clientBookings.filter((booking) => booking.status === "confirmed");
-    const pastConfirmedBookings = confirmedBookings.filter(
+    const attendedBookings = clientBookings.filter(isAttendedBooking);
+    const pastAttendedBookings = attendedBookings.filter(
       (booking) =>
         DateTime.fromISO(booking.startsAt, { zone: "utc" }).setZone(input.timezone).toMillis() <=
         now.toMillis(),
     );
-    const upcomingConfirmedBookings = confirmedBookings
+    const upcomingAttendedBookings = attendedBookings
       .filter(
         (booking) =>
           DateTime.fromISO(booking.startsAt, { zone: "utc" }).setZone(input.timezone).toMillis() >
@@ -109,11 +160,11 @@ function buildClientDirectoryItems(input: {
       )
       .sort((left, right) => left.startsAt.localeCompare(right.startsAt));
 
-    const lastVisit = pastConfirmedBookings[0] ?? confirmedBookings[0] ?? clientBookings[0] ?? null;
-    const nextVisit = upcomingConfirmedBookings[0] ?? null;
+    const lastVisit = pastAttendedBookings[0] ?? attendedBookings[0] ?? clientBookings[0] ?? null;
+    const nextVisit = upcomingAttendedBookings[0] ?? null;
 
     const preferredServices = Array.from(
-      confirmedBookings.reduce((map, booking) => {
+      attendedBookings.reduce((map, booking) => {
         const service = serviceMap.get(booking.serviceId);
         if (!service) {
           return map;
@@ -149,22 +200,7 @@ function buildClientDirectoryItems(input: {
         id: booking.id,
         serviceTitle: service?.title ?? "Услуга",
         startsAtLabel,
-        statusLabel:
-          booking.status === "cancelled_by_client"
-            ? "Отменил клиент"
-            : booking.status === "cancelled_by_master"
-              ? "Отменено мастером"
-              : isUpcoming
-                ? "Предстоит"
-                : "Состоялся",
-        statusTone:
-          booking.status === "cancelled_by_client"
-            ? "warning"
-            : booking.status === "cancelled_by_master"
-              ? "neutral"
-              : isUpcoming
-                ? "accent"
-                : "success",
+        ...describeVisit(booking, isUpcoming),
         note: booking.clientNote,
       };
     });
@@ -188,16 +224,14 @@ function buildClientDirectoryItems(input: {
 
     // «Давно не был» — по сроку повтора услуги или собственной частоте
     // клиента (src/lib/client-return.ts). Несостоявшиеся визиты в расчёт не
-    // идут: после «не пришёл» напоминать «после маникюра» — мимо.
+    // идут (уже отфильтрованы в pastAttendedBookings): после «не пришёл»
+    // напоминать «после маникюра» — мимо.
     const returnAssessment = assessClientReturn({
-      pastVisits: pastConfirmedBookings
-        .filter(
-          (booking) =>
-            !booking.visitStatus ||
-            !["no_show", "cancelled_late", "cancelled_ok"].includes(booking.visitStatus),
-        )
-        .map((booking) => ({ startsAtIso: booking.startsAt, serviceId: booking.serviceId })),
-      hasUpcomingVisit: upcomingConfirmedBookings.length > 0,
+      pastVisits: pastAttendedBookings.map((booking) => ({
+        startsAtIso: booking.startsAt,
+        serviceId: booking.serviceId,
+      })),
+      hasUpcomingVisit: upcomingAttendedBookings.length > 0,
       services: input.services,
       timezone: input.timezone,
       now,
@@ -215,8 +249,8 @@ function buildClientDirectoryItems(input: {
       nextVisitLabel: nextVisit
         ? formatVisitMoment(nextVisit.startsAt, input.timezone)
         : null,
-      returnFrequencyLabel: formatReturnFrequency(pastConfirmedBookings, input.timezone),
-      totalVisitsLabel: formatVisitCountLabel(confirmedBookings.length),
+      returnFrequencyLabel: formatReturnFrequency(pastAttendedBookings, input.timezone),
+      totalVisitsLabel: formatVisitCountLabel(attendedBookings.length),
       preferredServices,
       history,
       reviews: (reviewsByClient.get(client.id) ?? []).map((review) => ({
