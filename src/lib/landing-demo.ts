@@ -14,13 +14,13 @@ export const landingDemoProfile: Profile = {
   passwordAuthId: "landing-demo-auth",
   fullName: "Алина Мороз",
   username: "landing-demo",
-  specialty: "Маникюр и брови",
-  bio: "Кабинет у метро, работаю по записи с интервалом 30 минут между визитами, чтобы не торопить и не задерживать.",
+  specialty: "Маникюр, брови и ламинирование",
+  bio: "Семь лет в маникюре, три — в бровях. Стерильные инструменты, тихий кабинет и кофе. Между визитами 30 минут, чтобы никого не торопить.",
   locationText: "Симферополь",
   timezone: "Europe/Simferopol",
-  address: "ул. Пушкина, 12, кабинет 3",
+  address: "ул. Пушкина, 12, кабинет 3, 2 этаж",
   telegramChatId: null,
-  avatarUrl: "/demo/avatar.svg",
+  avatarUrl: "/demo/avatar.jpg",
   avatarPath: null,
   portfolioWorks: [
     {
@@ -42,8 +42,8 @@ export const landingDemoProfile: Profile = {
   bookingThemePresetId: defaultBookingThemePresetId,
   bookingPageSettings: {
     ...defaultBookingPageSettings,
-    headline: "Маникюр и брови в кабинете у метро",
-    subheadline: "Запись онлайн — без переписок и ожидания ответа",
+    headline: "Аккуратный маникюр и брови, которые держатся",
+    subheadline: "Свободное окно видно сразу — запись за минуту, без переписки",
   },
   subscriptionTier: "free",
   subscriptionUntil: null,
