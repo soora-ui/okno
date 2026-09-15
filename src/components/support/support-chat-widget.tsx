@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, MessageCircle, Send, X } from "lucide-react";
 import { ClientPortal } from "@/components/ui/client-portal";
+import { usePresence } from "@/components/ui/use-presence";
 import { supportFaqQuestions } from "@/lib/support-assistant/faq";
 import { cn } from "@/lib/utils";
 
@@ -174,6 +175,7 @@ function SuggestionChips({
 
 export function SupportChatWidget({ raised = false }: { raised?: boolean }) {
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open, 240);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -451,7 +453,7 @@ export function SupportChatWidget({ raised = false }: { raised?: boolean }) {
         {open ? <X size={22} /> : <MessageCircle size={22} />}
       </button>
 
-      {open ? (
+      {presence.mounted ? (
         <ClientPortal>
           {/* Затемнение: без него панель сливалась со страницей, особенно на
               светлых экранах кабинета. Клик по подложке закрывает чат — так же
@@ -460,17 +462,21 @@ export function SupportChatWidget({ raised = false }: { raised?: boolean }) {
             type="button"
             aria-label="Закрыть чат"
             onClick={() => setOpen(false)}
+            data-state={presence.state}
             // Чёрный, а не оттенок чернил из палитры: на тёмной теме тот
             // сливался с фоном страницы и затемнения не было видно вовсе.
             // Чистый чёрный с прозрачностью затемняет обе темы одинаково.
-            className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.4)]"
+            className="morph-scrim fixed inset-0 z-40 bg-[rgba(0,0,0,0.4)]"
           />
 
           <div
             role="dialog"
             aria-label="Чат поддержки okno.business"
+            data-state={presence.state}
+            // Окно растёт из плавающей кнопки в правом нижнем углу.
+            style={{ "--morph-origin": "bottom right" } as React.CSSProperties}
             className={cn(
-              "fixed z-50 flex flex-col overflow-hidden border-line bg-surface",
+              "morph-panel fixed z-50 flex flex-col overflow-hidden border-line bg-surface",
               // Мобильный: шторка во весь экран. Инструкция из пяти шагов в
               // окошке 380×560 читалась в щель.
               "inset-0 rounded-none border-0",

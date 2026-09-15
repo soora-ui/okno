@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Archive, CalendarDays, Globe, LayoutDashboard, LogOut, Menu, Settings, Users, X } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
 import { ClientPortal } from "@/components/ui/client-portal";
+import { usePresence } from "@/components/ui/use-presence";
 import { cn } from "@/lib/utils";
 
 type AccountMenuProps = {
@@ -26,6 +27,7 @@ export function AccountMenu({
   showTeamLink = false,
 }: AccountMenuProps) {
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open, 240);
   const authLinks = [
     ...(showTeamLink
       ? [{ href: "/team", label: "Команда", icon: Users }]
@@ -79,16 +81,20 @@ export function AccountMenu({
         </span>
       </button>
 
-      {open ? (
+      {presence.mounted ? (
         <ClientPortal>
           <button
             type="button"
             aria-label="Закрыть меню"
-            className="fixed inset-0 z-40 bg-[rgba(26,26,23,0.1)]"
+            data-state={presence.state}
+            className="morph-scrim fixed inset-0 z-40 bg-[rgba(26,26,23,0.1)]"
             onClick={() => setOpen(false)}
           />
 
-          <div className="fixed right-4 top-20 z-50 w-[min(92vw,360px)] rounded-card border border-line bg-surface p-4 shadow-hover transition duration-300">
+          <div
+            data-state={presence.state}
+            className="morph-panel morph-glass fixed right-4 top-20 z-50 w-[min(92vw,360px)] rounded-card border border-line p-4 shadow-hover"
+          >
             {authenticated ? (
               <div className="space-y-2">
                 <div className="rounded-panel bg-panel p-4">

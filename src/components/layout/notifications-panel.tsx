@@ -12,6 +12,7 @@ import { Bell, Megaphone, Sparkles, X } from "lucide-react";
 import type { AccountNotificationItem } from "@/lib/account-notifications";
 import { Badge } from "@/components/ui/badge";
 import { ClientPortal } from "@/components/ui/client-portal";
+import { usePresence } from "@/components/ui/use-presence";
 import { cn } from "@/lib/utils";
 
 const NOTIFICATIONS_CHANGE_EVENT = "okno-notifications-change";
@@ -89,6 +90,7 @@ export function NotificationsPanel({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open, 240);
   const lastSeenAt = useLocalStorageValue(storageKey);
   const dismissedRaw = useLocalStorageValue(dismissedStorageKey);
 
@@ -159,12 +161,13 @@ export function NotificationsPanel({
         ) : null}
       </button>
 
-      {open ? (
+      {presence.mounted ? (
         <ClientPortal>
           <button
             type="button"
             aria-label="Закрыть уведомления"
-            className="fixed inset-0 z-40 bg-[rgba(26,26,23,0.08)]"
+            data-state={presence.state}
+            className="morph-scrim fixed inset-0 z-40 bg-[rgba(26,26,23,0.08)]"
             onClick={() => setOpen(false)}
           />
 
@@ -172,7 +175,10 @@ export function NotificationsPanel({
               скроллбар, и на Windows весь интерфейс прыгает на его ширину
               при каждом открытии/закрытии. Список внутри скроллится сам,
               overscroll-contain не даёт прокрутке уйти на страницу. */}
-          <div className="fixed right-4 top-20 z-50 flex max-h-[min(78vh,640px)] w-[min(calc(100vw-2rem),380px)] flex-col rounded-card border border-line bg-surface p-4 shadow-hover transition duration-300">
+          <div
+            data-state={presence.state}
+            className="morph-panel morph-glass fixed right-4 top-20 z-50 flex max-h-[min(78vh,640px)] w-[min(calc(100vw-2rem),380px)] flex-col rounded-card border border-line p-4 shadow-hover"
+          >
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs uppercase tracking-[0.24em] text-muted">
                 Уведомления
