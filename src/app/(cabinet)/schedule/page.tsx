@@ -55,14 +55,14 @@ function buildScheduleGroups(
   bookings.forEach((booking) => {
     const startsAt = formatScheduleLabel(booking.startsAt, timezone);
     let groupKey = startsAt.toFormat("yyyy-MM-dd");
-    let label = startsAt.toFormat("cccc, d LLLL");
+    let label = startsAt.toFormat("cccc, d MMMM");
 
     if (view === "week") {
       const startOfWeek = startsAt.startOf("week");
       const endOfWeek = startOfWeek.plus({ days: 6 });
 
       groupKey = startOfWeek.toFormat("kkkk-'W'WW");
-      label = `${startOfWeek.toFormat("d LLLL")} - ${endOfWeek.toFormat("d LLLL")}`;
+      label = `${startOfWeek.toFormat("d MMMM")} - ${endOfWeek.toFormat("d MMMM")}`;
     }
 
     if (view === "month") {
@@ -154,7 +154,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <p className="font-medium text-ink">
-                              {startsAt.toFormat("cccc, d LLLL")}
+                              {startsAt.toFormat("cccc, d MMMM")}
                             </p>
                             <p className="mt-1 text-sm text-ink-soft">
                               {startsAt.toFormat("HH:mm")} - {endsAt.toFormat("HH:mm")}

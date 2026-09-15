@@ -83,7 +83,7 @@ export function BlockedSlotsForm({
                   <div className="space-y-1">
                     <p className="font-medium text-ink">{slot.reason}</p>
                     <p className="text-sm text-ink-soft">
-                      {startsAt.setLocale("ru").toFormat("d LLLL")} •{" "}
+                      {startsAt.setLocale("ru").toFormat("d MMMM")} •{" "}
                       {startsAt.toFormat("HH:mm")} - {endsAt.toFormat("HH:mm")}
                     </p>
                   </div>

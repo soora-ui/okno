@@ -202,7 +202,7 @@ async function sendClientBookingMessage(
   const startsAtLabel = DateTime.fromISO(booking.startsAtIso, { zone: "utc" })
     .setZone(booking.timezone)
     .setLocale("ru")
-    .toFormat("d LLLL, HH:mm");
+    .toFormat("d MMMM, HH:mm");
 
   if (kind === "reminder") {
     const result = await sendClientReminderTelegram({
@@ -385,7 +385,7 @@ export function buildReminderNotificationEvents(input: {
   const startsAtLabel = startsAt
     .setZone(input.profile.timezone)
     .setLocale("ru")
-    .toFormat("d LLLL, HH:mm");
+    .toFormat("d MMMM, HH:mm");
 
   const rows: Array<Record<string, unknown>> = [];
 

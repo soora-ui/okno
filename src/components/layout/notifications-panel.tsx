@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Megaphone, Sparkles, X } from "lucide-react";
 import type { AccountNotificationItem } from "@/lib/account-notifications";
@@ -9,17 +15,38 @@ import { ClientPortal } from "@/components/ui/client-portal";
 import { cn } from "@/lib/utils";
 
 const NOTIFICATIONS_CHANGE_EVENT = "okno-notifications-change";
+// Сколько скрытых ключей держим в localStorage. Сервер отдаёт не больше 20
+// уведомлений, так что запас с большим избытком.
+const DISMISSED_LIMIT = 200;
+const VISIBLE_LIMIT = 8;
+// Свайп короче порога — возврат на место; длиннее — карточка улетает.
+const SWIPE_DISMISS_PX = 96;
+const SWIPE_TAP_TOLERANCE_PX = 8;
 
-export function NotificationsPanel({
-  items,
-  storageKey,
-}: {
-  items: AccountNotificationItem[];
-  storageKey: string;
-}) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const lastSeenAt = useSyncExternalStore(
+// Системные подсказки («подключи Telegram», «тариф заканчивается») живут с
+// createdAt = начало дня, поэтому скрытая сегодня подсказка завтра вернётся,
+// а событие с фиксированным временем скрывается навсегда.
+function dismissKey(item: AccountNotificationItem) {
+  return `${item.id}@${item.createdAt}`;
+}
+
+function parseDismissed(raw: string | null): string[] {
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function useLocalStorageValue(storageKey: string) {
+  return useSyncExternalStore(
     (onStoreChange) => {
       if (typeof window === "undefined") {
         return () => undefined;
@@ -49,8 +76,28 @@ export function NotificationsPanel({
     },
     () => null,
   );
+}
 
-  const latestCreatedAt = items[0]?.createdAt ?? null;
+export function NotificationsPanel({
+  items,
+  storageKey,
+  dismissedStorageKey,
+}: {
+  items: AccountNotificationItem[];
+  storageKey: string;
+  dismissedStorageKey: string;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const lastSeenAt = useLocalStorageValue(storageKey);
+  const dismissedRaw = useLocalStorageValue(dismissedStorageKey);
+
+  const visibleItems = useMemo(() => {
+    const dismissed = new Set(parseDismissed(dismissedRaw));
+    return items.filter((item) => !dismissed.has(dismissKey(item)));
+  }, [items, dismissedRaw]);
+
+  const latestCreatedAt = visibleItems[0]?.createdAt ?? null;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -63,26 +110,13 @@ export function NotificationsPanel({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open]);
-
   const unreadCount = useMemo(() => {
     if (!lastSeenAt) {
-      return items.length;
+      return visibleItems.length;
     }
 
-    return items.filter((item) => item.createdAt > lastSeenAt).length;
-  }, [items, lastSeenAt]);
+    return visibleItems.filter((item) => item.createdAt > lastSeenAt).length;
+  }, [visibleItems, lastSeenAt]);
 
   const toggleOpen = () => {
     const nextOpen = !open;
@@ -93,6 +127,17 @@ export function NotificationsPanel({
     }
 
     setOpen(nextOpen);
+  };
+
+  const dismiss = (item: AccountNotificationItem) => {
+    const current = parseDismissed(
+      window.localStorage.getItem(dismissedStorageKey),
+    );
+    const next = [...current.filter((key) => key !== dismissKey(item)), dismissKey(item)]
+      .slice(-DISMISSED_LIMIT);
+
+    window.localStorage.setItem(dismissedStorageKey, JSON.stringify(next));
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGE_EVENT));
   };
 
   return (
@@ -123,16 +168,15 @@ export function NotificationsPanel({
             onClick={() => setOpen(false)}
           />
 
+          {/* Скролл страницы не блокируем: body overflow:hidden убирает
+              скроллбар, и на Windows весь интерфейс прыгает на его ширину
+              при каждом открытии/закрытии. Список внутри скроллится сам,
+              overscroll-contain не даёт прокрутке уйти на страницу. */}
           <div className="fixed right-4 top-20 z-50 flex max-h-[min(78vh,640px)] w-[min(calc(100vw-2rem),380px)] flex-col rounded-card border border-line bg-surface p-4 shadow-hover transition duration-300">
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-muted">
-                  Уведомления
-                </p>
-                <p className="mt-1 text-sm text-ink-soft">
-                  Новые записи и системные подсказки по кабинету.
-                </p>
-              </div>
+              <p className="text-xs uppercase tracking-[0.24em] text-muted">
+                Уведомления
+              </p>
               <button
                 type="button"
                 aria-label="Закрыть уведомления"
@@ -143,40 +187,23 @@ export function NotificationsPanel({
               </button>
             </div>
 
+            {/* Отрицательные поля + такие же паддинги: крестик карточки
+                выступает за её угол, и без запаса overflow его бы обрезал. */}
             <div
-              className="mt-4 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1"
+              className="-mx-2 mt-2 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain px-2 pt-2"
               style={{ WebkitOverflowScrolling: "touch" }}
             >
-              {items.length > 0 ? (
-                items.map((item) => (
-                  <button
+              {visibleItems.length > 0 ? (
+                visibleItems.slice(0, VISIBLE_LIMIT).map((item) => (
+                  <NotificationCard
                     key={item.id}
-                    type="button"
-                    onClick={() => {
+                    item={item}
+                    onOpen={() => {
                       router.push(item.href);
                       setOpen(false);
                     }}
-                    className="block w-full rounded-panel border border-line bg-panel p-4 text-left transition hover:bg-surface"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 gap-3">
-                        <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-ink">
-                          {item.tone === "warning" ? (
-                            <Megaphone size={16} />
-                          ) : (
-                            <Sparkles size={16} />
-                          )}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-medium text-ink">{item.title}</p>
-                          <p className="mt-1 text-sm leading-6 text-ink-soft">
-                            {item.description}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge tone={item.tone}>{item.createdAtLabel}</Badge>
-                    </div>
-                  </button>
+                    onDismiss={() => dismiss(item)}
+                  />
                 ))
               ) : (
                 <div className="rounded-panel border border-dashed border-line p-4 text-sm text-muted">
@@ -188,5 +215,150 @@ export function NotificationsPanel({
         </ClientPortal>
       ) : null}
     </>
+  );
+}
+
+function NotificationCard({
+  item,
+  onOpen,
+  onDismiss,
+}: {
+  item: AccountNotificationItem;
+  onOpen: () => void;
+  onDismiss: () => void;
+}) {
+  const [offsetX, setOffsetX] = useState(0);
+  const [phase, setPhase] = useState<"idle" | "dragging" | "leaving">("idle");
+  const startXRef = useRef<number | null>(null);
+  const movedRef = useRef(false);
+  const leaveTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (leaveTimerRef.current !== null) {
+        window.clearTimeout(leaveTimerRef.current);
+      }
+    };
+  }, []);
+
+  const leave = (direction: 1 | -1) => {
+    setPhase("leaving");
+    setOffsetX(direction * 480);
+    leaveTimerRef.current = window.setTimeout(onDismiss, 220);
+  };
+
+  // Свайп только пальцем/стилусом: мышь на десктопе закрывает крестиком, а
+  // перетаскивание кнопки мышью выглядело бы как баг.
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" || phase === "leaving") {
+      return;
+    }
+
+    startXRef.current = event.clientX;
+    movedRef.current = false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setPhase("dragging");
+  };
+
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (startXRef.current === null || phase !== "dragging") {
+      return;
+    }
+
+    const dx = event.clientX - startXRef.current;
+    if (Math.abs(dx) > SWIPE_TAP_TOLERANCE_PX) {
+      movedRef.current = true;
+    }
+    setOffsetX(dx);
+  };
+
+  const onPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (startXRef.current === null || phase !== "dragging") {
+      return;
+    }
+
+    const dx = event.clientX - startXRef.current;
+    startXRef.current = null;
+
+    if (event.type !== "pointercancel" && Math.abs(dx) >= SWIPE_DISMISS_PX) {
+      leave(dx > 0 ? 1 : -1);
+      return;
+    }
+
+    setPhase("idle");
+    setOffsetX(0);
+  };
+
+  const distance = Math.min(Math.abs(offsetX) / SWIPE_DISMISS_PX, 1);
+
+  return (
+    <div
+      className="group relative"
+      style={{ touchAction: "pan-y" }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerEnd}
+      onPointerCancel={onPointerEnd}
+    >
+      <button
+        type="button"
+        onClick={() => {
+          // Клик прилетает после свайпа — не открываем раздел, если палец
+          // сдвинул карточку.
+          if (movedRef.current) {
+            movedRef.current = false;
+            return;
+          }
+          onOpen();
+        }}
+        style={{
+          transform: `translateX(${offsetX}px)`,
+          opacity: phase === "leaving" ? 0 : 1 - distance * 0.5,
+          transition:
+            phase === "dragging"
+              ? "none"
+              : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease",
+        }}
+        className="block w-full rounded-panel border border-line bg-panel p-4 text-left transition-colors hover:bg-surface"
+      >
+        <div className="flex gap-3">
+          <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-ink">
+            {item.tone === "warning" ? (
+              <Megaphone size={16} />
+            ) : (
+              <Sparkles size={16} />
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <p className="font-medium text-ink">{item.title}</p>
+              {/* Дата — метка времени, а не статус, поэтому подложка одна
+                  на всех, а не по tone события (раньше у одних была зелёная,
+                  у других нет). Стоит рядом с заголовком, чтобы не сжимать
+                  описание. */}
+              <span className="shrink-0 whitespace-nowrap">
+                <Badge tone="success">{item.createdAtLabel}</Badge>
+              </span>
+            </div>
+            <p className="mt-1 text-sm leading-6 text-ink-soft">
+              {item.description}
+            </p>
+          </div>
+        </div>
+      </button>
+
+      {/* На тач-устройствах ховера нет — там карточку смахивают свайпом. */}
+      <button
+        type="button"
+        aria-label="Скрыть уведомление"
+        onClick={(event) => {
+          event.stopPropagation();
+          leave(1);
+        }}
+        className="absolute -right-2 -top-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-line bg-surface text-ink-soft opacity-0 shadow-sm transition hover:bg-panel hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+      >
+        <X size={14} />
+      </button>
+    </div>
   );
 }

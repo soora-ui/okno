@@ -160,7 +160,7 @@ export function humanizeBookingDate(input: {
   return DateTime.fromISO(input.startsAtIso, { zone: "utc" })
     .setZone(input.timezone)
     .setLocale("ru")
-    .toFormat("d LLLL, HH:mm");
+    .toFormat("d MMMM, HH:mm");
 }
 
 export function isCancellationAllowed(input: {

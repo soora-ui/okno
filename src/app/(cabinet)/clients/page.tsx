@@ -25,7 +25,7 @@ function formatVisitMoment(startsAt: string, timezone: string) {
   return DateTime.fromISO(startsAt, { zone: "utc" })
     .setZone(timezone)
     .setLocale("ru")
-    .toFormat("d LLLL, HH:mm");
+    .toFormat("d MMMM, HH:mm");
 }
 
 function formatReturnFrequency(bookings: Booking[], timezone: string) {
@@ -227,7 +227,7 @@ function buildClientDirectoryItems(input: {
         dateLabel: DateTime.fromISO(review.createdAtIso, { zone: "utc" })
           .setZone(input.timezone)
           .setLocale("ru")
-          .toFormat("d LLLL yyyy"),
+          .toFormat("d MMMM yyyy"),
       })),
       searchText,
       reliability,
@@ -244,7 +244,7 @@ function buildClientDirectoryItems(input: {
           ? DateTime.fromISO(reachability.lastSentAtIso, { zone: "utc" })
               .setZone(input.timezone)
               .setLocale("ru")
-              .toFormat("d LLLL")
+              .toFormat("d MMMM")
           : null,
       },
     } satisfies ClientDirectoryItem;

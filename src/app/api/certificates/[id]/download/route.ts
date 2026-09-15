@@ -82,9 +82,9 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const issueDate = DateTime.fromISO(certificateRow.created_at, { zone: "utc" })
     .setLocale("ru")
-    .toFormat("d LLLL yyyy");
+    .toFormat("d MMMM yyyy");
   const expiryDate = certificateRow.expires_at
-    ? DateTime.fromISO(certificateRow.expires_at, { zone: "utc" }).setLocale("ru").toFormat("d LLLL yyyy")
+    ? DateTime.fromISO(certificateRow.expires_at, { zone: "utc" }).setLocale("ru").toFormat("d MMMM yyyy")
     : "бессрочно";
 
   try {

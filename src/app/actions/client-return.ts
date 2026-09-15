@@ -227,7 +227,7 @@ export async function sendClientReturnReminderAction(
         message: `Этому клиенту уже напоминали недавно. Следующее можно отправить ${nextAllowed
           .setZone(profile.timezone)
           .setLocale("ru")
-          .toFormat("d LLLL")}.`,
+          .toFormat("d MMMM")}.`,
       };
     }
   }

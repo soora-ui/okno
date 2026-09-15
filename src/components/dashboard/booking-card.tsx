@@ -37,7 +37,7 @@ export function BookingCard({
           </p>
           {showDate ? (
             <p className="text-sm text-muted">
-              Дата визита: {startsAt.setLocale("ru").toFormat("d LLLL")}
+              Дата визита: {startsAt.setLocale("ru").toFormat("d MMMM")}
             </p>
           ) : null}
           {booking.clientNote ? (

@@ -17,7 +17,7 @@ export function buildTestEmail(): EmailTemplate {
   const sentAt = DateTime.now()
     .setZone("Europe/Moscow")
     .setLocale("ru")
-    .toFormat("d LLLL yyyy, HH:mm");
+    .toFormat("d MMMM yyyy, HH:mm");
   const offerUrl = `${appUrl}/legal/offer`;
   const siteUrl = "https://okno.business";
 

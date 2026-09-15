@@ -197,7 +197,7 @@ export default async function DashboardPage() {
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-lg font-semibold text-ink">Сегодня</h3>
                   <span className="text-sm text-muted">
-                    {now.setLocale("ru").toFormat("d LLLL")}
+                    {now.setLocale("ru").toFormat("d MMMM")}
                   </span>
                 </div>
                 {todayBookings.length > 0 ? (

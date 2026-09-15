@@ -370,7 +370,7 @@ function formatClientBooking(booking: ClientLinkedBooking) {
 
   return [
     `<b>${escapeTelegramHtml(booking.serviceTitle)}</b> — ${escapeTelegramHtml(booking.masterName)}`,
-    startsAt.setLocale("ru").toFormat("d LLLL, HH:mm"),
+    startsAt.setLocale("ru").toFormat("d MMMM, HH:mm"),
   ].join("\n");
 }
 

@@ -38,6 +38,7 @@ async function AccountNotificationsSlot({
     <NotificationsPanel
       items={accountNotifications.items}
       storageKey={accountNotifications.storageKey}
+      dismissedStorageKey={accountNotifications.dismissedStorageKey}
     />
   );
 }
@@ -123,7 +124,7 @@ export async function SiteShell({
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--color-background)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_var(--color-glow-cool),_transparent_30%),radial-gradient(circle_at_bottom_right,_var(--color-glow-warm),_transparent_30%)]" />
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-12 pt-4 sm:px-6 lg:px-8">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[96rem] flex-col px-4 pb-12 pt-4 sm:px-6 lg:px-8">
         <header className="print-static sticky top-4 z-20 mb-6 rounded-full border border-line bg-surface px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             <BrandLogo href={homeHref}>

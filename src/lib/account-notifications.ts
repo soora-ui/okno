@@ -17,7 +17,7 @@ function formatNotificationMoment(createdAt: string, timezone: string) {
   return DateTime.fromISO(createdAt, { zone: "utc" })
     .setZone(timezone)
     .setLocale("ru")
-    .toFormat("d LLLL, HH:mm");
+    .toFormat("d MMMM, HH:mm");
 }
 
 export function buildAccountNotificationItems(input: {
@@ -126,5 +126,7 @@ export function buildAccountNotificationItems(input: {
     });
   }
 
-  return [...systemItems, ...eventItems].slice(0, 8);
+  // Отдаём с запасом: часть уведомлений мастер уже скрыл (это хранится в
+  // браузере), и панель после фильтрации всё равно должна показывать до 8.
+  return [...systemItems, ...eventItems].slice(0, 20);
 }

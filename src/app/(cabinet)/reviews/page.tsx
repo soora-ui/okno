@@ -87,7 +87,7 @@ export default async function ReviewsPage() {
                     ? ` · ${DateTime.fromISO(review.startsAtIso, { zone: "utc" })
                         .setZone(profile.timezone)
                         .setLocale("ru")
-                        .toFormat("d LLLL yyyy")}`
+                        .toFormat("d MMMM yyyy")}`
                     : ""}
                 </p>
                 {review.comment ? (

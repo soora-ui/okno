@@ -265,6 +265,12 @@
 
 html {
   scroll-behavior: smooth;
+  /* Модалки ставят body overflow:hidden, и без резерва под скроллбар
+     страница в Windows-браузерах прыгает на ширину полосы при каждом
+     открытии/закрытии. Firefox резерв на вьюпорте держит; Chromium при
+     overflow:hidden на body — нет, поэтому панель уведомлений скролл
+     вообще не блокирует (см. notifications-panel). */
+  scrollbar-gutter: stable;
 }
 
 body {

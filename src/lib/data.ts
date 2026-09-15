@@ -171,14 +171,14 @@ function formatTeamMoment(createdAt: string, timezone: string) {
   return DateTime.fromISO(createdAt, { zone: "utc" })
     .setZone(timezone)
     .setLocale("ru")
-    .toFormat("d LLLL, HH:mm");
+    .toFormat("d MMMM, HH:mm");
 }
 
 function formatTeamJoinDate(createdAt: string, timezone: string) {
   return DateTime.fromISO(createdAt, { zone: "utc" })
     .setZone(timezone)
     .setLocale("ru")
-    .toFormat("d LLLL yyyy");
+    .toFormat("d MMMM yyyy");
 }
 
 function asRecords(data: unknown[] | null) {
@@ -551,6 +551,7 @@ export async function getAccountNotificationPanelData(input: {
   if (input.source === "mock") {
     return {
       storageKey: `okno.notifications.last-seen.${input.profile.id}`,
+      dismissedStorageKey: `okno.notifications.dismissed.${input.profile.id}`,
       items: buildAccountNotificationItems({
         profile: input.profile,
         notificationEvents,
@@ -566,6 +567,7 @@ export async function getAccountNotificationPanelData(input: {
 
   return {
     storageKey: `okno.notifications.last-seen.${input.profile.id}`,
+    dismissedStorageKey: `okno.notifications.dismissed.${input.profile.id}`,
     items: buildAccountNotificationItems({
       profile: input.profile,
       notificationEvents: notificationData.notificationEvents.map((row) =>
