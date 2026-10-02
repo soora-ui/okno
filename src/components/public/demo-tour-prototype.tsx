@@ -86,7 +86,6 @@ type Scene = {
   frame: FrameId;
   title: string;
   text: string;
-  zoom: number;
   /** Длительность сцены в автопросмотре. */
   ms: number;
   run: (ctx: SceneCtx) => Promise<void>;
@@ -126,6 +125,28 @@ const containing =
       .sort((a, b) => area(a) - area(b))[0];
   };
 
+const CARD_SELECTOR = '[class*="rounded-card"], [class*="rounded-section"], [class*="rounded-panel"]';
+
+/** Карточка клиента в списке по имени. */
+const clientCard = (name: string): Target => containing(name, CARD_SELECTOR);
+
+/** Самый тесный блок с текстом внутри карточки клиента. */
+const insideClient =
+  (name: string, text: string): Target =>
+  (doc) => {
+    const host = clientCard(name);
+    const cardEl = typeof host === "function" ? host(doc) : null;
+    if (!cardEl) return null;
+    const area = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return r.width * r.height;
+    };
+    return [...cardEl.querySelectorAll("*")]
+      .filter((el) => isVisible(el) && el.textContent?.includes(text))
+      .sort((a, b) => area(a) - area(b))
+      .find((el) => el.children.length > 0 || el.tagName === "SPAN");
+  };
+
 const SCENES: Scene[] = [
   // Глава 1 — публичный профиль.
   {
@@ -134,7 +155,6 @@ const SCENES: Scene[] = [
     frame: "profile",
     title: "Твоя витрина",
     text: "Имя, фото и специализация на первом экране. Клиент сразу видит, к кому записывается.",
-    zoom: 1.06,
     ms: 6500,
     run: (c) => c.focus('[data-tour="identity"]'),
   },
@@ -144,7 +164,6 @@ const SCENES: Scene[] = [
     frame: "profile",
     title: "Свободные окна",
     text: "Ближайшее свободное время видно сразу — не нужно спрашивать «а когда можно?».",
-    zoom: 1.04,
     ms: 6500,
     run: (c) => c.focus('[data-demo-id="slots"]'),
   },
@@ -154,7 +173,6 @@ const SCENES: Scene[] = [
     frame: "profile",
     title: "Работы",
     text: "Портфолио прямо на странице записи: клиент видит твой стиль ещё до выбора времени.",
-    zoom: 1.03,
     ms: 6500,
     run: (c) => c.focus('[data-demo-id="works"]'),
   },
@@ -164,7 +182,6 @@ const SCENES: Scene[] = [
     frame: "profile",
     title: "Услуги и цены",
     text: "Длительность и цена видны заранее — уточнять в переписке не нужно.",
-    zoom: 1.03,
     ms: 6500,
     run: (c) => c.focus('[data-demo-id="services"]'),
   },
@@ -176,7 +193,6 @@ const SCENES: Scene[] = [
     frame: "profile",
     title: "Выбор услуги",
     text: "Клиент нажимает «Выбрать» у нужной услуги и сразу попадает к свободному времени.",
-    zoom: 1.04,
     ms: 6000,
     run: (c) => c.focus('[data-demo-id="services"] article'),
     exit: '[data-demo-id="services"] article a',
@@ -187,7 +203,6 @@ const SCENES: Scene[] = [
     frame: "book",
     title: "Выбор окна",
     text: "Клиент видит только свободное время по твоему графику и выбирает сам.",
-    zoom: 1.03,
     ms: 8500,
     run: async (c) => {
       await c.focus('[data-tour="picker"]');
@@ -204,7 +219,6 @@ const SCENES: Scene[] = [
     frame: "contacts",
     title: "Пара полей — и всё",
     text: "Имя, телефон и комментарий, если нужен. Без регистрации и паролей.",
-    zoom: 1,
     ms: 13500,
     run: async (c) => {
       c.doc
@@ -233,7 +247,6 @@ const SCENES: Scene[] = [
     frame: "confirm",
     title: "Запись готова",
     text: "Клиент сразу видит детали визита, а запись появляется у тебя в кабинете.",
-    zoom: 1.04,
     ms: 6500,
     run: (c) => c.focus('[data-tour="confirm"]'),
   },
@@ -245,7 +258,6 @@ const SCENES: Scene[] = [
     frame: "dashboard",
     title: "Главная",
     text: "Сегодняшние и ближайшие визиты. Марина, которая только что записалась, уже здесь.",
-    zoom: 1.03,
     ms: 8500,
     run: async (c) => {
       await c.focus(card("Ближайшие записи"));
@@ -259,7 +271,6 @@ const SCENES: Scene[] = [
     frame: "dashboard",
     title: "Ручная запись",
     text: "Клиент написал в мессенджер? Добавь визит вручную — это время сразу закроется на странице.",
-    zoom: 1.03,
     ms: 6500,
     run: (c) => c.focus(card("Ручная запись")),
     exit: (doc) => [...doc.querySelectorAll('a[href="/schedule"]')].find(isVisible),
@@ -270,7 +281,6 @@ const SCENES: Scene[] = [
     frame: "schedule",
     title: "Расписание",
     text: "Рабочие часы по дням и разовые блокировки: обед, отпуск, закупка.",
-    zoom: 1.03,
     ms: 8000,
     run: async (c) => {
       await c.focus(card("Рабочие часы"));
@@ -284,10 +294,31 @@ const SCENES: Scene[] = [
     chapter: 2,
     frame: "clients",
     title: "Клиенты",
-    text: "База собирается сама: история визитов, как часто человек возвращается и что предпочитает.",
-    zoom: 1.03,
-    ms: 7000,
-    run: (c) => c.focus(containing("Марина Соколова", '[class*="rounded-card"], [class*="rounded-section"], [class*="rounded-panel"]')),
+    text: "Карточка собирается сама из записей: контакты, сколько было визитов, когда следующий и что человек обычно выбирает.",
+    ms: 7500,
+    run: (c) => c.focus(clientCard("Марина Соколова")),
+  },
+  {
+    id: "return-rate",
+    chapter: 2,
+    frame: "clients",
+    title: "Частота возврата",
+    text: "Сколько дней в среднем проходит между визитами. Марина приходит раз в три недели — если она задержится дольше обычного, okno подскажет напомнить о себе.",
+    ms: 8000,
+    run: (c) => c.focus(insideClient("Марина Соколова", "Частота возврата")),
+  },
+  {
+    id: "reliability",
+    chapter: 2,
+    frame: "clients",
+    title: "Оценка клиента",
+    text: "Доля визитов, на которые человек правда пришёл. Неявки и поздние отмены её снижают. Появляется после трёх отмеченных визитов, и видишь её только ты.",
+    ms: 9000,
+    run: async (c) => {
+      await c.focus(insideClient("Марина Соколова", "Надёжный"));
+      await c.wait(2600);
+      await c.focus(insideClient("Ксения Белова", "Бывают пропуски"));
+    },
     exit: (doc) => [...doc.querySelectorAll('a[href="/settings"]')].find(isVisible),
   },
   {
@@ -296,10 +327,11 @@ const SCENES: Scene[] = [
     frame: "settings",
     title: "Настройки",
     text: "Профиль, график, услуги, правила записи, уведомления в Telegram — всё в одном месте.",
-    zoom: 1.03,
     ms: 8500,
     run: async (c) => {
       c.click('[data-tour-tab="profile"]');
+      // При повторе шага строка вкладок могла остаться докрученной.
+      c.doc.querySelector('[data-tour="settings-tabs"]')?.scrollTo({ left: 0 });
       await c.focus('[data-tour="settings-tabs"]');
       await c.wait(600);
       await c.tap('[data-tour-tab="booking"]', { click: true });
@@ -332,7 +364,6 @@ const DEVICES = {
     // Плавающая кнопка записи на профиле и нижняя панель кабинета.
     safeBottom: (frame: FrameId) =>
       frame === "profile" ? 96 : CABINET_FRAMES.includes(frame) ? 76 : 20,
-    zoomBoost: 1,
   },
   laptop: {
     viewW: 1440,
@@ -341,12 +372,14 @@ const DEVICES = {
     outerH: 900 + 32 + 30,
     safeTop: 96,
     safeBottom: () => 24,
-    // На ноутбуке страница мельче — камере есть смысл подъехать ближе.
-    zoomBoost: 2.2,
   },
 } as const;
 
 const SPOT_PAD = 10;
+
+// Свободная прокрутка: колесом или пальцем по устройству. Подсветка и наезд
+// камеры уходят, а после паузы шаг разыгрывается заново.
+const FREE_SCROLL_IDLE_MS = 5000;
 
 // Палитра: луч летит от кружка к устройству, и уже оттуда по странице
 // растекается волна (TourThemeBridge). Сама волна идёт ~2.8 с.
@@ -414,6 +447,14 @@ export function DemoTourPrototype({
   const [stage, setStage] = useState({ width: 0, height: 0 });
   const [presetId, setPresetId] = useState<BookingThemePresetId>(defaultBookingThemePresetId);
   const [painting, setPainting] = useState(false);
+  const [freeScroll, setFreeScroll] = useState(false);
+  // Повтор текущего шага после свободной прокрутки: сценарий сцены
+  // перезапускается и камера возвращается к нужному блоку.
+  const [replay, setReplay] = useState(0);
+  const freeScrollRef = useRef(false);
+  const lastScrollAtRef = useRef(0);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scaleRef = useRef(1);
   const [beam, setBeam] = useState<Beam | null>(null);
   const screenRef = useRef<HTMLDivElement>(null);
 
@@ -574,9 +615,53 @@ export function DemoTourPrototype({
         placeSpot(el, 0);
       };
 
+      // Кнопка может прятаться за краем строки с горизонтальной прокруткой
+      // (вкладки настроек на телефоне) — докручиваем строку, чтобы палец
+      // нажимал на видимое.
+      const revealHorizontally = async (el: HTMLElement) => {
+        for (let node = el.parentElement; node && node !== doc.body; node = node.parentElement) {
+          const overflowX = win.getComputedStyle(node).overflowX;
+          if (!(overflowX === "auto" || overflowX === "scroll")) continue;
+          if (node.scrollWidth <= node.clientWidth) continue;
+
+          const box = node.getBoundingClientRect();
+          const r = el.getBoundingClientRect();
+          const margin = 24;
+          let delta = 0;
+          if (r.right > box.right - margin) delta = r.right - (box.right - margin);
+          else if (r.left < box.left + margin) delta = r.left - (box.left + margin);
+          if (Math.abs(delta) < 1) continue;
+
+          const scroller = node;
+          const from = scroller.scrollLeft;
+          const to = Math.min(Math.max(from + delta, 0), scroller.scrollWidth - scroller.clientWidth);
+          if (reduceMotion) {
+            scroller.scrollLeft = to;
+            continue;
+          }
+          await new Promise<void>((resolve) => {
+            const scroll = animate(from, to, {
+              ...cameraSpring,
+              onUpdate: (v) => {
+                scroller.scrollLeft = v;
+              },
+              onComplete: resolve,
+            });
+            token.stops.push(() => {
+              scroll.stop();
+              resolve();
+            });
+          });
+          guard();
+        }
+      };
+
       const tap = async (target: Target, options?: { click?: boolean }) => {
         await focus(target);
         const el = await find(target);
+        await revealHorizontally(el);
+        // После докрутки подсветку ставим на саму кнопку, где она теперь.
+        await focus(target);
         if (reduceMotion) {
           if (options?.click) el.click();
           return;
@@ -594,6 +679,10 @@ export function DemoTourPrototype({
         if (options?.click) el.click();
         await wait(420);
         setFinger({ x, y, state: "move" });
+        // Отпустил — и убрал руку: иначе палец висит над тем, что появилось
+        // после нажатия, и кажется, будто жмёт туда.
+        await wait(300);
+        setFinger((f) => ({ ...f, state: "hidden" }));
       };
 
       const type = async (target: Target, text: string) => {
@@ -615,8 +704,16 @@ export function DemoTourPrototype({
     [reduceMotion, device],
   );
 
+  const stopFreeScroll = useCallback(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = null;
+    freeScrollRef.current = false;
+    setFreeScroll(false);
+  }, []);
+
   const goTo = useCallback(
     (next: number) => {
+      stopFreeScroll();
       cancel(sceneTokenRef.current);
       cancel(exitTokenRef.current);
       busyRef.current = false;
@@ -629,7 +726,7 @@ export function DemoTourPrototype({
       setReached((r) => Math.max(r, SCENES[next].chapter));
       setIndex(next);
     },
-    [progress],
+    [progress, stopFreeScroll],
   );
 
   // Переход вперёд: сначала палец нажимает то, что вело бы человека дальше,
@@ -725,11 +822,13 @@ export function DemoTourPrototype({
     })();
 
     return () => cancel(token);
-  }, [frameReady, index, makeCtx, maybeAdvance, resetBook, frames.book]);
+    // replay — намеренная зависимость: повтор шага после свободной прокрутки.
+  }, [frameReady, index, replay, makeCtx, maybeAdvance, resetBook, frames.book]);
 
   // Автопросмотр: полоска сцены заполняется, на паузе замирает.
   useEffect(() => {
-    if (!autoplay || !frameReady) return;
+    // Пока зритель листает сам, полоска автопросмотра стоит.
+    if (!autoplay || !frameReady || freeScroll) return;
     const remaining = (1 - progress.get()) * SCENES[index].ms;
     const controls = animate(progress, 1, {
       duration: remaining / 1000,
@@ -740,7 +839,83 @@ export function DemoTourPrototype({
       },
     });
     return () => controls.stop();
-  }, [autoplay, frameReady, index, progress, maybeAdvance]);
+  }, [autoplay, frameReady, freeScroll, index, progress, maybeAdvance]);
+
+  useEffect(() => {
+    scaleRef.current = scale || 1;
+  });
+
+  // Колесо и свайп над устройством листают страницу внутри него. Сами iframe
+  // остаются без указателя (клик по устройству — «дальше»), поэтому скролл
+  // ловим на сцене и передаём в окно страницы с поправкой на масштаб.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+
+    const scrollBy = (dy: number) => {
+      if (busyRef.current) return false;
+      const frame = SCENES[indexRef.current].frame;
+      const win = frameRefs.current[frame]?.contentWindow;
+      if (!win) return false;
+
+      if (!freeScrollRef.current) {
+        freeScrollRef.current = true;
+        cancel(sceneTokenRef.current);
+        setFinger((f) => ({ ...f, state: "hidden" }));
+        setFreeScroll(true);
+      }
+      win.scrollBy({ top: dy / scaleRef.current, behavior: "instant" });
+      lastScrollAtRef.current = Date.now();
+
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(() => {
+        idleTimerRef.current = null;
+        freeScrollRef.current = false;
+        setFreeScroll(false);
+        setReplay((n) => n + 1);
+      }, FREE_SCROLL_IDLE_MS);
+      return true;
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      const dy = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+      if (Math.abs(dy) < 1) return;
+      if (scrollBy(dy)) event.preventDefault();
+    };
+
+    let touchY: number | null = null;
+    const onTouchStart = (event: TouchEvent) => {
+      touchY = event.touches.length === 1 ? event.touches[0].clientY : null;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (touchY === null) return;
+      const y = event.touches[0].clientY;
+      const dy = touchY - y;
+      touchY = y;
+      if (scrollBy(dy)) event.preventDefault();
+    };
+    const onTouchEnd = () => {
+      touchY = null;
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    },
+    [],
+  );
 
   // Стрелки на клавиатуре листают шаги.
   useEffect(() => {
@@ -754,6 +929,7 @@ export function DemoTourPrototype({
 
   const switchDevice = (value: DeviceId) => {
     if (value === device) return;
+    stopFreeScroll();
     cancel(sceneTokenRef.current);
     cancel(exitTokenRef.current);
     busyRef.current = false;
@@ -793,18 +969,13 @@ export function DemoTourPrototype({
       y: center.y + ((to.y - center.y) / distance) * edge,
     };
 
-    // Точка на экране → координаты страницы внутри iframe: снимаем масштаб
-    // устройства и наезд камеры.
+    // Точка на экране → координаты страницы внутри iframe: снимаем масштаб устройства.
     const deviceScale = sr.width / spec.viewW;
-    const ox = originX * spec.viewW;
-    const oy = originY * spec.viewH;
-    const localX = (to.x - sr.left) / deviceScale;
-    const localY = (to.y - sr.top) / deviceScale;
     const message: TourThemeMessage = {
       type: TOUR_THEME_MESSAGE,
       presetId: id,
-      x: ox + (localX - ox) / zoom,
-      y: oy + (localY - oy) / zoom,
+      x: (to.x - sr.left) / deviceScale,
+      y: (to.y - sr.top) / deviceScale,
     };
 
     setPresetId(id);
@@ -835,9 +1006,6 @@ export function DemoTourPrototype({
   };
 
   const activeOrder = FRAME_ORDER.indexOf(scene.frame);
-  const zoom = reduceMotion ? 1 : 1 + (scene.zoom - 1) * spec.zoomBoost;
-  const originX = spot ? (spot.x + spot.w / 2) / spec.viewW : 0.5;
-  const originY = spot ? (spot.y + spot.h / 2) / spec.viewH : 0.5;
   const chapterScenes = SCENES.filter((s) => s.chapter === scene.chapter);
   const stepInChapter = chapterScenes.indexOf(scene);
   const isLaptop = device === "laptop";
@@ -853,12 +1021,9 @@ export function DemoTourPrototype({
         borderRadius: isLaptop ? 6 : 48,
       }}
     >
-      <motion.div
-        className="absolute inset-0"
-        initial={false}
-        animate={{ scale: zoom, originX, originY }}
-        transition={cameraSpring}
-      >
+      {/* Камера только прокручивает страницу, без наезда: масштаб интерфейса
+          всегда один, и при свободной прокрутке он не «дышит». */}
+      <div className="absolute inset-0">
         {FRAME_ORDER.map((id, order) => {
           if (!mounted.has(id)) return null;
           const offset = order - activeOrder;
@@ -906,7 +1071,7 @@ export function DemoTourPrototype({
             className="pointer-events-none absolute left-0 top-0 z-[60] rounded-[26px]"
             initial={{ x: spot.x, y: spot.y, width: spot.w, height: spot.h, opacity: 0 }}
             // Пока страница перекрашивается, затемнение уходит — волну должно быть видно.
-            animate={{ x: spot.x, y: spot.y, width: spot.w, height: spot.h, opacity: painting ? 0 : 1 }}
+            animate={{ x: spot.x, y: spot.y, width: spot.w, height: spot.h, opacity: painting || freeScroll ? 0 : 1 }}
             transition={
               reduceMotion
                 ? { duration: 0 }
@@ -919,7 +1084,7 @@ export function DemoTourPrototype({
         ) : null}
 
         <Pointer finger={finger} device={device} />
-      </motion.div>
+      </div>
 
       {!frameReady ? (
         <div className="absolute inset-0 z-[70] flex items-center justify-center bg-[var(--color-background)] text-sm text-muted">
@@ -942,7 +1107,11 @@ export function DemoTourPrototype({
       >
         <div
           ref={stageRef}
-          onClick={() => void next()}
+          onClick={() => {
+            // Палец, только что листавший страницу, — не нажатие «дальше».
+            if (Date.now() - lastScrollAtRef.current < 400) return;
+            void next();
+          }}
           className={`relative mx-auto w-full cursor-pointer ${
             isLaptop
               ? "h-[min(46svh,420px)] sm:h-[min(58svh,660px)] lg:h-[min(86svh,820px)]"
@@ -978,6 +1147,7 @@ export function DemoTourPrototype({
               ) : null}
             </div>
           </div>
+
         </div>
 
         <div
@@ -1036,6 +1206,16 @@ export function DemoTourPrototype({
           </div>
 
           <div className="space-y-4 self-end">
+            {freeScroll ? (
+              <motion.p
+                initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                className="text-sm text-muted"
+              >
+                Листаешь сам — через 5 секунд вернёмся к шагу.
+              </motion.p>
+            ) : null}
             <div className="flex items-center gap-3">
               <Button
                 variant="secondary"
