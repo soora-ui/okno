@@ -29,6 +29,7 @@ export default async function DemoPublicPage({ searchParams }: DemoPublicPagePro
       showDemoSections={guidedDemo}
       guidedDemo={guidedDemo}
       guidedDemoCleanHref="/demo/public-page?tour=off"
+      tourThemeBridge={!guidedDemo}
     />
   );
 }

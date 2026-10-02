@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
 import {
@@ -20,6 +21,8 @@ import { buildAccountNotificationItems } from "@/lib/account-notifications";
 import { pricingPlans } from "@/config/plans";
 import { normalizeBookingThemePresetId } from "@/lib/booking-theme-presets";
 import { renderCertificateThumbnailPng } from "@/lib/certificates/render";
+import { isDemoCabinetHeaders } from "@/lib/demo-cabinet";
+import { DEMO_CABINET_PROFILE_ID, getDemoCabinetData } from "@/lib/demo-cabinet-data";
 import { ensureWorkRuntime, isDemoMode, isSupabaseConfigured } from "@/lib/env";
 import { getMockBookingConfirmation } from "@/lib/mock-booking-confirmations";
 import { logError } from "@/lib/observability/logger";
@@ -520,7 +523,21 @@ export const getPublicPageData = cache(async function getPublicPageData(
   };
 });
 
+async function isDemoCabinetRequest() {
+  try {
+    return isDemoCabinetHeaders(await headers());
+  } catch {
+    // Вызов вне HTTP-запроса (фоновые задачи) — точно не демо-кабинет.
+    return false;
+  }
+}
+
 export const getCurrentAuthProfile = cache(async function getCurrentAuthProfile() {
+  // Демо-кабинет тура: мок-профиль без входа (см. src/lib/demo-cabinet.ts).
+  if (await isDemoCabinetRequest()) {
+    return { profile: getDemoCabinetData().profile, source: "mock" as const };
+  }
+
   if (!isSupabaseConfigured) {
     if (isDemoMode) {
       return { profile: mockProfile, source: "mock" as const };
@@ -544,6 +561,24 @@ export const getCurrentAuthProfile = cache(async function getCurrentAuthProfile(
   };
 });
 
+// Мок-данные владельца: для демо-кабинета тура — свежие, от текущей даты,
+// для режима APP_MODE=demo — статичные из mock-data.
+function getMockOwnerData(profile: Profile) {
+  if (profile.id === DEMO_CABINET_PROFILE_ID) {
+    return getDemoCabinetData();
+  }
+
+  return {
+    profile,
+    services: mockServices,
+    bookings,
+    clients,
+    availabilityRules,
+    blockedSlots,
+    notificationEvents,
+  };
+}
+
 export async function getAccountNotificationPanelData(input: {
   profile: Profile;
   source: "mock" | "supabase";
@@ -554,7 +589,7 @@ export async function getAccountNotificationPanelData(input: {
       dismissedStorageKey: `okno.notifications.dismissed.${input.profile.id}`,
       items: buildAccountNotificationItems({
         profile: input.profile,
-        notificationEvents,
+        notificationEvents: getMockOwnerData(input.profile).notificationEvents,
         monthlyBookingsUsed: input.profile.monthlyBookingsUsed,
       }),
     };
@@ -599,14 +634,15 @@ export async function getDashboardData() {
   }
 
   if (authProfile.source === "mock") {
+    const mock = getMockOwnerData(authProfile.profile);
     return {
       profile: authProfile.profile,
-      services: mockServices,
-      bookings,
-      clients,
-      availabilityRules,
-      blockedSlots,
-      notificationEvents,
+      services: mock.services,
+      bookings: mock.bookings,
+      clients: mock.clients,
+      availabilityRules: mock.availabilityRules,
+      blockedSlots: mock.blockedSlots,
+      notificationEvents: mock.notificationEvents,
       source: "mock" as const,
     };
   }
@@ -646,11 +682,12 @@ export async function getScheduleData() {
   }
 
   if (authProfile.source === "mock") {
+    const mock = getMockOwnerData(authProfile.profile);
     return {
       profile: authProfile.profile,
-      bookings,
-      availabilityRules,
-      blockedSlots,
+      bookings: mock.bookings,
+      availabilityRules: mock.availabilityRules,
+      blockedSlots: mock.blockedSlots,
       source: "mock" as const,
     };
   }
@@ -688,11 +725,12 @@ export async function getClientsData() {
   }
 
   if (authProfile.source === "mock") {
+    const mock = getMockOwnerData(authProfile.profile);
     return {
       profile: authProfile.profile,
-      services: mockServices,
-      bookings,
-      clients,
+      services: mock.services,
+      bookings: mock.bookings,
+      clients: mock.clients,
       source: "mock" as const,
     };
   }
@@ -825,10 +863,11 @@ export async function getSettingsData() {
   }
 
   if (authProfile.source === "mock") {
+    const mock = getMockOwnerData(authProfile.profile);
     return {
       profile: authProfile.profile,
-      services: mockServices,
-      availabilityRules,
+      services: mock.services,
+      availabilityRules: mock.availabilityRules,
       serviceManuals: {} as Record<string, ServiceManualSummary>,
       referralInvites: [] as ReferralInviteSummary[],
       certificateTemplate: null as CertificateTemplateSummary | null,

@@ -174,12 +174,13 @@ export function SettingsTabs({
 
   return (
     <div className="space-y-6">
-      <div className="overflow-x-auto border-b border-line">
+      <div data-tour="settings-tabs" className="overflow-x-auto border-b border-line">
         <div className="flex min-w-max gap-1">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
+              data-tour-tab={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`touch-manipulation border-b-2 px-4 py-3 text-sm transition active:scale-[0.98] ${
                 activeTab === tab.id

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   bookingThemePresets,
   type BookingThemePresetId,
@@ -46,16 +46,13 @@ type DemoThemeSwitcherProps = {
  */
 export function DemoThemeSwitcher({ value, onApply }: DemoThemeSwitcherProps) {
   const shouldReduceMotion = useReducedMotion();
-
-  const [pending, setPending] = useState<BookingThemePresetId | null>(null);
-  const [origin, setOrigin] = useState<Origin | null>(null);
-  const [settling, setSettling] = useState(false);
+  const wave = useThemeWave(onApply);
 
   const select = (
     presetId: BookingThemePresetId,
     event: React.MouseEvent<HTMLButtonElement>,
   ) => {
-    if (presetId === value || pending) return;
+    if (presetId === value || wave.pending) return;
 
     if (shouldReduceMotion) {
       onApply(presetId);
@@ -63,41 +60,8 @@ export function DemoThemeSwitcher({ value, onApply }: DemoThemeSwitcherProps) {
     }
 
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 2;
-
-    // Расстояние до дальнего угла: круг обязан накрыть весь вьюпорт.
-    const radius = Math.hypot(
-      Math.max(x, window.innerWidth - x),
-      Math.max(y, window.innerHeight - y),
-    );
-
-    setOrigin({ x, y, radius });
-    setSettling(false);
-    setPending(presetId);
+    wave.start(presetId, rect.left + rect.width / 2, rect.top + rect.height / 2);
   };
-
-  // Фазы ведут таймеры, а не onAnimationComplete: анимация держится на
-  // requestAnimationFrame, а он не идёт в фоновой вкладке. Свернул страницу
-  // на середине заливки — колбэк не пришёл бы никогда, и слой завис бы.
-  useEffect(() => {
-    if (!pending || settling) return;
-    const timer = setTimeout(() => {
-      onApply(pending);
-      setSettling(true);
-    }, FILL_MS);
-    return () => clearTimeout(timer);
-  }, [pending, settling, onApply]);
-
-  useEffect(() => {
-    if (!settling) return;
-    const timer = setTimeout(() => {
-      setPending(null);
-      setSettling(false);
-      setOrigin(null);
-    }, SETTLE_MS);
-    return () => clearTimeout(timer);
-  }, [settling]);
 
   return (
     <>
@@ -124,7 +88,7 @@ export function DemoThemeSwitcher({ value, onApply }: DemoThemeSwitcherProps) {
                   type="button"
                   onClick={(event) => select(preset.id, event)}
                   aria-pressed={isActive}
-                  disabled={Boolean(pending)}
+                  disabled={Boolean(wave.pending)}
                   className={cn(
                     "inline-flex min-h-11 items-center gap-2.5 rounded-full border px-4 py-2 text-sm font-medium transition duration-300",
                     "disabled:cursor-not-allowed",
@@ -150,35 +114,134 @@ export function DemoThemeSwitcher({ value, onApply }: DemoThemeSwitcherProps) {
         </div>
       </div>
 
-      {pending && origin ? (
-        <>
-          {/* Круговая волна акцента. Позади контента — ничего не перекрывает. */}
-          <motion.div
-            data-booking-theme={pending}
-            aria-hidden
-            className="pointer-events-none fixed inset-0 -z-10 bg-[var(--color-accent)]"
-            initial={{
-              clipPath: `circle(0px at ${origin.x}px ${origin.y}px)`,
-              opacity: 0.5,
-            }}
-            animate={{
-              clipPath: `circle(${Math.ceil(origin.radius)}px at ${origin.x}px ${origin.y}px)`,
-              // Волна растворяется только когда тема уже применена, иначе
-              // страница на миг осталась бы вообще без подкраски.
-              opacity: settling ? 0 : 0.5,
-            }}
-            transition={
-              settling
-                ? { duration: SETTLE_MS / 1000, ease: "easeOut" }
-                : { duration: FILL_MS / 1000, ease: [0.33, 0, 0.2, 1] }
-            }
-          />
-
-          {/* Пока идёт заливка, карточки и текст догоняют новый фон плавно:
-              без этого в момент смены пресета они перекрашивались рывком. */}
-          <style>{`[data-booking-theme] *{transition:background-color ${SETTLE_MS}ms ease,border-color ${SETTLE_MS}ms ease,color ${SETTLE_MS}ms ease,fill ${SETTLE_MS}ms ease}`}</style>
-        </>
-      ) : null}
+      {wave.layer}
     </>
   );
+}
+
+/** Сообщение, которым тур (/demo/tour) просит страницу перекраситься. */
+export const TOUR_THEME_MESSAGE = "okno-tour:theme";
+
+export type TourThemeMessage = {
+  type: typeof TOUR_THEME_MESSAGE;
+  presetId: BookingThemePresetId;
+  /** Откуда растекается волна — в координатах вьюпорта страницы. */
+  x: number;
+  y: number;
+};
+
+/**
+ * Мостик для тура: страница профиля живёт внутри iframe, а палитра — снаружи,
+ * в плеере тура. Плеер присылает пресет и точку, куда пришёл его «луч», и
+ * отсюда же растекается та же волна, что у DemoThemeSwitcher.
+ *
+ * Принимаем только сообщения со своего же origin — чужая страница, встроившая
+ * нашу в iframe, перекрашивать её не сможет.
+ */
+export function TourThemeBridge({ value, onApply }: DemoThemeSwitcherProps) {
+  const shouldReduceMotion = useReducedMotion();
+  const wave = useThemeWave(onApply);
+  const { pending, start } = wave;
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as Partial<TourThemeMessage> | null;
+      if (data?.type !== TOUR_THEME_MESSAGE || !data.presetId) return;
+      if (data.presetId === value || pending) return;
+
+      if (shouldReduceMotion) {
+        onApply(data.presetId);
+        return;
+      }
+      start(data.presetId, data.x ?? 0, data.y ?? 0);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [value, pending, start, onApply, shouldReduceMotion]);
+
+  return wave.layer;
+}
+
+/**
+ * Круговая волна смены пресета: старт из точки, через FILL_MS тема
+ * применяется, ещё через SETTLE_MS слой растворяется.
+ */
+function useThemeWave(onApply: (presetId: BookingThemePresetId) => void) {
+  const [pending, setPending] = useState<BookingThemePresetId | null>(null);
+  const [origin, setOrigin] = useState<Origin | null>(null);
+  const [settling, setSettling] = useState(false);
+  const pendingRef = useRef(pending);
+
+  useEffect(() => {
+    pendingRef.current = pending;
+  });
+
+  const start = useCallback((presetId: BookingThemePresetId, x: number, y: number) => {
+    if (pendingRef.current) return;
+    // Расстояние до дальнего угла: круг обязан накрыть весь вьюпорт.
+    const radius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    );
+
+    setOrigin({ x, y, radius });
+    setSettling(false);
+    setPending(presetId);
+  }, []);
+
+  // Фазы ведут таймеры, а не onAnimationComplete: анимация держится на
+  // requestAnimationFrame, а он не идёт в фоновой вкладке. Свернул страницу
+  // на середине заливки — колбэк не пришёл бы никогда, и слой завис бы.
+  useEffect(() => {
+    if (!pending || settling) return;
+    const timer = setTimeout(() => {
+      onApply(pending);
+      setSettling(true);
+    }, FILL_MS);
+    return () => clearTimeout(timer);
+  }, [pending, settling, onApply]);
+
+  useEffect(() => {
+    if (!settling) return;
+    const timer = setTimeout(() => {
+      setPending(null);
+      setSettling(false);
+      setOrigin(null);
+    }, SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [settling]);
+
+  const layer =
+    pending && origin ? (
+      <>
+        {/* Круговая волна акцента. Позади контента — ничего не перекрывает. */}
+        <motion.div
+          data-booking-theme={pending}
+          aria-hidden
+          className="pointer-events-none fixed inset-0 -z-10 bg-[var(--color-accent)]"
+          initial={{
+            clipPath: `circle(0px at ${origin.x}px ${origin.y}px)`,
+            opacity: 0.5,
+          }}
+          animate={{
+            clipPath: `circle(${Math.ceil(origin.radius)}px at ${origin.x}px ${origin.y}px)`,
+            // Волна растворяется только когда тема уже применена, иначе
+            // страница на миг осталась бы вообще без подкраски.
+            opacity: settling ? 0 : 0.5,
+          }}
+          transition={
+            settling
+              ? { duration: SETTLE_MS / 1000, ease: "easeOut" }
+              : { duration: FILL_MS / 1000, ease: [0.33, 0, 0.2, 1] }
+          }
+        />
+
+        {/* Пока идёт заливка, карточки и текст догоняют новый фон плавно:
+            без этого в момент смены пресета они перекрашивались рывком. */}
+        <style>{`[data-booking-theme] *{transition:background-color ${SETTLE_MS}ms ease,border-color ${SETTLE_MS}ms ease,color ${SETTLE_MS}ms ease,fill ${SETTLE_MS}ms ease}`}</style>
+      </>
+    ) : null;
+
+  return { pending, start, layer };
 }

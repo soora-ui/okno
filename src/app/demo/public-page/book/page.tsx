@@ -21,6 +21,7 @@ type DemoBookingPageProps = {
     name?: string;
     phone?: string;
     note?: string;
+    view?: string;
   }>;
 };
 
@@ -171,7 +172,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
             ) : null}
 
             {step === 1 ? (
-              <div className="space-y-8">
+              <div data-tour="picker" className="space-y-8">
                 <div className="space-y-4">
                   <h2 className="text-lg font-semibold uppercase tracking-[0.08em] text-ink">
                     Выберите дату
@@ -267,7 +268,10 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                   </h2>
                   {selectedDate && selectedDate.times.length > 0 ? (
                     <>
-                      <div className="flex gap-3 overflow-x-auto pb-3 no-scrollbar snap-x snap-mandatory sm:hidden">
+                      <div
+                        data-tour="times"
+                        className="flex gap-3 overflow-x-auto pb-3 no-scrollbar snap-x snap-mandatory sm:hidden"
+                      >
                         {selectedDate.times.map((slotTime) => (
                           <Link
                             key={slotTime}
@@ -289,7 +293,10 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                         ))}
                       </div>
 
-                      <div className="hidden grid-cols-2 gap-x-6 gap-y-4 sm:grid sm:grid-cols-3">
+                      <div
+                        data-tour="times"
+                        className="hidden grid-cols-2 gap-x-6 gap-y-4 sm:grid sm:grid-cols-3"
+                      >
                         {selectedDate.times.map((slotTime) => (
                           <Link
                             key={slotTime}
@@ -349,15 +356,18 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                   hint="Поле необязательное, но мастеру правда полезно."
                 />
 
-                <div className="rounded-nested bg-panel p-4 text-sm text-ink-soft">
+                <div data-tour="summary" className="rounded-nested bg-panel p-4 text-sm text-ink-soft">
                   <p className="font-medium text-ink">Что вы выбрали</p>
                   <p className="mt-2">
                     {selectedServiceTitle} • {selectedDateLabel} • {selectedTime}
                   </p>
-                  <p className="mt-3 text-xs leading-6 text-muted">
-                    Это демонстрационная запись. На финальном шаге откроется demo-подтверждение
-                    без сохранения в базу.
-                  </p>
+                  {/* В туре (/demo/tour) экран играет роль настоящего — без пометки. */}
+                  {query.view !== "tour" ? (
+                    <p className="mt-3 text-xs leading-6 text-muted">
+                      Это демонстрационная запись. На финальном шаге откроется demo-подтверждение
+                      без сохранения в базу.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-between">
@@ -416,6 +426,7 @@ export default async function DemoBookingPage({ searchParams }: DemoBookingPageP
                 ) : step === 1 ? (
                   canContinueFromStepTwo ? (
                     <Link
+                      data-tour="next"
                       href={buildDemoBookingHref({ ...baseParams, step: "2" })}
                       className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-ink-contrast transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
                     >

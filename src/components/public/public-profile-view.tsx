@@ -19,7 +19,10 @@ import {
   DemoStoryOutro,
 } from "@/components/public/demo-story";
 import { BrandLogo } from "@/components/layout/brand-logo";
-import { DemoThemeSwitcher } from "@/components/public/demo-theme-switcher";
+import {
+  DemoThemeSwitcher,
+  TourThemeBridge,
+} from "@/components/public/demo-theme-switcher";
 import { PortfolioModal } from "@/components/public/portfolio-modal";
 import { ServiceConsultantButton } from "@/components/support/service-consultant-widget";
 import {
@@ -45,6 +48,7 @@ export function PublicProfileView({
   showDemoSections = true,
   guidedDemo = false,
   guidedDemoCleanHref,
+  tourThemeBridge = false,
   certificateSlot,
   consultantServiceIds,
 }: PublicProfileViewProps) {
@@ -115,6 +119,10 @@ export function PublicProfileView({
           <DemoThemeSwitcher value={presetId} onApply={setPresetId} />
         ) : null}
 
+        {tourThemeBridge ? (
+          <TourThemeBridge value={presetId} onApply={setPresetId} />
+        ) : null}
+
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div
             data-demo-id="hero"
@@ -126,7 +134,7 @@ export function PublicProfileView({
           >
             <div className="space-y-4">
               <Badge tone="accent">{eyebrowLabel}</Badge>
-              <div className="space-y-4">
+              <div data-tour="identity" className="space-y-4">
                 <div className="flex items-start justify-between gap-6">
                   <h1 className="min-w-0 flex-1 text-5xl font-semibold tracking-[-0.04em] text-ink sm:text-6xl">
                     {profile.fullName}

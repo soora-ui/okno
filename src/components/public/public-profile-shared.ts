@@ -12,6 +12,11 @@ export type PublicProfileViewProps = {
   guidedDemo?: boolean;
   guidedDemoCleanHref?: string;
   /**
+   * Страница открыта внутри тура (/demo/tour): палитра живёт в плеере тура
+   * и перекрашивает страницу через postMessage, см. TourThemeBridge.
+   */
+  tourThemeBridge?: boolean;
+  /**
    * Блок продажи сертификата. Приходит слотом, а не рендерится соседом
    * страницы: соседом он оказывался ниже подвала — клиент видел «Создано
    * в okno», считал страницу законченной и до сертификата не доходил.

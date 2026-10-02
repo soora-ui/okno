@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { appMode, isSupabaseConfigured } from "@/lib/env";
 import { updateSession } from "@/lib/supabase/proxy";
+import {
+  DEMO_CABINET_HEADER,
+  DEMO_CABINET_PREFIX,
+  demoCabinetToken,
+} from "@/lib/demo-cabinet";
 
 const protectedMatchers = [
   "/dashboard",
@@ -61,6 +66,17 @@ export async function proxy(request: NextRequest) {
     isRscFetch
       ? new NextResponse(null, { status: 204 })
       : buildLoginRedirect(request, reason, sourceResponse);
+
+  // Демо-кабинет для тура: мок-данные без входа, только на чтение.
+  // См. src/lib/demo-cabinet.ts.
+  if (
+    pathname.startsWith(`${DEMO_CABINET_PREFIX}/`) &&
+    (request.method === "GET" || request.method === "HEAD")
+  ) {
+    const headers = new Headers(request.headers);
+    headers.set(DEMO_CABINET_HEADER, demoCabinetToken());
+    return NextResponse.next({ request: { headers } });
+  }
 
   if (appMode === "demo") {
     return NextResponse.next();
