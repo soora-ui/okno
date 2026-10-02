@@ -40,7 +40,9 @@ const nextConfig: NextConfig = {
   // @resvg/resvg-js грузит нативный .node-биндинг через рантайм-require по
   // платформе — Turbopack не умеет разместить это как ES-модуль-чанк
   // (см. рендер сертификатов, src/lib/certificates/render.ts).
-  serverExternalPackages: ["@resvg/resvg-js"],
+  // undici — свой fetch с ProxyAgent для запросов в РФ (src/lib/net/ru-egress.ts);
+  // берём его из node_modules как есть, а не из бандла.
+  serverExternalPackages: ["@resvg/resvg-js", "undici"],
   experimental: {
     staleTimes: {
       dynamic: 30,

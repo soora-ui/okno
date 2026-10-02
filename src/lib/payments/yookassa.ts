@@ -1,4 +1,5 @@
 import { env, isYooKassaConfigured } from "@/lib/env";
+import { ruFetch } from "@/lib/net/ru-egress";
 
 // Тонкий клиент ЮKassa. Работает и в тестовом, и в боевом магазине — режим
 // определяется тем, какие ключи (тестовые/боевые) положены в env. Серверный
@@ -133,7 +134,7 @@ export async function createYooKassaPayment(input: {
     throw new Error("ЮKassa не настроена: добавь YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY.");
   }
 
-  const response = await fetch(`${API_BASE}/payments`, {
+  const response = await ruFetch(`${API_BASE}/payments`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -195,7 +196,7 @@ export async function chargeSavedPaymentMethod(input: {
     throw new Error("ЮKassa не настроена: добавь YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY.");
   }
 
-  const response = await fetch(`${API_BASE}/payments`, {
+  const response = await ruFetch(`${API_BASE}/payments`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -232,7 +233,7 @@ export async function getYooKassaPayment(
     throw new Error("ЮKassa не настроена: добавь YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY.");
   }
 
-  const response = await fetch(
+  const response = await ruFetch(
     `${API_BASE}/payments/${encodeURIComponent(paymentId)}`,
     {
       headers: { Authorization: authHeader() },
@@ -280,7 +281,7 @@ export async function listYooKassaRefunds(input: {
     query.set("cursor", input.cursor);
   }
 
-  const response = await fetch(`${API_BASE}/refunds?${query.toString()}`, {
+  const response = await ruFetch(`${API_BASE}/refunds?${query.toString()}`, {
     headers: { Authorization: authHeader() },
   });
 
@@ -330,7 +331,7 @@ export async function createYooKassaPaymentWithToken(
     metadata?: Record<string, unknown>;
   },
 ): Promise<YooKassaPayment> {
-  const response = await fetch(`${API_BASE}/payments`, {
+  const response = await ruFetch(`${API_BASE}/payments`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -362,7 +363,7 @@ export async function getYooKassaPaymentWithToken(
   accessToken: string,
   paymentId: string,
 ): Promise<YooKassaPayment> {
-  const response = await fetch(
+  const response = await ruFetch(
     `${API_BASE}/payments/${encodeURIComponent(paymentId)}`,
     {
       headers: { Authorization: `Bearer ${accessToken}` },

@@ -8,6 +8,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { env, isYooKassaOAuthConfigured } from "@/lib/env";
+import { ruFetch } from "@/lib/net/ru-egress";
 import { logError, logWarn } from "@/lib/observability/logger";
 import { YooKassaAuthError } from "@/lib/payments/yookassa";
 import type { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -172,7 +173,7 @@ export async function exchangeOAuthCode(code: string): Promise<TokenExchangeResu
     `${env.yookassaOAuthClientId}:${env.yookassaOAuthClientSecret}`,
   ).toString("base64");
 
-  const response = await fetch(TOKEN_URL, {
+  const response = await ruFetch(TOKEN_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -214,7 +215,7 @@ export type YooKassaMe = {
 };
 
 export async function fetchYooKassaMe(accessToken: string): Promise<YooKassaMe> {
-  const response = await fetch(ME_URL, {
+  const response = await ruFetch(ME_URL, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
@@ -264,7 +265,7 @@ export function buildMasterWebhookUrl() {
 type WebhookListItem = { id: string; event: string; url: string };
 
 async function listMasterWebhooks(accessToken: string): Promise<WebhookListItem[]> {
-  const response = await fetch(WEBHOOKS_URL, {
+  const response = await ruFetch(WEBHOOKS_URL, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
@@ -301,7 +302,7 @@ async function createMasterWebhook(
   event: string,
   url: string,
 ): Promise<MasterYooKassaWebhook> {
-  const response = await fetch(WEBHOOKS_URL, {
+  const response = await ruFetch(WEBHOOKS_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -329,7 +330,7 @@ async function createMasterWebhook(
 }
 
 async function deleteMasterWebhook(accessToken: string, webhookId: string) {
-  const response = await fetch(`${WEBHOOKS_URL}/${encodeURIComponent(webhookId)}`, {
+  const response = await ruFetch(`${WEBHOOKS_URL}/${encodeURIComponent(webhookId)}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -409,7 +410,7 @@ export async function revokeYooKassaTokenRemote(accessToken: string) {
   ).toString("base64");
 
   try {
-    const response = await fetch(REVOKE_URL, {
+    const response = await ruFetch(REVOKE_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",

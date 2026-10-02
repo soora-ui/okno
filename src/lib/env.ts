@@ -47,6 +47,8 @@ export const env = {
   // закрывает ручной роут /api/email/test — открытый роут отправки писем был
   // бы спам-релеем.
   unisenderWebhookSecret: process.env.UNISENDER_WEBHOOK_SECRET,
+  // Прокси в РФ для запросов к ЮKassa и Unisender (см. src/lib/net/ru-egress.ts).
+  ruEgressProxyUrl: process.env.RU_EGRESS_PROXY_URL?.trim() || undefined,
   // «Мой налог» (НПД): чеки по платежам магазина платформы. ИНН нужен всегда —
   // он входит в ссылку на печатную форму чека, даже когда вход идёт по
   // refreshToken. Способ входа: 'password' (ИНН + пароль от ЛК ФНС) или

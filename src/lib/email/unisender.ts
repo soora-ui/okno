@@ -1,4 +1,5 @@
 import { env, isEmailConfigured } from "@/lib/env";
+import { ruFetch } from "@/lib/net/ru-egress";
 import { logError, logWarn } from "@/lib/observability/logger";
 
 // Единая точка обращения к Unisender Go. Транспорт — Web API, а не SMTP:
@@ -175,7 +176,7 @@ export async function callUnisender(
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
-      const response = await fetch(apiUrl(method), {
+      const response = await ruFetch(apiUrl(method), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
