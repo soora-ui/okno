@@ -20,6 +20,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { isVisible, type Target } from "@/components/tour/tour-helpers";
 import {
   TOUR_THEME_MESSAGE,
   type TourThemeMessage,
@@ -31,42 +32,32 @@ import {
   type BookingThemePresetId,
 } from "@/lib/booking-theme-presets";
 
-export type TourFrameId =
-  | "profile"
-  | "book"
-  | "contacts"
-  | "confirm"
-  | "dashboard"
-  | "schedule"
-  | "clients"
-  | "settings";
+export type DeviceId = "phone" | "laptop";
 
-type FrameId = TourFrameId;
-type DeviceId = "phone" | "laptop";
-
-// Порядок экранов — как в настоящем пути. По нему же решается, откуда
-// въезжает страница: вперёд — справа, назад — слева.
-const FRAME_ORDER: FrameId[] = [
-  "profile",
-  "book",
-  "contacts",
-  "confirm",
-  "dashboard",
-  "schedule",
-  "clients",
-  "settings",
-];
-
-const CABINET_FRAMES: FrameId[] = ["dashboard", "schedule", "clients", "settings"];
-
-/** Что подсвечивать: CSS-селектор или поиск по документу. */
-type Target = string | ((doc: Document) => Element | null | undefined);
+/**
+ * Экран тура — настоящая страница в iframe. Порядок экранов в сценарии — как
+ * в настоящем пути: по нему решается, откуда въезжает страница (вперёд —
+ * справа, назад — слева).
+ */
+export type TourFrame = {
+  id: string;
+  /**
+   * profile — публичная страница с плавающей кнопкой записи внизу,
+   * cabinet — кабинет с нижней панелью на телефоне, page — без закреплённого низа.
+   */
+  kind: "profile" | "cabinet" | "page";
+  /**
+   * Сценарий кликает по странице по-настоящему (например, выбирает время) —
+   * пока экран не на виду, возвращаем его в исходное состояние.
+   */
+  resetWhenHidden?: boolean;
+};
 
 /**
  * Что сцена умеет делать со страницей внутри устройства. Все действия
  * асинхронные и прерываются, если зритель ушёл со сцены.
  */
-type SceneCtx = {
+export type SceneCtx = {
   doc: Document;
   device: DeviceId;
   /** Камера доезжает до элемента, подсветка обводит его. */
@@ -80,10 +71,10 @@ type SceneCtx = {
   wait: (ms: number) => Promise<void>;
 };
 
-type Scene = {
+export type Scene = {
   id: string;
   chapter: number;
-  frame: FrameId;
+  frame: string;
   title: string;
   text: string;
   /** Длительность сцены в автопросмотре. */
@@ -93,262 +84,20 @@ type Scene = {
   exit?: Target;
 };
 
-const CHAPTERS = [
-  { title: "Профиль мастера", short: "Профиль" },
-  { title: "Запись клиента", short: "Запись" },
-  { title: "Кабинет мастера", short: "Кабинет" },
-];
-
-const isVisible = (el: Element) => {
-  const r = el.getBoundingClientRect();
-  return r.width > 0 && r.height > 0;
+export type TourChapter = {
+  title: string;
+  short: string;
+  /** Одна строка для оглавления (база знаний). */
+  summary?: string;
 };
 
-/** Карточка кабинета по её заголовку. */
-const card =
-  (heading: string): Target =>
-  (doc) =>
-    [...doc.querySelectorAll("h1, h2, h3")]
-      .find((el) => el.textContent?.trim() === heading)
-      ?.closest('[class*="rounded-card"]');
-
-/** Самый тесный видимый блок, в котором встречается текст. */
-const containing =
-  (text: string, selector: string): Target =>
-  (doc) => {
-    const area = (el: Element) => {
-      const r = el.getBoundingClientRect();
-      return r.width * r.height;
-    };
-    return [...doc.querySelectorAll(selector)]
-      .filter((el) => isVisible(el) && el.textContent?.includes(text))
-      .sort((a, b) => area(a) - area(b))[0];
-  };
-
-const CARD_SELECTOR = '[class*="rounded-card"], [class*="rounded-section"], [class*="rounded-panel"]';
-
-/** Карточка клиента в списке по имени. */
-const clientCard = (name: string): Target => containing(name, CARD_SELECTOR);
-
-/** Самый тесный блок с текстом внутри карточки клиента. */
-const insideClient =
-  (name: string, text: string): Target =>
-  (doc) => {
-    const host = clientCard(name);
-    const cardEl = typeof host === "function" ? host(doc) : null;
-    if (!cardEl) return null;
-    const area = (el: Element) => {
-      const r = el.getBoundingClientRect();
-      return r.width * r.height;
-    };
-    return [...cardEl.querySelectorAll("*")]
-      .filter((el) => isVisible(el) && el.textContent?.includes(text))
-      .sort((a, b) => area(a) - area(b))
-      .find((el) => el.children.length > 0 || el.tagName === "SPAN");
-  };
-
-const SCENES: Scene[] = [
-  // Глава 1 — публичный профиль.
-  {
-    id: "identity",
-    chapter: 0,
-    frame: "profile",
-    title: "Твоя витрина",
-    text: "Имя, фото и специализация на первом экране. Клиент сразу видит, к кому записывается.",
-    ms: 6500,
-    run: (c) => c.focus('[data-tour="identity"]'),
-  },
-  {
-    id: "slots",
-    chapter: 0,
-    frame: "profile",
-    title: "Свободные окна",
-    text: "Ближайшее свободное время видно сразу — не нужно спрашивать «а когда можно?».",
-    ms: 6500,
-    run: (c) => c.focus('[data-demo-id="slots"]'),
-  },
-  {
-    id: "works",
-    chapter: 0,
-    frame: "profile",
-    title: "Работы",
-    text: "Портфолио прямо на странице записи: клиент видит твой стиль ещё до выбора времени.",
-    ms: 6500,
-    run: (c) => c.focus('[data-demo-id="works"]'),
-  },
-  {
-    id: "catalog",
-    chapter: 0,
-    frame: "profile",
-    title: "Услуги и цены",
-    text: "Длительность и цена видны заранее — уточнять в переписке не нужно.",
-    ms: 6500,
-    run: (c) => c.focus('[data-demo-id="services"]'),
-  },
-
-  // Глава 2 — путь клиента от страницы до подтверждения.
-  {
-    id: "pick",
-    chapter: 1,
-    frame: "profile",
-    title: "Выбор услуги",
-    text: "Клиент нажимает «Выбрать» у нужной услуги и сразу попадает к свободному времени.",
-    ms: 6000,
-    run: (c) => c.focus('[data-demo-id="services"] article'),
-    exit: '[data-demo-id="services"] article a',
-  },
-  {
-    id: "time",
-    chapter: 1,
-    frame: "book",
-    title: "Выбор окна",
-    text: "Клиент видит только свободное время по твоему графику и выбирает сам.",
-    ms: 8500,
-    run: async (c) => {
-      await c.focus('[data-tour="picker"]');
-      await c.wait(1100);
-      await c.tap('[data-tour="times"] a:nth-child(2)', { click: true });
-      await c.wait(400);
-      await c.focus('[data-tour="picker"]');
-    },
-    exit: '[data-tour="next"]',
-  },
-  {
-    id: "contacts",
-    chapter: 1,
-    frame: "contacts",
-    title: "Пара полей — и всё",
-    text: "Имя, телефон и комментарий, если нужен. Без регистрации и паролей.",
-    ms: 13500,
-    run: async (c) => {
-      c.doc
-        .querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-          'input[name="name"], input[name="phone"], textarea[name="note"]',
-        )
-        .forEach((field) => {
-          field.value = "";
-        });
-      await c.focus("form");
-      await c.wait(500);
-      await c.tap('input[name="name"]');
-      await c.type('input[name="name"]', "Марина");
-      await c.tap('input[name="phone"]');
-      await c.type('input[name="phone"]', "+7 999 999 99 99");
-      await c.tap('textarea[name="note"]');
-      await c.type('textarea[name="note"]', "Хочу нюд, без дизайна");
-      await c.wait(400);
-      await c.focus('[data-tour="summary"]');
-    },
-    exit: 'button[type="submit"]',
-  },
-  {
-    id: "confirm",
-    chapter: 1,
-    frame: "confirm",
-    title: "Запись готова",
-    text: "Клиент сразу видит детали визита, а запись появляется у тебя в кабинете.",
-    ms: 6500,
-    run: (c) => c.focus('[data-tour="confirm"]'),
-  },
-
-  // Глава 3 — кабинет мастера, коротко по разделам.
-  {
-    id: "home",
-    chapter: 2,
-    frame: "dashboard",
-    title: "Главная",
-    text: "Сегодняшние и ближайшие визиты. Марина, которая только что записалась, уже здесь.",
-    ms: 8500,
-    run: async (c) => {
-      await c.focus(card("Ближайшие записи"));
-      await c.wait(1300);
-      await c.focus(containing("Марина Соколова", '[class*="rounded"]'));
-    },
-  },
-  {
-    id: "manual",
-    chapter: 2,
-    frame: "dashboard",
-    title: "Ручная запись",
-    text: "Клиент написал в мессенджер? Добавь визит вручную — это время сразу закроется на странице.",
-    ms: 6500,
-    run: (c) => c.focus(card("Ручная запись")),
-    exit: (doc) => [...doc.querySelectorAll('a[href="/schedule"]')].find(isVisible),
-  },
-  {
-    id: "schedule",
-    chapter: 2,
-    frame: "schedule",
-    title: "Расписание",
-    text: "Рабочие часы по дням и разовые блокировки: обед, отпуск, закупка.",
-    ms: 8000,
-    run: async (c) => {
-      await c.focus(card("Рабочие часы"));
-      await c.wait(1900);
-      await c.focus(card("Ручные блокировки"));
-    },
-    exit: (doc) => [...doc.querySelectorAll('a[href="/clients"]')].find(isVisible),
-  },
-  {
-    id: "clients",
-    chapter: 2,
-    frame: "clients",
-    title: "Клиенты",
-    text: "Карточка собирается сама из записей: контакты, сколько было визитов, когда следующий и что человек обычно выбирает.",
-    ms: 7500,
-    run: (c) => c.focus(clientCard("Марина Соколова")),
-  },
-  {
-    id: "return-rate",
-    chapter: 2,
-    frame: "clients",
-    title: "Частота возврата",
-    text: "Сколько дней в среднем проходит между визитами. Марина приходит раз в три недели — если она задержится дольше обычного, okno подскажет напомнить о себе.",
-    ms: 8000,
-    run: (c) => c.focus(insideClient("Марина Соколова", "Частота возврата")),
-  },
-  {
-    id: "reliability",
-    chapter: 2,
-    frame: "clients",
-    title: "Оценка клиента",
-    text: "Доля визитов, на которые человек правда пришёл. Неявки и поздние отмены её снижают. Появляется после трёх отмеченных визитов, и видишь её только ты.",
-    ms: 9000,
-    run: async (c) => {
-      await c.focus(insideClient("Марина Соколова", "Надёжный"));
-      await c.wait(2600);
-      await c.focus(insideClient("Ксения Белова", "Бывают пропуски"));
-    },
-    exit: (doc) => [...doc.querySelectorAll('a[href="/settings"]')].find(isVisible),
-  },
-  {
-    id: "settings",
-    chapter: 2,
-    frame: "settings",
-    title: "Настройки",
-    text: "Профиль, график, услуги, правила записи, уведомления в Telegram — всё в одном месте.",
-    ms: 8500,
-    run: async (c) => {
-      c.click('[data-tour-tab="profile"]');
-      // При повторе шага строка вкладок могла остаться докрученной.
-      c.doc.querySelector('[data-tour="settings-tabs"]')?.scrollTo({ left: 0 });
-      await c.focus('[data-tour="settings-tabs"]');
-      await c.wait(600);
-      await c.tap('[data-tour-tab="booking"]', { click: true });
-      await c.wait(300);
-      // У вкладки две раскладки — для телефона и для широкого экрана; берём видимую.
-      await c.focus((doc) => {
-        let el = doc.querySelector('[data-tour="settings-tabs"]')?.nextElementSibling;
-        while (el && !isVisible(el)) el = el.nextElementSibling;
-        return el;
-      });
-    },
-  },
-];
-
-const CHAPTER_STARTS = CHAPTERS.map((_, chapter) =>
-  SCENES.findIndex((scene) => scene.chapter === chapter),
-);
+export type TourScript = {
+  chapters: TourChapter[];
+  scenes: Scene[];
+  frames: TourFrame[];
+  /** Выбор цвета страницы: в какой главе показывать и какой экран перекрашивать. */
+  palette?: { chapter: number; frame: string };
+};
 
 /**
  * Устройства: страницы внутри рендерятся в настоящей вёрстке своей ширины,
@@ -362,8 +111,8 @@ const DEVICES = {
     outerH: 844 + 24,
     safeTop: 92,
     // Плавающая кнопка записи на профиле и нижняя панель кабинета.
-    safeBottom: (frame: FrameId) =>
-      frame === "profile" ? 96 : CABINET_FRAMES.includes(frame) ? 76 : 20,
+    safeBottom: (kind: TourFrame["kind"]) =>
+      kind === "profile" ? 96 : kind === "cabinet" ? 76 : 20,
   },
   laptop: {
     viewW: 1440,
@@ -416,32 +165,59 @@ function cancel(token: Token | null) {
   token.stops.forEach((stop) => stop());
 }
 
-const emptyFrames = () =>
-  Object.fromEntries(FRAME_ORDER.map((id) => [id, false])) as Record<FrameId, boolean>;
-
 /** Какие экраны держать загруженными: всё до главы после достигнутой. */
-function framesUpTo(chapter: number) {
-  return new Set(SCENES.filter((scene) => scene.chapter <= chapter + 1).map((scene) => scene.frame));
+function framesUpTo(scenes: Scene[], chapter: number) {
+  return new Set(scenes.filter((scene) => scene.chapter <= chapter + 1).map((scene) => scene.frame));
 }
 
-export function DemoTourPrototype({
-  frames,
-  cleanHref,
-  registerHref,
+type TourLink = { label: string; href: string };
+
+/**
+ * Плеер тура: страницы в рамке телефона или ноутбука, камера, подсветка,
+ * палец, автопросмотр и свободная прокрутка. Что показывать — решает
+ * сценарий (script); сам плеер о содержании ничего не знает.
+ */
+export function TourPlayer({
+  script,
+  frameSrc,
+  finale,
+  skip,
+  variant = "page",
+  chapterNav = "tabs",
+  initialChapter = 0,
+  allChaptersHref,
 }: {
-  frames: Record<FrameId, string>;
-  cleanHref: string;
-  registerHref: string;
+  script: TourScript;
+  /** Адрес страницы для каждого экрана сценария. */
+  frameSrc: Record<string, string>;
+  /** Кнопка на последнем шаге. */
+  finale: TourLink;
+  /** Тихая ссылка «пропустить» под кнопками. */
+  skip?: TourLink;
+  /** page — плеер на весь экран; embedded — внутри страницы кабинета. */
+  variant?: "page" | "embedded";
+  /** tabs — переключатель глав; title — заголовок текущей главы (база знаний). */
+  chapterNav?: "tabs" | "title";
+  initialChapter?: number;
+  /** Ссылка «все главы» рядом с заголовком главы. */
+  allChaptersHref?: string;
 }) {
+  const { scenes: SCENES, chapters: CHAPTERS, frames: FRAMES } = script;
+  const FRAME_ORDER = FRAMES.map((frame) => frame.id);
+  const CHAPTER_STARTS = CHAPTERS.map((_, chapter) =>
+    SCENES.findIndex((scene) => scene.chapter === chapter),
+  );
+  const startIndex = Math.max(0, CHAPTER_STARTS[initialChapter] ?? 0);
+
   const reduceMotion = useReducedMotion();
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(startIndex);
   const [device, setDevice] = useState<DeviceId>("phone");
   const [autoplay, setAutoplay] = useState(false);
   const [busy, setBusy] = useState(false);
   // Самая дальняя глава, до которой дошёл зритель: её экраны и экраны
   // следующей держим загруженными, остальные не грузим зря.
-  const [reached, setReached] = useState(0);
-  const [loaded, setLoaded] = useState<Record<FrameId, boolean>>(emptyFrames);
+  const [reached, setReached] = useState(SCENES[startIndex].chapter);
+  const [loaded, setLoaded] = useState<Record<string, boolean>>({});
   const [spot, setSpot] = useState<Rect | null>(null);
   const [finger, setFinger] = useState<Finger>({ x: 0, y: 0, state: "hidden" });
   const [stage, setStage] = useState({ width: 0, height: 0 });
@@ -458,12 +234,11 @@ export function DemoTourPrototype({
   const [beam, setBeam] = useState<Beam | null>(null);
   const screenRef = useRef<HTMLDivElement>(null);
 
-  const frameRefs = useRef<Record<FrameId, HTMLIFrameElement | null>>(
-    Object.fromEntries(FRAME_ORDER.map((id) => [id, null])) as Record<FrameId, null>,
-  );
+  const frameRefs = useRef<Record<string, HTMLIFrameElement | null>>({});
   const stageRef = useRef<HTMLDivElement>(null);
   const progress = useMotionValue(0);
   const indexRef = useRef(index);
+  const scenesRef = useRef(SCENES);
   const autoplayRef = useRef(autoplay);
   const busyRef = useRef(false);
   const sceneTokenRef = useRef<Token | null>(null);
@@ -476,13 +251,14 @@ export function DemoTourPrototype({
   useEffect(() => {
     indexRef.current = index;
     autoplayRef.current = autoplay;
+    scenesRef.current = SCENES;
   });
 
   const scene = SCENES[index];
   const spec = DEVICES[device];
   const isLast = index === SCENES.length - 1;
   const isChapterEnd = !isLast && SCENES[index + 1].chapter !== scene.chapter;
-  const frameReady = loaded[scene.frame];
+  const frameReady = Boolean(loaded[scene.frame]);
   const scale = stage.width
     ? Math.min(stage.width / spec.outerW, stage.height / spec.outerH, 1)
     : 0;
@@ -501,7 +277,7 @@ export function DemoTourPrototype({
   // iframe из серверной разметки начинает грузиться до гидратации, и его
   // load может случиться раньше, чем React повесит onLoad, — досматриваем.
   useEffect(() => {
-    const done = FRAME_ORDER.filter((id) => {
+    const done = Object.keys(frameRefs.current).filter((id) => {
       const doc = frameRefs.current[id]?.contentDocument;
       return doc?.readyState === "complete" && doc.location.href !== "about:blank";
     });
@@ -511,11 +287,13 @@ export function DemoTourPrototype({
   }, []);
 
   const makeCtx = useCallback(
-    (frame: FrameId, token: Token): SceneCtx => {
+    (frame: string, token: Token): SceneCtx => {
       const win = frameRefs.current[frame]!.contentWindow!;
       const doc = win.document;
       const { viewW, viewH, safeTop } = DEVICES[device];
-      const safeBottom = DEVICES[device].safeBottom(frame);
+      const safeBottom = DEVICES[device].safeBottom(
+        script.frames.find((item) => item.id === frame)?.kind ?? "page",
+      );
 
       const guard = () => {
         if (token.cancelled) throw new Cancelled();
@@ -701,7 +479,7 @@ export function DemoTourPrototype({
 
       return { doc, device, focus, tap, type, click, wait };
     },
-    [reduceMotion, device],
+    [reduceMotion, device, script.frames],
   );
 
   const stopFreeScroll = useCallback(() => {
@@ -726,7 +504,7 @@ export function DemoTourPrototype({
       setReached((r) => Math.max(r, SCENES[next].chapter));
       setIndex(next);
     },
-    [progress, stopFreeScroll],
+    [progress, stopFreeScroll, SCENES],
   );
 
   // Переход вперёд: сначала палец нажимает то, что вело бы человека дальше,
@@ -758,7 +536,7 @@ export function DemoTourPrototype({
       }
     }
     if (indexRef.current === at) goTo(at + 1);
-  }, [goTo, makeCtx, reduceMotion]);
+  }, [goTo, makeCtx, reduceMotion, SCENES]);
 
   const prev = useCallback(() => {
     if (indexRef.current > 0) goTo(indexRef.current - 1);
@@ -771,35 +549,39 @@ export function DemoTourPrototype({
       return;
     }
     void next();
-  }, [next]);
+  }, [next, SCENES]);
 
-  // Время на странице записи кликается по-настоящему — возвращаем её
-  // в исходное состояние, пока она не на экране.
-  const resetBook = useCallback(() => {
-    const location = frameRefs.current.book?.contentWindow?.location;
-    const expected = new URL(frames.book, window.location.origin);
-    if (location && location.pathname + location.search !== expected.pathname + expected.search) {
-      location.replace(frames.book);
-    }
-  }, [frames.book]);
+  // Экраны, по которым сценарий кликает по-настоящему, возвращаем в исходное
+  // состояние, пока они не на экране.
+  const resetFrame = useCallback(
+    (id: string) => {
+      const location = frameRefs.current[id]?.contentWindow?.location;
+      const expected = new URL(frameSrc[id], window.location.origin);
+      if (location && location.pathname + location.search !== expected.pathname + expected.search) {
+        location.replace(frameSrc[id]);
+      }
+    },
+    [frameSrc],
+  );
 
   // Сцена при входе разыгрывает свой сценарий. Смена устройства — тоже вход:
   // вёрстка другая, камеру надо поставить заново.
   useEffect(() => {
     if (!frameReady) return;
     const current = SCENES[index];
-    if (current.frame !== "book") resetBook();
+    const resettable = FRAMES.filter((frame) => frame.resetWhenHidden).map((frame) => frame.id);
+    resettable.filter((id) => id !== current.frame).forEach(resetFrame);
 
     const token = newToken();
     sceneTokenRef.current = token;
     (async () => {
       try {
-        if (current.frame === "book") {
-          // После «назад» страница записи могла ещё не перезагрузиться.
-          const expected = new URL(frames.book, window.location.origin);
+        if (resettable.includes(current.frame)) {
+          // После «назад» страница могла ещё не перезагрузиться.
+          const expected = new URL(frameSrc[current.frame], window.location.origin);
           for (let i = 0; i < 40; i++) {
-            const location = frameRefs.current.book?.contentWindow?.location;
-            const doc = frameRefs.current.book?.contentDocument;
+            const location = frameRefs.current[current.frame]?.contentWindow?.location;
+            const doc = frameRefs.current[current.frame]?.contentDocument;
             if (
               location &&
               location.pathname + location.search === expected.pathname + expected.search &&
@@ -807,7 +589,7 @@ export function DemoTourPrototype({
             ) {
               break;
             }
-            if (i === 0) resetBook();
+            if (i === 0) resetFrame(current.frame);
             await new Promise((r) => setTimeout(r, 120));
             if (token.cancelled) return;
           }
@@ -823,7 +605,7 @@ export function DemoTourPrototype({
 
     return () => cancel(token);
     // replay — намеренная зависимость: повтор шага после свободной прокрутки.
-  }, [frameReady, index, replay, makeCtx, maybeAdvance, resetBook, frames.book]);
+  }, [frameReady, index, replay, makeCtx, maybeAdvance, resetFrame, frameSrc, SCENES, FRAMES]);
 
   // Автопросмотр: полоска сцены заполняется, на паузе замирает.
   useEffect(() => {
@@ -839,7 +621,7 @@ export function DemoTourPrototype({
       },
     });
     return () => controls.stop();
-  }, [autoplay, frameReady, freeScroll, index, progress, maybeAdvance]);
+  }, [autoplay, frameReady, freeScroll, index, progress, maybeAdvance, SCENES]);
 
   useEffect(() => {
     scaleRef.current = scale || 1;
@@ -854,7 +636,7 @@ export function DemoTourPrototype({
 
     const scrollBy = (dy: number) => {
       if (busyRef.current) return false;
-      const frame = SCENES[indexRef.current].frame;
+      const frame = scenesRef.current[indexRef.current].frame;
       const win = frameRefs.current[frame]?.contentWindow;
       if (!win) return false;
 
@@ -940,13 +722,13 @@ export function DemoTourPrototype({
   };
 
   const toggleAutoplay = () => {
-    if (!autoplay && isLast) goTo(0);
+    if (!autoplay && isLast) goTo(startIndex);
     setAutoplay((value) => !value);
   };
 
   // Выбор цвета страницы: луч от кружка до экрана, затем волна внутри страницы.
   const paint = (id: BookingThemePresetId, event: React.MouseEvent<HTMLButtonElement>) => {
-    const target = frameRefs.current.profile?.contentWindow;
+    const target = script.palette ? frameRefs.current[script.palette.frame]?.contentWindow : null;
     const screenEl = screenRef.current;
     if (painting || id === presetId || !target || !screenEl) return;
 
@@ -1002,14 +784,14 @@ export function DemoTourPrototype({
 
   const restart = () => {
     setAutoplay(false);
-    goTo(0);
+    goTo(startIndex);
   };
 
   const activeOrder = FRAME_ORDER.indexOf(scene.frame);
   const chapterScenes = SCENES.filter((s) => s.chapter === scene.chapter);
   const stepInChapter = chapterScenes.indexOf(scene);
   const isLaptop = device === "laptop";
-  const mounted = framesUpTo(reached);
+  const mounted = framesUpTo(SCENES, reached);
 
   const screen = (
     <div
@@ -1033,7 +815,7 @@ export function DemoTourPrototype({
               ref={(node) => {
                 frameRefs.current[id] = node;
               }}
-              src={frames[id]}
+              src={frameSrc[id]}
               title={id}
               tabIndex={-1}
               aria-hidden
@@ -1095,11 +877,19 @@ export function DemoTourPrototype({
   );
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[var(--color-background)]">
+    <Shell
+      className={
+        variant === "page"
+          ? "relative min-h-screen overflow-x-hidden bg-[var(--color-background)]"
+          : "relative"
+      }
+    >
       <div
         // Управление всегда сбоку на широком экране: под ноутбуком приходилось
         // выбирать — видеть описание или весь экран.
-        className={`mx-auto grid min-h-screen items-center gap-6 px-4 py-6 lg:px-8 ${
+        className={`mx-auto grid items-center gap-6 ${
+          variant === "page" ? "min-h-screen px-4 py-6 lg:px-8" : "py-2"
+        } ${
           isLaptop
             ? "max-w-[1440px] lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] lg:gap-10"
             : "max-w-6xl lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:gap-16"
@@ -1159,12 +949,31 @@ export function DemoTourPrototype({
         >
           <div className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <ChapterTabs
-                current={scene.chapter}
-                onSelect={(chapter) => {
-                  if (!busyRef.current) goTo(CHAPTER_STARTS[chapter]);
-                }}
-              />
+              {chapterNav === "tabs" ? (
+                <ChapterTabs
+                  chapters={CHAPTERS}
+                  current={scene.chapter}
+                  onSelect={(chapter) => {
+                    if (!busyRef.current) goTo(CHAPTER_STARTS[chapter]);
+                  }}
+                />
+              ) : (
+                <div className="min-w-0 space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
+                    Глава {scene.chapter + 1} из {CHAPTERS.length}
+                  </p>
+                  <p className="text-lg font-semibold text-ink">{CHAPTERS[scene.chapter].title}</p>
+                  {allChaptersHref ? (
+                    <a
+                      href={allChaptersHref}
+                      className="inline-flex items-center gap-1 text-sm text-muted underline-offset-4 transition hover:text-ink hover:underline"
+                    >
+                      <ArrowLeft size={14} />
+                      Все главы
+                    </a>
+                  ) : null}
+                </div>
+              )}
               <DeviceSwitch value={device} onChange={switchDevice} />
             </div>
 
@@ -1180,7 +989,8 @@ export function DemoTourPrototype({
 
             <div className="min-h-[8.5rem] space-y-3">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">
-                Глава {scene.chapter + 1} · шаг {stepInChapter + 1} из {chapterScenes.length}
+                {chapterNav === "tabs" ? `Глава ${scene.chapter + 1} · ` : ""}шаг {stepInChapter + 1} из{" "}
+                {chapterScenes.length}
               </p>
               <motion.div
                 key={scene.id}
@@ -1196,7 +1006,7 @@ export function DemoTourPrototype({
               </motion.div>
             </div>
 
-            {scene.chapter === 0 ? (
+            {script.palette && scene.chapter === script.palette.chapter ? (
               <PalettePicker
                 value={presetId}
                 disabled={painting || !frameReady}
@@ -1229,8 +1039,8 @@ export function DemoTourPrototype({
 
               {isLast ? (
                 <>
-                  <ButtonLink href={registerHref} documentNavigation className="h-12 flex-1 gap-2">
-                    Создать свою страницу
+                  <ButtonLink href={finale.href} documentNavigation className="h-12 flex-1 gap-2">
+                    {finale.label}
                     <ArrowRight size={16} />
                   </ButtonLink>
                   <Button
@@ -1268,20 +1078,26 @@ export function DemoTourPrototype({
                 {autoplay ? <Pause size={14} /> : <Play size={14} />}
                 Автопросмотр
               </button>
-              <a
-                href={cleanHref}
-                className="text-muted underline-offset-4 transition hover:text-ink hover:underline"
-              >
-                Открыть профиль без тура
-              </a>
+              {skip ? (
+                <a
+                  href={skip.href}
+                  className="text-muted underline-offset-4 transition hover:text-ink hover:underline"
+                >
+                  {skip.label}
+                </a>
+              ) : null}
             </div>
           </div>
         </div>
       </div>
 
       {beam ? <PaintBeam beam={beam} /> : null}
-    </main>
+    </Shell>
   );
+}
+
+function Shell({ className, children }: { className: string; children: React.ReactNode }) {
+  return <section className={className}>{children}</section>;
 }
 
 function PalettePicker({
@@ -1381,15 +1197,17 @@ function PaintBeam({ beam }: { beam: Beam }) {
 }
 
 function ChapterTabs({
+  chapters,
   current,
   onSelect,
 }: {
+  chapters: TourChapter[];
   current: number;
   onSelect: (chapter: number) => void;
 }) {
   return (
     <div className="flex gap-1 rounded-full border border-line p-1">
-      {CHAPTERS.map((chapter, i) => (
+      {chapters.map((chapter, i) => (
         <button
           key={chapter.title}
           type="button"

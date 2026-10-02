@@ -1,4 +1,4 @@
-import { DemoTourPrototype } from "@/components/public/demo-tour-prototype";
+import { DemoTour } from "@/components/tour/demo-tour";
 import {
   landingDemoBookHref,
   landingDemoBookingSlotsByService,
@@ -37,8 +37,8 @@ export default function DemoTourPage() {
   });
 
   return (
-    <DemoTourPrototype
-      frames={{
+    <DemoTour
+      frameSrc={{
         profile: "/demo/public-page?tour=off",
         book: `${landingDemoBookHref}?${bookQuery}`,
         contacts: `${landingDemoBookHref}?${contactsQuery}`,
