@@ -181,6 +181,7 @@ export function SettingsTabs({
               key={tab.id}
               type="button"
               data-tour-tab={tab.id}
+              data-active={activeTab === tab.id || undefined}
               onClick={() => setActiveTab(tab.id)}
               className={`touch-manipulation border-b-2 px-4 py-3 text-sm transition active:scale-[0.98] ${
                 activeTab === tab.id

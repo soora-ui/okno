@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, CalendarDays, Globe, LayoutDashboard, LogOut, Menu, Settings, Users, X } from "lucide-react";
+import { Archive, BookOpen, CalendarDays, Globe, LayoutDashboard, LogOut, Menu, Settings, Users, X } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
 import { ClientPortal } from "@/components/ui/client-portal";
 import { usePresence } from "@/components/ui/use-presence";
@@ -41,6 +41,7 @@ export function AccountMenu({
     { href: "/schedule", label: "Расписание", icon: CalendarDays },
     { href: "/clients", label: "Клиенты", icon: Users },
     { href: "/settings", label: "Настройки", icon: Settings },
+    { href: "/knowledge", label: "База знаний", icon: BookOpen },
   ];
 
   useEffect(() => {

@@ -58,6 +58,8 @@ function DesktopSidebarLayout({ sections }: { sections: RecordSection[] }) {
             <button
               key={section.id}
               type="button"
+              data-tour-section={section.id}
+              data-active={isActive || undefined}
               onClick={() => setActiveId(section.id)}
               className={cn(
                 "flex w-full items-center gap-3 rounded-field border-l-[3px] px-3 py-3 text-left text-sm transition",
@@ -94,6 +96,7 @@ function MobileAccordion({ sections }: { sections: RecordSection[] }) {
           >
             <button
               type="button"
+              data-tour-section={section.id}
               onClick={() => setOpenId(isOpen ? null : section.id)}
               aria-expanded={isOpen}
               className="flex w-full items-center gap-3 px-4 py-4 text-left"

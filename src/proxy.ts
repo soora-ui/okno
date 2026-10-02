@@ -14,6 +14,7 @@ const protectedMatchers = [
   "/settings",
   "/team",
   "/archive",
+  "/knowledge",
   "/admin",
 ];
 

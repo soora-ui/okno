@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { BookOpen, LogOut } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -112,6 +112,10 @@ export default async function SettingsPage({
           <Badge tone="accent">Настройки</Badge>
           <h1 className="text-4xl font-semibold text-ink">Профиль и параметры записи</h1>
         </div>
+        <ButtonLink href="/knowledge" variant="secondary" className="gap-2">
+          <BookOpen size={16} />
+          Как всё настроить
+        </ButtonLink>
       </div>
 
       {failedPayment ? (
