@@ -51,6 +51,7 @@ export function PublicProfileView({
   tourThemeBridge = false,
   certificateSlot,
   consultantServiceIds,
+  consultantDemoReplies,
 }: PublicProfileViewProps) {
   const [isPortfolioOpen, setIsPortfolioOpen] = useState(false);
   const closestSlots = getClosestSlots(services, bookingSlotsByService);
@@ -543,6 +544,7 @@ export function PublicProfileView({
                             serviceId={service.id}
                             serviceTitle={service.title}
                             label="Задать вопрос"
+                            demoReply={consultantDemoReplies?.[service.id]}
                           />
                         ) : null}
                         <ButtonLink

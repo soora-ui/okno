@@ -195,7 +195,9 @@ export function BookingPreferencesForm({ profile }: { profile: Profile }) {
           name="bookingWindowDays"
           defaultValue={String(profile.bookingWindowDays)}
           description="На сколько дней вперед клиент может выбрать дату."
-          example="Если стоит 30, запись будет открыта на ближайшие 30 дней."
+          example={(days) =>
+            `Если стоит ${days}, запись будет открыта на ближайшие ${pluralizeRu(days, "день", "дня", "дней")}.`
+          }
         />
         <ParameterField
           label="С каким шагом показывать время"
@@ -203,7 +205,11 @@ export function BookingPreferencesForm({ profile }: { profile: Profile }) {
           name="slotIntervalMinutes"
           defaultValue={String(profile.slotIntervalMinutes)}
           description="Через какой интервал клиент видит доступное время."
-          example="30 минут = 10:00, 10:30, 11:00 и дальше."
+          example={(minutes) =>
+            minutes > 0
+              ? `${minutes} минут = ${[0, 1, 2].map((step) => clockAfter("10:00", step * minutes)).join(", ")} и дальше.`
+              : ""
+          }
         />
         <ParameterField
           label="Перерыв после записи"
@@ -211,7 +217,11 @@ export function BookingPreferencesForm({ profile }: { profile: Profile }) {
           name="bufferMinutes"
           defaultValue={String(profile.bufferMinutes)}
           description="Дополнительное время после клиента, чтобы не ставить записи вплотную."
-          example="15 минут = после визита в 10:00 следующий слот начнется не сразу."
+          example={(minutes) =>
+            minutes > 0
+              ? `${minutes} минут = визит закончился в 11:00 — следующий начнётся не раньше ${clockAfter("11:00", minutes)}.`
+              : "0 = следующий клиент может записаться сразу после окончания визита."
+          }
         />
         <ParameterField
           label="Отмена не позже"
@@ -219,7 +229,11 @@ export function BookingPreferencesForm({ profile }: { profile: Profile }) {
           name="cancellationNoticeHours"
           defaultValue={String(profile.cancellationNoticeHours)}
           description="За сколько часов до визита клиент еще может отменить запись сам."
-          example="2 часа = позже этого времени отмена уже недоступна."
+          example={(hours) =>
+            hours > 0
+              ? `${pluralizeRu(hours, "час", "часа", "часов")} = позже этого времени отмена уже недоступна.`
+              : "0 = отменить можно до самого начала визита."
+          }
         />
         <ParameterField
           label="Напомнить клиенту"
@@ -227,7 +241,7 @@ export function BookingPreferencesForm({ profile }: { profile: Profile }) {
           name="clientReminderHours"
           defaultValue={String(profile.clientReminderHours)}
           description="За сколько часов до визита клиенту придет напоминание."
-          example="24 часа = за день до записи. 0 = отключить."
+          example={(hours) => reminderExample(hours, "напоминание клиенту")}
         />
         <ParameterField
           label="Напомнить мастеру"
@@ -235,7 +249,7 @@ export function BookingPreferencesForm({ profile }: { profile: Profile }) {
           name="masterReminderHours"
           defaultValue={String(profile.masterReminderHours)}
           description="За сколько часов до визита мастер получит напоминание в Telegram."
-          example="2 часа = напоминание за пару часов до клиента. 0 = отключить."
+          example={(hours) => reminderExample(hours, "напоминание тебе в Telegram")}
         />
       </div>
       <FormMessage message={state.message} success={state.success} />
@@ -1149,6 +1163,19 @@ function UnitInput({
   );
 }
 
+/** Время на часах через n минут: clockAfter("10:00", 90) → "11:30". */
+function clockAfter(start: string, minutes: number) {
+  const [hours, mins] = start.split(":").map(Number);
+  const total = (((hours * 60 + mins + minutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function reminderExample(hours: number, what: string) {
+  if (hours <= 0) return `0 = ${what} отключено.`;
+  if (hours === 24) return `24 часа = ${what} придёт за день до записи.`;
+  return `${pluralizeRu(hours, "час", "часа", "часов")} = ${what} придёт за ${pluralizeRu(hours, "час", "часа", "часов")} до визита.`;
+}
+
 function ParameterField({
   label,
   unit,
@@ -1162,8 +1189,19 @@ function ParameterField({
   name: string;
   defaultValue: string;
   description: string;
-  example: string;
+  /**
+   * Пример под полем считается от того, что в поле сейчас: раньше там
+   * стояли зашитые «30 минут» и «2 часа», и при другом значении подпись
+   * противоречила самой настройке.
+   */
+  example: (value: number) => string;
 }) {
+  const [value, setValue] = useState(defaultValue);
+  const parsed = Number(value);
+  const exampleText = value.trim() !== "" && Number.isFinite(parsed) && parsed >= 0
+    ? example(Math.round(parsed))
+    : "";
+
   return (
     <div className="rounded-panel bg-panel p-4">
       <p className="text-sm font-medium text-ink">{label}</p>
@@ -1174,14 +1212,15 @@ function ParameterField({
         name={name}
         type="number"
         inputMode="numeric"
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
         className="mt-2 min-h-10 w-full rounded-tight border border-line bg-surface px-3 text-sm font-medium text-ink outline-none"
         required
       />
       <p className="mt-2 text-xs text-muted">{unit}</p>
-      <p className="mt-1 text-xs leading-5 text-muted">
-        {example}
-      </p>
+      {exampleText ? (
+        <p className="mt-1 text-xs leading-5 text-muted">{exampleText}</p>
+      ) : null}
     </div>
   );
 }

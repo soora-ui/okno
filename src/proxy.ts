@@ -70,10 +70,13 @@ export async function proxy(request: NextRequest) {
 
   // Демо-кабинет для тура: мок-данные без входа, только на чтение.
   // См. src/lib/demo-cabinet.ts.
-  if (
-    pathname.startsWith(`${DEMO_CABINET_PREFIX}/`) &&
-    (request.method === "GET" || request.method === "HEAD")
-  ) {
+  if (pathname.startsWith(`${DEMO_CABINET_PREFIX}/`)) {
+    // Серверные действия форм уходят POST-ом на адрес страницы. С демо-
+    // страниц их пропускать нельзя: у залогиненного мастера они записали бы
+    // демо-значения в его настоящие настройки.
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return new NextResponse(null, { status: 405 });
+    }
     const headers = new Headers(request.headers);
     headers.set(DEMO_CABINET_HEADER, demoCabinetToken());
     return NextResponse.next({ request: { headers } });

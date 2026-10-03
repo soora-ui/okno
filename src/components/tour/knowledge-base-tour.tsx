@@ -15,6 +15,7 @@ export function KnowledgeBaseTour({ chapter }: { chapter: number }) {
       frameSrc={{
         settings: "/demo/cabinet/settings",
         schedule: "/demo/cabinet/schedule",
+        client: "/demo/public-page?tour=off&consultant=1",
       }}
       variant="embedded"
       chapterNav="title"

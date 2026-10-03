@@ -50,6 +50,12 @@ type Props = {
   serviceTitle: string;
   /** Подпись кнопки. По умолчанию — «Спросить про услугу». */
   label?: string;
+  /**
+   * Демо (тур по кабинету): отвечаем этим текстом вместо запроса к AI.
+   * У демо-услуги нет мануала в базе, а настоящий запрос стоил бы денег и
+   * отвечал бы каждый раз по-разному.
+   */
+  demoReply?: string;
 };
 
 // Кнопки времени для повторной записи. Клик уводит в обычный флоу записи:
@@ -79,6 +85,7 @@ export function ServiceConsultantButton({
   serviceId,
   serviceTitle,
   label = "Спросить про услугу",
+  demoReply,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -127,6 +134,14 @@ export function ServiceConsultantButton({
     setError(null);
     setIsSending(true);
     scrollToBottom();
+
+    if (demoReply) {
+      await new Promise((resolve) => setTimeout(resolve, 1800));
+      setMessages((current) => [...current, { role: "assistant", content: demoReply }]);
+      setIsSending(false);
+      scrollToBottom();
+      return;
+    }
 
     try {
       const response = await fetch("/api/service-consultation", {

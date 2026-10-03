@@ -32,6 +32,8 @@ export type PublicProfileViewProps = {
    * раньше, чем он возник: где её нет — там и спрашивать не о чем.
    */
   consultantServiceIds?: string[];
+  /** Демо-ответы консультанта по услугам (тур), см. ServiceConsultantButton.demoReply. */
+  consultantDemoReplies?: Record<string, string>;
 };
 
 export type DemoStoryStep = {

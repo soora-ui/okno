@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  AnimatePresence,
   animate,
   motion,
   useMotionValue,
@@ -13,6 +14,7 @@ import {
 import {
   ArrowLeft,
   ArrowRight,
+  Send,
   Laptop,
   Pause,
   Play,
@@ -51,6 +53,11 @@ export type TourFrame = {
    * пока экран не на виду, возвращаем его в исходное состояние.
    */
   resetWhenHidden?: boolean;
+  /**
+   * Экран второго телефона — «вида клиента». Показывается рядом с основным
+   * устройством только в сценах, где он нужен (Scene.companion).
+   */
+  companion?: boolean;
 };
 
 /**
@@ -64,11 +71,17 @@ export type SceneCtx = {
   focus: (target: Target) => Promise<void>;
   /** Палец (или курсор) подъезжает и нажимает; click — нажать по-настоящему. */
   tap: (target: Target, options?: { click?: boolean }) => Promise<void>;
-  /** Печать по буквам в поле. */
-  type: (target: Target, text: string) => Promise<void>;
+  /** Печать по буквам в поле; fast — для длинных текстов. */
+  type: (target: Target, text: string, options?: { fast?: boolean }) => Promise<void>;
   /** Мгновенный клик без анимации — вернуть страницу в исходное состояние. */
   click: (target: Target) => void;
+  /** Поставить значение полю целиком (время, дата) — так, чтобы React его заметил. */
+  setValue: (target: Target, value: string) => Promise<void>;
+  /** Уведомление поверх устройства — как пуш от бота. */
+  notify: (notice: { app: string; title: string; text: string; ms?: number }) => Promise<void>;
   wait: (ms: number) => Promise<void>;
+  /** Второй телефон («вид клиента»), если он есть в сцене. */
+  client?: SceneCtx;
 };
 
 export type Scene = {
@@ -82,6 +95,10 @@ export type Scene = {
   run: (ctx: SceneCtx) => Promise<void>;
   /** Что нажимает палец при переходе на следующую сцену. Нет на экране — переход без нажатия. */
   exit?: Target;
+  /** Экран второго телефона, который выезжает справа на время сцены. */
+  companion?: string;
+  /** Подпись над вторым телефоном. */
+  companionLabel?: string;
 };
 
 export type TourChapter = {
@@ -167,8 +184,16 @@ function cancel(token: Token | null) {
 
 /** Какие экраны держать загруженными: всё до главы после достигнутой. */
 function framesUpTo(scenes: Scene[], chapter: number) {
-  return new Set(scenes.filter((scene) => scene.chapter <= chapter + 1).map((scene) => scene.frame));
+  return new Set(
+    scenes
+      .filter((scene) => scene.chapter <= chapter + 1)
+      .flatMap((scene) => (scene.companion ? [scene.frame, scene.companion] : [scene.frame])),
+  );
 }
+
+type Notice = { key: number; app: string; title: string; text: string };
+
+const companionSpring = { type: "spring", stiffness: 90, damping: 20 } as const;
 
 type TourLink = { label: string; href: string };
 
@@ -203,7 +228,8 @@ export function TourPlayer({
   allChaptersHref?: string;
 }) {
   const { scenes: SCENES, chapters: CHAPTERS, frames: FRAMES } = script;
-  const FRAME_ORDER = FRAMES.map((frame) => frame.id);
+  const FRAME_ORDER = FRAMES.filter((frame) => !frame.companion).map((frame) => frame.id);
+  const COMPANION_FRAMES = FRAMES.filter((frame) => frame.companion).map((frame) => frame.id);
   const CHAPTER_STARTS = CHAPTERS.map((_, chapter) =>
     SCENES.findIndex((scene) => scene.chapter === chapter),
   );
@@ -220,6 +246,10 @@ export function TourPlayer({
   const [loaded, setLoaded] = useState<Record<string, boolean>>({});
   const [spot, setSpot] = useState<Rect | null>(null);
   const [finger, setFinger] = useState<Finger>({ x: 0, y: 0, state: "hidden" });
+  // Второй телефон («вид клиента») — своя подсветка и свой палец.
+  const [clientSpot, setClientSpot] = useState<Rect | null>(null);
+  const [clientFinger, setClientFinger] = useState<Finger>({ x: 0, y: 0, state: "hidden" });
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [stage, setStage] = useState({ width: 0, height: 0 });
   const [presetId, setPresetId] = useState<BookingThemePresetId>(defaultBookingThemePresetId);
   const [painting, setPainting] = useState(false);
@@ -259,9 +289,26 @@ export function TourPlayer({
   const isLast = index === SCENES.length - 1;
   const isChapterEnd = !isLast && SCENES[index + 1].chapter !== scene.chapter;
   const frameReady = Boolean(loaded[scene.frame]);
-  const scale = stage.width
+  // С «видом клиента» устройства стоят парой: основное сдвигается влево,
+  // второй телефон встаёт справа. Телефон рядом с ноутбуком — чуть ниже его.
+  const companionId = scene.companion;
+  const PHONE = DEVICES.phone;
+  const companionRatio = device === "laptop" ? (spec.outerH / PHONE.outerH) * 0.9 : 1;
+  const PAIR_GAP = 56;
+  const singleScale = stage.width
     ? Math.min(stage.width / spec.outerW, stage.height / spec.outerH, 1)
     : 0;
+  const pairScale = stage.width
+    ? Math.min(
+        stage.height / spec.outerH,
+        (stage.width - PAIR_GAP) / (spec.outerW + PHONE.outerW * companionRatio),
+        1,
+      )
+    : 0;
+  const scale = companionId ? pairScale : singleScale;
+  const companionScale = pairScale * companionRatio;
+  const mainShift = companionId ? -(PHONE.outerW * companionScale + PAIR_GAP) / 2 : 0;
+  const companionShift = (spec.outerW * pairScale + PAIR_GAP) / 2;
 
   useLayoutEffect(() => {
     const el = stageRef.current;
@@ -287,13 +334,17 @@ export function TourPlayer({
   }, []);
 
   const makeCtx = useCallback(
-    (frame: string, token: Token): SceneCtx => {
+    (frame: string, token: Token, surface: "main" | "client" = "main"): SceneCtx => {
       const win = frameRefs.current[frame]!.contentWindow!;
       const doc = win.document;
-      const { viewW, viewH, safeTop } = DEVICES[device];
-      const safeBottom = DEVICES[device].safeBottom(
+      // Второй телефон — всегда телефон, даже когда основное устройство — ноутбук.
+      const surfaceDevice: DeviceId = surface === "client" ? "phone" : device;
+      const { viewW, viewH, safeTop } = DEVICES[surfaceDevice];
+      const safeBottom = DEVICES[surfaceDevice].safeBottom(
         script.frames.find((item) => item.id === frame)?.kind ?? "page",
       );
+      const setSurfaceSpot = surface === "client" ? setClientSpot : setSpot;
+      const setSurfaceFinger = surface === "client" ? setClientFinger : setFinger;
 
       const guard = () => {
         if (token.cancelled) throw new Cancelled();
@@ -329,7 +380,7 @@ export function TourPlayer({
         const r = el.getBoundingClientRect();
         const top = Math.max(r.top - delta - SPOT_PAD, safeTop - SPOT_PAD);
         const bottom = Math.min(r.bottom - delta + SPOT_PAD, viewH - safeBottom + SPOT_PAD);
-        setSpot({
+        setSurfaceSpot({
           x: Math.max(r.left - SPOT_PAD, 6),
           y: top,
           w: Math.min(r.width + SPOT_PAD * 2, viewW - 12),
@@ -357,7 +408,7 @@ export function TourPlayer({
           const pad = SPOT_PAD / 2;
           const x = Math.max(r.left - pad, 4);
           const y = Math.max(r.top - pad, 4);
-          setSpot({
+          setSurfaceSpot({
             x,
             y,
             w: Math.min(r.right + pad, viewW - 4) - x,
@@ -447,37 +498,64 @@ export function TourPlayer({
         const r = el.getBoundingClientRect();
         const x = r.left + Math.min(r.width / 2, 120);
         const y = r.top + r.height / 2;
-        setFinger((f) =>
+        setSurfaceFinger((f) =>
           f.state === "hidden" ? { x: viewW * 0.7, y: viewH + 40, state: "move" } : f,
         );
         await wait(30);
-        setFinger({ x, y, state: "move" });
+        setSurfaceFinger({ x, y, state: "move" });
         await wait(950);
-        setFinger({ x, y, state: "press" });
+        setSurfaceFinger({ x, y, state: "press" });
         if (options?.click) el.click();
         await wait(420);
-        setFinger({ x, y, state: "move" });
+        setSurfaceFinger({ x, y, state: "move" });
         // Отпустил — и убрал руку: иначе палец висит над тем, что появилось
         // после нажатия, и кажется, будто жмёт туда.
         await wait(300);
-        setFinger((f) => ({ ...f, state: "hidden" }));
+        setSurfaceFinger((f) => ({ ...f, state: "hidden" }));
       };
 
-      const type = async (target: Target, text: string) => {
+      // Значение ставим через нативный сеттер и событие input: так его видит
+      // и обычное поле, и контролируемое React-ом (у него своё состояние, и
+      // простое el.value = … React молча откатил бы).
+      const writeValue = (el: HTMLInputElement | HTMLTextAreaElement, value: string) => {
+        const proto =
+          el.tagName === "TEXTAREA"
+            ? (win as unknown as typeof window).HTMLTextAreaElement.prototype
+            : (win as unknown as typeof window).HTMLInputElement.prototype;
+        Object.getOwnPropertyDescriptor(proto, "value")?.set?.call(el, value);
+        el.dispatchEvent(new (win as unknown as typeof window).Event("input", { bubbles: true }));
+      };
+
+      const type = async (target: Target, text: string, options?: { fast?: boolean }) => {
         const el = (await find(target)) as HTMLInputElement | HTMLTextAreaElement;
-        setFinger((f) => ({ ...f, state: "hidden" }));
-        el.value = "";
+        setSurfaceFinger((f) => ({ ...f, state: "hidden" }));
+        writeValue(el, "");
+        let typed = "";
         for (const char of text) {
-          await wait(reduceMotion ? 0 : 75 + Math.random() * 70);
-          el.value += char;
+          await wait(reduceMotion ? 0 : options?.fast ? 6 + Math.random() * 8 : 75 + Math.random() * 70);
+          typed += char;
+          writeValue(el, typed);
         }
+      };
+
+      const setValue = async (target: Target, value: string) => {
+        const el = (await find(target)) as HTMLInputElement;
+        writeValue(el, value);
+        el.dispatchEvent(new (win as unknown as typeof window).Event("change", { bubbles: true }));
+      };
+
+      const notify = async (next: { app: string; title: string; text: string; ms?: number }) => {
+        guard();
+        setNotice({ key: Date.now(), app: next.app, title: next.title, text: next.text });
+        await wait(next.ms ?? 4800);
+        setNotice(null);
       };
 
       const click = (target: Target) => {
         resolveTarget(target)?.click();
       };
 
-      return { doc, device, focus, tap, type, click, wait };
+      return { doc, device, focus, tap, type, click, setValue, notify, wait };
     },
     [reduceMotion, device, script.frames],
   );
@@ -501,6 +579,9 @@ export function TourPlayer({
       progress.set(0);
       setFinger((f) => ({ ...f, state: "hidden" }));
       if (SCENES[next].frame !== SCENES[indexRef.current].frame) setSpot(null);
+      setClientSpot(null);
+      setClientFinger((f) => ({ ...f, state: "hidden" }));
+      setNotice(null);
       setReached((r) => Math.max(r, SCENES[next].chapter));
       setIndex(next);
     },
@@ -564,6 +645,30 @@ export function TourPlayer({
     [frameSrc],
   );
 
+  // Перезагрузить экран и дождаться, пока новая страница загрузится.
+  const reloadFrame = useCallback(
+    async (id: string, token: Token) => {
+      for (let i = 0; i < 50 && !frameRefs.current[id]?.contentWindow; i++) {
+        await new Promise((r) => setTimeout(r, 120));
+        if (token.cancelled) return false;
+      }
+      const iframe = frameRefs.current[id];
+      if (!iframe?.contentWindow) return false;
+      const before = iframe.contentDocument;
+      iframe.contentWindow.location.replace(frameSrc[id]);
+      for (let i = 0; i < 80; i++) {
+        await new Promise((r) => setTimeout(r, 120));
+        if (token.cancelled) return false;
+        const doc = iframe.contentDocument;
+        if (doc && doc !== before && doc.readyState === "complete" && doc.location.href !== "about:blank") {
+          return true;
+        }
+      }
+      return false;
+    },
+    [frameSrc],
+  );
+
   // Сцена при входе разыгрывает свой сценарий. Смена устройства — тоже вход:
   // вёрстка другая, камеру надо поставить заново.
   useEffect(() => {
@@ -594,7 +699,15 @@ export function TourPlayer({
             if (token.cancelled) return;
           }
         }
-        await current.run(makeCtx(current.frame, token));
+        const ctx = makeCtx(current.frame, token);
+        if (current.companion) {
+          // Второй телефон каждый раз начинает с чистой страницы: закрытый
+          // чат, пустая форма — как у клиента, который только что её открыл.
+          const ready = await reloadFrame(current.companion, token);
+          if (!ready || token.cancelled) return;
+          ctx.client = makeCtx(current.companion, token, "client");
+        }
+        await current.run(ctx);
         if (token.cancelled) return;
         sceneDoneRef.current = true;
         maybeAdvance();
@@ -605,7 +718,7 @@ export function TourPlayer({
 
     return () => cancel(token);
     // replay — намеренная зависимость: повтор шага после свободной прокрутки.
-  }, [frameReady, index, replay, makeCtx, maybeAdvance, resetFrame, frameSrc, SCENES, FRAMES]);
+  }, [frameReady, index, replay, makeCtx, maybeAdvance, resetFrame, reloadFrame, frameSrc, SCENES, FRAMES]);
 
   // Автопросмотр: полоска сцены заполняется, на паузе замирает.
   useEffect(() => {
@@ -717,7 +830,10 @@ export function TourPlayer({
     busyRef.current = false;
     setBusy(false);
     setSpot(null);
+    setClientSpot(null);
+    setNotice(null);
     setFinger((f) => ({ ...f, state: "hidden" }));
+    setClientFinger((f) => ({ ...f, state: "hidden" }));
     setDevice(value);
   };
 
@@ -866,6 +982,19 @@ export function TourPlayer({
         ) : null}
 
         <Pointer finger={finger} device={device} />
+
+        {/* Пока говорит «вид клиента», основное устройство притушено целиком. */}
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[61] bg-[rgba(16,17,14,0.42)]"
+          initial={false}
+          animate={{ opacity: companionId ? 1 : 0 }}
+          transition={{ duration: 0.5 }}
+        />
+
+        <AnimatePresence>
+          {notice ? <NoticeBanner key={notice.key} notice={notice} device={device} /> : null}
+        </AnimatePresence>
       </div>
 
       {!frameReady ? (
@@ -908,15 +1037,24 @@ export function TourPlayer({
               : "h-[min(56svh,640px)] lg:h-[min(88svh,900px)]"
           }`}
         >
+          {/* Устройство появляется только после замера сцены: иначе пружина
+              масштаба «вырастила» бы его из нуля. */}
+          {scale ? (
           <div
             className="absolute left-1/2 top-1/2"
             style={{
               width: spec.outerW,
               height: spec.outerH,
-              transform: `translate(-50%, -50%) scale(${scale})`,
-              opacity: scale ? 1 : 0,
+              marginLeft: -spec.outerW / 2,
+              marginTop: -spec.outerH / 2,
             }}
           >
+           <motion.div
+            className="h-full w-full"
+            initial={false}
+            animate={{ x: mainShift, scale }}
+            transition={reduceMotion ? { duration: 0 } : companionSpring}
+           >
             {/* Одна и та же вложенность для обоих устройств: иначе React
                 пересоздаёт iframe и страницы при переключении грузятся заново. */}
             <div className={isLaptop ? "flex h-full w-full flex-col items-center" : "h-full w-full"}>
@@ -936,7 +1074,78 @@ export function TourPlayer({
                 </div>
               ) : null}
             </div>
+           </motion.div>
           </div>
+          ) : null}
+
+          {scale && COMPANION_FRAMES.length > 0 ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute left-1/2 top-1/2"
+              style={{
+                width: PHONE.outerW,
+                height: PHONE.outerH,
+                marginLeft: -PHONE.outerW / 2,
+                marginTop: -PHONE.outerH / 2,
+              }}
+            >
+              <motion.div
+                className="relative h-full w-full"
+                initial={false}
+                animate={{
+                  x: companionId ? companionShift : companionShift + 80,
+                  scale: companionScale || 0.5,
+                  opacity: companionId ? 1 : 0,
+                }}
+                transition={reduceMotion ? { duration: 0 } : companionSpring}
+              >
+                <div className="absolute inset-x-0 -top-[84px] flex justify-center">
+                  <span className="rounded-full bg-ink px-6 py-3 text-[26px] font-medium text-ink-contrast shadow-hover">
+                    {scene.companionLabel ?? "Так видит клиент"}
+                  </span>
+                </div>
+                <div className="h-full w-full rounded-[60px] bg-[#141512] p-3 shadow-hover ring-1 ring-white/15">
+                  <div
+                    className="relative overflow-hidden rounded-[48px] bg-[var(--color-background)]"
+                    style={{ width: PHONE.viewW, height: PHONE.viewH }}
+                  >
+                    {COMPANION_FRAMES.map((id) =>
+                      mounted.has(id) ? (
+                        <iframe
+                          key={id}
+                          ref={(node) => {
+                            frameRefs.current[id] = node;
+                          }}
+                          src={frameSrc[id]}
+                          title={id}
+                          tabIndex={-1}
+                          onLoad={() => setLoaded((l) => (l[id] ? l : { ...l, [id]: true }))}
+                          className="pointer-events-none absolute inset-0 border-0 bg-[var(--color-background)]"
+                          style={{
+                            width: PHONE.viewW,
+                            height: PHONE.viewH,
+                            opacity: companionId === id ? 1 : 0,
+                          }}
+                        />
+                      ) : null,
+                    )}
+                    {clientSpot ? (
+                      <motion.div
+                        className="pointer-events-none absolute left-0 top-0 z-[60] rounded-[26px]"
+                        initial={{ x: clientSpot.x, y: clientSpot.y, width: clientSpot.w, height: clientSpot.h, opacity: 0 }}
+                        animate={{ x: clientSpot.x, y: clientSpot.y, width: clientSpot.w, height: clientSpot.h, opacity: 1 }}
+                        transition={reduceMotion ? { duration: 0 } : { ...spotSpring, opacity: { duration: 0.5, delay: 0.25 } }}
+                        style={{
+                          boxShadow: "0 0 0 2px rgba(255,255,255,0.9), 0 0 0 4000px rgba(16,17,14,0.46)",
+                        }}
+                      />
+                    ) : null}
+                    <Pointer finger={clientFinger} device="phone" />
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          ) : null}
 
         </div>
 
@@ -1384,6 +1593,33 @@ function Pointer({ finger, device }: { finger: Finger; device: DeviceId }) {
           ) : null}
         </>
       )}
+    </motion.div>
+  );
+}
+
+/** Пуш поверх устройства: баннер сверху на телефоне, карточка справа на ноутбуке. */
+function NoticeBanner({ notice, device }: { notice: Notice; device: DeviceId }) {
+  const isLaptop = device === "laptop";
+  return (
+    <motion.div
+      className={`pointer-events-none absolute z-[75] flex items-start gap-3 border border-black/5 bg-white/90 shadow-hover backdrop-blur-xl ${
+        isLaptop ? "right-5 top-5 w-[380px] rounded-[18px] p-4" : "inset-x-3 top-3 rounded-[24px] p-3.5"
+      }`}
+      initial={{ opacity: 0, y: -40, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -24, scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 220, damping: 22 }}
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-[#2AABEE] text-white">
+        <Send size={18} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-[13px] font-semibold text-[#111]">{notice.title}</span>
+          <span className="shrink-0 text-[11px] text-[#8a8a8e]">сейчас · {notice.app}</span>
+        </span>
+        <span className="mt-0.5 block text-[13px] leading-[1.35] text-[#3a3a3c]">{notice.text}</span>
+      </span>
     </motion.div>
   );
 }

@@ -1,5 +1,14 @@
 import type { Scene, SceneCtx, TourScript } from "@/components/tour/tour-player";
-import { CARD_SELECTOR, card, containing, field, visible } from "@/components/tour/tour-helpers";
+import {
+  CARD_SELECTOR,
+  card,
+  containing,
+  field,
+  isVisible,
+  visible,
+  type Target,
+} from "@/components/tour/tour-helpers";
+import { demoConsultantManual, demoConsultantQuestion } from "@/lib/tour-demo-content";
 
 // База знаний в кабинете (/knowledge): по главе на каждый участок настроек.
 // Показываем на демо-кабинете (/demo/cabinet/*), поэтому сценарий может
@@ -67,6 +76,68 @@ async function openSection(c: SceneCtx, section: RecordSection) {
   await c.wait(500);
 }
 
+/** Видимая кнопка с надписью (внутри scope, если он задан). */
+const button =
+  (text: string, scope?: Target): Target =>
+  (doc) => {
+    const root = scope ? (typeof scope === "function" ? scope(doc) : doc.querySelector(scope)) : doc;
+    if (!root) return null;
+    return [...root.querySelectorAll("button")].find(
+      (el) => isVisible(el) && el.textContent?.trim().includes(text),
+    );
+  };
+
+/** Самый тесный блок с текстом внутри scope. */
+const inside =
+  (scope: Target, text: string, selector = "*"): Target =>
+  (doc) => {
+    const root = typeof scope === "function" ? scope(doc) : doc.querySelector(scope);
+    if (!root) return null;
+    const area = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return r.width * r.height;
+    };
+    return [...root.querySelectorAll(selector)]
+      .filter((el) => isVisible(el) && el.textContent?.includes(text) && el.children.length > 0)
+      .sort((a, b) => area(a) - area(b))[0];
+  };
+
+const DEMO_SERVICE = "Накладки soft gel";
+
+/** Карточка услуги в настройках (форма редактирования). */
+const serviceEditor: Target = (doc) =>
+  [...doc.querySelectorAll("form")].find(
+    (form) => isVisible(form) && form.querySelector("h3")?.textContent?.trim() === DEMO_SERVICE,
+  );
+
+/** Блок AI-консультации под карточкой той же услуги. */
+const manualEditor: Target = (doc) => {
+  const editor = typeof serviceEditor === "function" ? serviceEditor(doc) : null;
+  return editor?.parentElement?.querySelector("form:not(:first-of-type)") ??
+    [...doc.querySelectorAll("form")].find(
+      (form) => isVisible(form) && form.querySelector("h4")?.textContent?.includes("AI-консультация"),
+    );
+};
+
+async function openServiceEditor(c: SceneCtx, animated = true) {
+  await openTab(c, "services", true);
+  const editor = typeof serviceEditor === "function" ? serviceEditor(c.doc) : null;
+  if (editor?.querySelector('input[name="title"]')) return;
+  if (animated) {
+    await c.tap(button("Редактировать", serviceEditor), { click: true });
+  } else {
+    c.click(button("Редактировать", serviceEditor));
+  }
+  await c.wait(600);
+}
+
+/** Сообщение «сохранено» внизу демо-страницы — подсвечиваем его, чтобы было видно ответ. */
+async function showSaved(c: SceneCtx) {
+  await c.wait(350);
+  await c.focus("[data-demo-toast]");
+  await c.wait(1800);
+}
+
 /** Сначала поле, через паузу — следующее: два связанных параметра в одном шаге. */
 async function focusPair(c: SceneCtx, first: string, second: string) {
   await c.focus(field(first));
@@ -119,7 +190,7 @@ const scenes: Scene[] = [
     chapter: 0,
     frame: "settings",
     title: "О мастере",
-    text: "Имя, ниша, город, точный адрес и пара слов о себе — это шапка твоей страницы записи. Часовой пояс для записей и уведомлений определится по городу сам.",
+    text: "Имя, ниша, город, точный адрес и пара слов о себе — это шапка твоей страницы записи.",
     ms: 9000,
     run: async (c) => {
       await openTab(c, "profile");
@@ -159,11 +230,29 @@ const scenes: Scene[] = [
     chapter: 1,
     frame: "settings",
     title: "Дни и часы приёма",
-    text: "Отметь рабочие дни и часы. Свободные окна на странице записи появляются только внутри них.",
-    ms: 8000,
+    text: "Отметь рабочие дни и часы: например, в понедельник работаешь до 19:00, а субботу делаешь выходным. После «Сохранить» свободные окна на странице записи пересчитаются.",
+    ms: 16000,
     run: async (c) => {
       await openTab(c, "schedule");
+      // При повторе шага возвращаем исходное расписание без анимации.
+      const saturday = c.doc.querySelector<HTMLInputElement>('input[name="active_6"]');
+      if (saturday && !saturday.checked) {
+        c.click((doc) => doc.querySelector('input[name="active_6"]')?.parentElement?.querySelector("button"));
+      }
+      await c.setValue('input[name="end_1"]', "18:00");
+
       await c.focus(card("Рабочие дни и часы"));
+      await c.wait(1400);
+      await c.tap('input[name="end_1"]');
+      await c.setValue('input[name="end_1"]', "19:00");
+      await c.wait(900);
+      await c.tap(
+        (doc) => doc.querySelector('input[name="active_6"]')?.parentElement?.querySelector("button"),
+        { click: true },
+      );
+      await c.wait(900);
+      await c.tap(button("Сохранить расписание"), { click: true });
+      await showSaved(c);
     },
   },
   {
@@ -171,9 +260,26 @@ const scenes: Scene[] = [
     chapter: 1,
     frame: "schedule",
     title: "Разовые блокировки",
-    text: "Обед, отпуск, закупка: заблокируй время в разделе «Расписание» — и оно пропадёт со страницы записи.",
-    ms: 8000,
-    run: (c) => c.focus(card("Ручные блокировки")),
+    text: "Обед, отпуск, закупка: выбери дату и время, добавь причину — и это время пропадёт со страницы записи.",
+    ms: 16000,
+    run: async (c) => {
+      const inTwoDays = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+      await c.setValue('input[name="reason"], textarea[name="reason"]', "");
+      await c.focus(card("Ручные блокировки"));
+      await c.wait(1200);
+      await c.tap('input[name="date"]');
+      await c.setValue('input[name="date"]', inTwoDays);
+      await c.wait(500);
+      await c.tap('input[name="startTime"]');
+      await c.setValue('input[name="startTime"]', "14:00");
+      await c.setValue('input[name="endTime"]', "15:00");
+      await c.wait(500);
+      await c.tap('input[name="reason"], textarea[name="reason"]');
+      await c.type('input[name="reason"], textarea[name="reason"]', "Обед");
+      await c.wait(400);
+      await c.tap(button("Заблокировать время"), { click: true });
+      await showSaved(c);
+    },
   },
 
   // Глава 3 — услуги.
@@ -186,7 +292,26 @@ const scenes: Scene[] = [
     ms: 8000,
     run: async (c) => {
       await openTab(c, "services");
+      // При повторе шага карточка могла остаться раскрытой.
+      const editor = typeof serviceEditor === "function" ? serviceEditor(c.doc) : null;
+      if (editor?.querySelector('input[name="title"]')) c.click(button("Свернуть", serviceEditor));
       await c.focus(card("Услуги"));
+    },
+  },
+  {
+    id: "kb-service-card",
+    chapter: 2,
+    frame: "settings",
+    title: "Карточка услуги",
+    text: "Нажми «Редактировать» — карточка раскроется: название, описание, длительность, цена, через сколько дней повторить и предоплата.",
+    ms: 11000,
+    run: async (c) => {
+      await openServiceEditor(c);
+      await c.focus(serviceEditor);
+      await c.wait(2200);
+      await c.focus(field("Длительность"));
+      await c.wait(1600);
+      await c.focus(field("Цена"));
     },
   },
   {
@@ -197,7 +322,7 @@ const scenes: Scene[] = [
     text: "Через сколько дней услугу можно повторить. Клиент сможет отметить напоминание при записи, а консультант — предложить время после этого срока.",
     ms: 9000,
     run: async (c) => {
-      await openTab(c, "services");
+      await openServiceEditor(c, false);
       await c.focus(field("Повторный визит через"));
     },
   },
@@ -206,11 +331,66 @@ const scenes: Scene[] = [
     chapter: 2,
     frame: "settings",
     title: "Предоплата",
-    text: "Клиент вносит предоплату при записи через ЮKassa. Магазин подключается здесь, а нужна ли предоплата — решаешь для каждой услуги.",
-    ms: 8500,
+    text: "Предоплату включаешь для конкретной услуги — суммой или процентом, клиент вносит её при записи. Для этого один раз подключи ЮKassa в блоке «Приём предоплаты».",
+    ms: 10000,
     run: async (c) => {
-      await openTab(c, "services");
+      await openServiceEditor(c, false);
+      await c.focus(inside(serviceEditor, "Предоплата"));
+      await c.wait(2600);
       await c.focus(card("Приём предоплаты"));
+    },
+  },
+  {
+    id: "kb-manual",
+    chapter: 2,
+    frame: "settings",
+    title: "AI-консультант",
+    text: "Консультант отвечает клиентам на вопросы об услуге — строго по мануалу, который пишешь ты: сроки, уход, противопоказания. Чего в мануале нет, на то он ответит «не знаю».",
+    ms: 22000,
+    run: async (c) => {
+      await openServiceEditor(c, false);
+      const content = 'textarea[name="content"]';
+      if (!c.doc.querySelector(content)) {
+        await c.tap(button("Настроить", manualEditor), { click: true });
+        await c.wait(600);
+      }
+      await c.setValue(content, "");
+      const agree = c.doc.querySelector<HTMLInputElement>('input[name="confirmed"]');
+      if (agree?.checked) c.click('input[name="confirmed"]');
+
+      await c.focus(manualEditor);
+      await c.wait(900);
+      await c.tap(content);
+      await c.type(content, demoConsultantManual, { fast: true });
+      await c.wait(600);
+      await c.tap('input[name="confirmed"]', { click: true });
+      await c.wait(500);
+      await c.tap(button("Сохранить и подтвердить", manualEditor), { click: true });
+      await showSaved(c);
+    },
+  },
+  {
+    id: "kb-consultant",
+    chapter: 2,
+    frame: "settings",
+    companion: "client",
+    companionLabel: "Так видит клиент",
+    title: "Вопрос от клиента",
+    text: "У услуги появляется кнопка «Задать вопрос». Клиент спрашивает — консультант отвечает по твоему мануалу в любое время, пока ты работаешь.",
+    ms: 22000,
+    run: async (c) => {
+      const client = c.client;
+      if (!client) return;
+      await client.focus('[data-demo-id="services"] article');
+      await client.wait(900);
+      await client.tap(button("Задать вопрос"), { click: true });
+      await client.wait(800);
+      await client.tap('[role="dialog"] textarea');
+      await client.type('[role="dialog"] textarea', demoConsultantQuestion);
+      await client.wait(400);
+      await client.tap('[role="dialog"] button[type="submit"]', { click: true });
+      await client.focus('[role="dialog"]');
+      await client.wait(3600);
     },
   },
 
@@ -308,11 +488,19 @@ const scenes: Scene[] = [
     chapter: 5,
     frame: "settings",
     title: "Бот в Telegram",
-    text: "Бот пишет о новых записях и напоминает о визитах. Из чата видно расписание на сегодня и неделю, а запись можно отменить, не заходя в кабинет.",
-    ms: 9500,
+    text: "Бот пишет о новых записях и напоминает о визитах, из чата видно расписание на сегодня и неделю. Нажми «Проверить связь» — бот сразу пришлёт сообщение.",
+    ms: 14000,
     run: async (c) => {
       await openSection(c, "telegram");
       await c.focus(card("Telegram-уведомления"));
+      await c.wait(1600);
+      await c.tap(button("Проверить связь"), { click: true });
+      await c.wait(900);
+      await c.notify({
+        app: "Telegram",
+        title: "okno",
+        text: "Проверка связи: уведомления okno доходят до этого чата.",
+      });
     },
   },
   {
@@ -373,6 +561,7 @@ export const knowledgeBaseScript: TourScript = {
   frames: [
     { id: "settings", kind: "cabinet" },
     { id: "schedule", kind: "cabinet" },
+    { id: "client", kind: "profile", companion: true },
   ],
 };
 
