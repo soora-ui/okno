@@ -19,6 +19,7 @@ export function RoundedReveal({
 }: RoundedRevealProps) {
   const shouldReduceMotion = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
+  // 100 — десктопный отступ триггера; на мобильных хук сам ужимает его до 40.
   const revealed = useRevealed(ref, 100);
 
   // См. комментарий в Reveal: ветка на shouldReduceMotion меняла структуру DOM
