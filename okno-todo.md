@@ -92,9 +92,8 @@ CloudTips», а код (`src/lib/payments/tip-payment.ts`) по-прежнему
 - [ ] Deep-link на раздел (`/settings?tab=booking&section=certificates`) — для ссылок
       из поддержки. Открытый вопрос ТЗ, не решён
 - [ ] Запоминать последний открытый раздел на десктопе (localStorage). Открытый вопрос ТЗ
-- [ ] **Дашборд `/dashboard`**: блок «Быстрые действия» перенести из правой колонки в левую,
-      последним после «Быстрый доступ к своей странице» (ТЗ п. 7). Сейчас всё ещё справа —
-      `src/app/(cabinet)/dashboard/page.tsx`
+- [x] **Дашборд `/dashboard`**: «Быстрые действия» перенесены в левую колонку последним
+      блоком (ТЗ п. 7)
 
 ## 7. Scroll-анимации на лендинге — сделано
 
@@ -102,8 +101,8 @@ CloudTips», а код (`src/lib/payments/tip-payment.ts`) по-прежнему
 футер без анимации, `prefers-reduced-motion` учтён, `useRevealed` страхует от потери
 блоков при быстрой прокрутке.
 
-- [ ] На мобильных триггер должен быть `-40px`, сейчас `useRevealed` везде использует
-      offset 80 (`src/components/ui/use-revealed.ts`)
+- [x] На мобильных (<768px) триггер 40px, на десктопе прежние 80/100. Ширина читается
+      внутри эффекта на каждую проверку — поворот телефона подхватывается
 
 ## 8. Безопасность — остаток от аудита
 
@@ -120,8 +119,42 @@ open redirect.
 слотом в `PublicProfileView`, пустые состояния в расписании/команде/публичной странице.
 
 - [ ] `src/components/settings/settings-tabs.tsx:328` — кнопка «Удалить аккаунт» без обработчика
-- [ ] `src/app/[username]/confirm/page.tsx:109` — `<TipForm>` показывается даже для
-      неоплаченных (`pending_payment`) и отменённых записей
-- [ ] Мёртвый код: `src/components/dashboard/nav-tabs.tsx` нигде не импортируется;
-      ветка `mode === "demo"` в `src/components/booking/booking-flow.tsx` при живущей
-      отдельно 439-строчной копии `src/app/demo/public-page/book/page.tsx`
+- [x] `<TipForm>` на странице подтверждения — только за состоявшийся визит:
+      правило в `isTipAllowed` (`src/lib/tips.ts`), читают и страница, и `startTipPayment`
+- [x] `src/components/dashboard/nav-tabs.tsx` удалён — не импортировался ниоткуда
+- [ ] Ветка `mode === "demo"` в `src/components/booking/booking-flow.tsx` и отдельная
+      439-строчная копия `src/app/demo/public-page/book/page.tsx` — дубль остаётся.
+      Готовое решение лежит в ветке `claude/silly-nobel-f0ddbf` (копия выброшена, демо
+      переиспользует `BookingFlow`), но оно ломает демо-тур: `src/app/demo/tour/page.tsx`
+      передаёт в кадры `step` и `view=tour`, которых новая страница не читает. Сливать
+      вместе с правкой тура
+
+## 10. Готовая работа в ветках (не слито)
+
+Задачи от 16.09.2026 были выполнены, но не закоммичены — работа сохранена
+WIP-коммитами в своих ветках 03.10.2026. Ничего из этого не проверялось: ни линта,
+ни сборки, ни тестов. Все ветки сидят на `f2fc473`, с тех пор в основной ветке
+появились демо-тур, база знаний и `data-tour-*` атрибуты — ребейз обязателен.
+
+Слито:
+
+- [x] `claude/relaxed-chatterjee-5204c8` — блок дашборда
+- [x] `claude/zealous-wright-1e9efa` — чаевые на подтверждении
+- [x] `claude/keen-lewin-61a040` — порог reveal
+- [x] `claude/silly-nobel-f0ddbf` — частично: только удаление `nav-tabs`
+
+Ждут разбора, по возрастанию риска конфликта:
+
+- [ ] `claude/elegant-meninsky-b387be` — удаление аккаунта (6 файлов, с тестами)
+- [ ] `claude/sleepy-swirles-20ee7c` — рейтинг: порог отмены + бейдж (6 файлов)
+- [ ] `claude/inspiring-herschel-4d610f` — Turnstile (10 файлов, + `docs/turnstile-setup.md`)
+- [ ] `claude/relaxed-brattain-66019c` — выпил legacy + миграция drop колонки (12 файлов)
+- [ ] `claude/hungry-gagarin-601a73` — апгрейд тарифа с зачётом (15 файлов, с тестами)
+- [ ] `claude/youthful-wilson-01a731` — deep-link разделов (13 файлов). **Конфликт
+      гарантирован**: правит `record-section-nav.tsx` и `settings-tabs.tsx`, куда легли
+      `data-tour-*` для базы знаний
+- [ ] `claude/fervent-bhabha-04bf8c` — лист ожидания (28 файлов, 1646 строк, с миграцией
+      и тестами). Самая большая, трогает `slots.ts`, `booking-flow.tsx`, уведомления
+- [ ] `claude/loving-mccarthy-17b77e` — апрельский `migrate-phone-encryption.mjs` (201
+      строка). В основном дереве скрипта нет, а по чек-листу миграция нешифрованных
+      телефонов не прогнана
