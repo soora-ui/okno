@@ -8,7 +8,13 @@ import {
   visible,
   type Target,
 } from "@/components/tour/tour-helpers";
-import { demoConsultantManual, demoConsultantQuestion } from "@/lib/tour-demo-content";
+import {
+  demoCertificateBuyerEmail,
+  demoCertificateDenominations,
+  demoCertificateDesign,
+  demoConsultantManual,
+  demoConsultantQuestion,
+} from "@/lib/tour-demo-content";
 
 // База знаний в кабинете (/knowledge): по главе на каждый участок настроек.
 // Показываем на демо-кабинете (/demo/cabinet/*), поэтому сценарий может
@@ -104,6 +110,14 @@ const inside =
 
 const DEMO_SERVICE = "Накладки soft gel";
 
+const DESIGN_DIALOG = '[role="dialog"][aria-label="Дизайн сертификата"]';
+
+/** Форма номиналов и срока действия в разделе сертификатов. */
+const certificateSettingsForm: Target = (doc) =>
+  [...doc.querySelectorAll("form")].find(
+    (form) => isVisible(form) && form.querySelector('input[name="denominations"]'),
+  );
+
 /** Карточка услуги в настройках (форма редактирования). */
 const serviceEditor: Target = (doc) =>
   [...doc.querySelectorAll("form")].find(
@@ -174,7 +188,7 @@ const chapters = [
   {
     title: "Уведомления и сертификаты",
     short: "Telegram",
-    summary: "Бот в Telegram и продажа подарочных сертификатов.",
+    summary: "Бот в Telegram и подарочные сертификаты: от дизайна до покупки и погашения.",
   },
   {
     title: "Аккаунт",
@@ -504,16 +518,117 @@ const scenes: Scene[] = [
     },
   },
   {
-    id: "kb-certificates",
+    id: "kb-cert-settings",
     chapter: 5,
     frame: "settings",
-    title: "Подарочные сертификаты",
-    text: "Клиенты покупают сертификат прямо на твоей странице и оплачивают онлайн, а после оплаты скачивают PDF с QR-кодом.",
+    title: "Сертификаты: номиналы",
+    text: "Задай суммы, на которые клиенты смогут купить сертификат, и срок действия — или оставь бессрочными.",
+    ms: 14000,
+    run: async (c) => {
+      await openSection(c, "certificates");
+      await c.setValue('input[name="denominations"]', "");
+      await c.focus(card("Подарочные сертификаты"));
+      await c.wait(1400);
+      await c.tap('input[name="denominations"]');
+      await c.type('input[name="denominations"]', demoCertificateDenominations.join(", "));
+      await c.wait(500);
+      await c.tap(button("Сохранить", certificateSettingsForm), { click: true });
+      await showSaved(c);
+    },
+  },
+  {
+    id: "kb-cert-design",
+    chapter: 5,
+    frame: "settings",
+    title: "Дизайн сертификата",
+    text: "Выбери цвета, название студии и слоган — и нажми «Сгенерировать»: Claude соберёт шаблон сертификата формата A5 с QR-кодом.",
+    ms: 22000,
+    run: async (c) => {
+      await openSection(c, "certificates");
+      if (!c.doc.querySelector(DESIGN_DIALOG)) {
+        await c.tap(
+          (doc) =>
+            (button("Давай создадим") as (d: Document) => Element | undefined)(doc) ??
+            (button("Изменить дизайн") as (d: Document) => Element | undefined)(doc),
+          { click: true },
+        );
+        await c.wait(700);
+      }
+      await c.focus(DESIGN_DIALOG);
+      await c.wait(900);
+      await c.tap(`${DESIGN_DIALOG} input[name="primaryColor"]`);
+      await c.setValue(`${DESIGN_DIALOG} input[name="primaryColor"]`, demoCertificateDesign.primaryColor);
+      await c.setValue(`${DESIGN_DIALOG} input[name="secondaryColor"]`, demoCertificateDesign.secondaryColor);
+      await c.wait(500);
+      await c.tap(`${DESIGN_DIALOG} input[name="studioName"]`);
+      await c.type(`${DESIGN_DIALOG} input[name="studioName"]`, demoCertificateDesign.studioName);
+      await c.tap(`${DESIGN_DIALOG} input[name="tagline"]`);
+      await c.type(`${DESIGN_DIALOG} input[name="tagline"]`, demoCertificateDesign.tagline);
+      await c.wait(400);
+      await c.tap(`${DESIGN_DIALOG} form button[type="submit"]`, { click: true });
+      await c.focus(inside(DESIGN_DIALOG, "Генерирую", "p"));
+      await c.wait(2800);
+      await c.focus(`${DESIGN_DIALOG} [class*="aspect-[35/24]"]`);
+      await c.wait(2400);
+      await c.tap(`${DESIGN_DIALOG} button`, { click: true });
+      await c.wait(500);
+      await c.focus(inside(card("Подарочные сертификаты"), "Шаблон готов"));
+    },
+  },
+  {
+    id: "kb-cert-sale",
+    chapter: 5,
+    frame: "settings",
+    title: "Продажа на странице",
+    text: "Включи продажу — на твоей странице записи появится блок с сертификатами. Деньги за них приходят в твой магазин ЮKassa.",
     ms: 9000,
     run: async (c) => {
       await openSection(c, "certificates");
-      await c.focus(card("Подарочные сертификаты"));
+      const toggle = `[role="switch"]`;
+      const isOn = () => c.doc.querySelector(toggle)?.getAttribute("aria-checked") === "true";
+      if (isOn()) c.click(toggle);
+      await c.focus(toggle);
+      await c.wait(1000);
+      await c.tap(toggle, { click: true });
     },
+  },
+  {
+    id: "kb-cert-buy",
+    chapter: 5,
+    frame: "settings",
+    companion: "buyer",
+    companionLabel: "Так видит клиент",
+    title: "Покупка сертификата",
+    text: "Клиент выбирает сумму, оставляет почту и платит онлайн. Сразу после оплаты — сертификат с QR-кодом в PDF, его можно переслать в подарок.",
+    ms: 24000,
+    run: async (c) => {
+      const client = c.client;
+      if (!client) return;
+      await client.focus("[data-certificates]");
+      await client.wait(1000);
+      await client.tap("[data-certificates] button:nth-child(2)", { click: true });
+      await client.wait(800);
+      await client.tap('[role="dialog"] input[name="purchaserEmail"]');
+      await client.type('[role="dialog"] input[name="purchaserEmail"]', demoCertificateBuyerEmail);
+      await client.wait(400);
+      await client.tap('[role="dialog"] button[type="submit"]', { click: true });
+      await client.wait(700);
+      await client.focus("[data-demo-payment]");
+      await client.wait(1400);
+      await client.tap("[data-demo-payment] button", { click: true });
+      await client.wait(2400);
+      await client.focus('[role="dialog"]');
+      await client.wait(3500);
+    },
+  },
+  {
+    id: "kb-cert-redeem",
+    chapter: 5,
+    frame: "dashboard",
+    title: "Погашение",
+    text: "Когда человек придёт с сертификатом, отсканируй QR-код на главной: увидишь остаток и спишешь сумму за визит.",
+    ms: 8000,
+    run: (c) => c.focus(card("Погасить сертификат")),
   },
 
   // Глава 7 — аккаунт.
@@ -561,7 +676,9 @@ export const knowledgeBaseScript: TourScript = {
   frames: [
     { id: "settings", kind: "cabinet" },
     { id: "schedule", kind: "cabinet" },
+    { id: "dashboard", kind: "cabinet" },
     { id: "client", kind: "profile", companion: true },
+    { id: "buyer", kind: "profile", companion: true },
   ],
 };
 

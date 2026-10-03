@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Gift } from "lucide-react";
 import { CertificateDesignModal } from "@/components/settings/certificate-design-modal";
 import { CertificateSalesToggle } from "@/components/settings/certificate-sales-toggle";
@@ -11,6 +11,11 @@ import { maxCertificateTemplateRegenerations } from "@/lib/certificates/limits";
 import type { CertificateTemplateSummary } from "@/lib/data";
 import type { Profile } from "@/lib/mock-data";
 import type { SectionStatus } from "@/components/settings/record-section-nav";
+import {
+  DemoCertificatePreview,
+  type DemoCertificateDesign,
+} from "@/components/certificates/demo-certificate-preview";
+import { useDemoMode } from "@/components/tour/demo-mode";
 
 // Статусы см. okno-tz-certificates-ui-flow.md — «Не настроено»/«Черновик»
 // схлопнуты в warning (нет template_id), «Готово, но выключено» — в none
@@ -52,7 +57,13 @@ export function CertificateSection({
   yookassaConnected: boolean;
 }) {
   const [isModalOpen, setModalOpen] = useState(false);
-  const hasTemplate = Boolean(certificateTemplate);
+  const demo = useDemoMode();
+  // Демо-кабинет: дизайн «генерируется» в модалке и живёт только здесь.
+  const [demoDesign, setDemoDesign] = useState<DemoCertificateDesign | null>(null);
+  const handleDemoGenerated = useCallback((design: DemoCertificateDesign) => {
+    setDemoDesign(design);
+  }, []);
+  const hasTemplate = Boolean(certificateTemplate) || Boolean(demoDesign);
   const attemptsLeft = Math.max(
     0,
     maxCertificateTemplateRegenerations - (certificateTemplate?.regenerationCount ?? 0),
@@ -74,7 +85,11 @@ export function CertificateSection({
       <div className="overflow-hidden rounded-panel border border-line bg-panel p-4">
         {hasTemplate ? (
           <div className="flex flex-wrap items-center gap-4">
-            {certificateTemplate?.previewPngBase64 ? (
+            {demoDesign ? (
+              <div className="w-36 shrink-0 text-[6px]">
+                <DemoCertificatePreview design={demoDesign} masterName={profile.fullName} />
+              </div>
+            ) : certificateTemplate?.previewPngBase64 ? (
               // eslint-disable-next-line @next/next/no-img-element -- data: base64 превью, next/image его не оптимизирует
               <img
                 src={`data:image/png;base64,${certificateTemplate.previewPngBase64}`}
@@ -110,6 +125,7 @@ export function CertificateSection({
         hasTemplate={hasTemplate}
         yookassaConnected={yookassaConnected}
         onRequireDesign={() => setModalOpen(true)}
+        demo={demo}
       />
 
       <CertificateDesignModal
@@ -117,6 +133,7 @@ export function CertificateSection({
         onClose={() => setModalOpen(false)}
         profile={profile}
         certificateTemplate={certificateTemplate}
+        onDemoGenerated={handleDemoGenerated}
       />
     </Card>
   );

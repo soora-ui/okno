@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Download, Gift, X } from "lucide-react";
+import { CreditCard, Download, Gift, Loader2, X } from "lucide-react";
 import {
   purchaseGiftCertificateAction,
   type GiftCertificatePurchaseActionState,
@@ -12,6 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/mock-data";
 import type { Service } from "@/lib/mock-data";
+import {
+  DemoCertificatePreview,
+  type DemoCertificateDesign,
+} from "@/components/certificates/demo-certificate-preview";
 
 const initialState: GiftCertificatePurchaseActionState = {
   success: false,
@@ -31,6 +35,11 @@ type GiftCertificateWidgetProps = {
   // Suspense-обёртка ради одного виджета.
   returnedCertificateId?: string;
   returnedCertificateToken?: string;
+  /**
+   * Демо (тур базы знаний): покупка без ЮKassa и без записи в базу —
+   * оплата имитируется, а сертификат рисуется на странице.
+   */
+  demo?: { design: DemoCertificateDesign };
 };
 
 /**
@@ -98,7 +107,174 @@ function CertificateModal({
   );
 }
 
-export function GiftCertificateWidget({
+export function GiftCertificateWidget(props: GiftCertificateWidgetProps) {
+  return props.demo ? (
+    <DemoGiftCertificateWidget {...props} design={props.demo.design} />
+  ) : (
+    <LiveGiftCertificateWidget {...props} />
+  );
+}
+
+function CertificateShowcase({
+  denominations,
+  onPick,
+}: {
+  denominations: number[];
+  onPick: (amount: number) => void;
+}) {
+  return (
+    <>
+      <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
+        Подарочные сертификаты
+      </p>
+
+      <div data-certificates className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {denominations.map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onPick(value)}
+            className="card-hover flex flex-col items-center justify-center gap-3 rounded-section border border-transparent px-6 py-10 text-center transition active:scale-[0.98]"
+            style={{ backgroundColor: "var(--color-accent-soft)" }}
+          >
+            <span className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+              {formatCurrency(value)}
+            </span>
+            <span className="text-sm font-medium uppercase tracking-[0.18em] text-accent-deep">
+              Купить
+            </span>
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function DemoGiftCertificateWidget({
+  masterName,
+  denominations,
+  services,
+  design,
+}: GiftCertificateWidgetProps & { design: DemoCertificateDesign }) {
+  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
+  const [step, setStep] = useState<"form" | "paying" | "processing" | "paid">("form");
+  const [email, setEmail] = useState("");
+
+  const serviceOptions = [
+    { value: "", label: "На любую услугу" },
+    ...services.map((service) => ({ value: service.id, label: service.title })),
+  ];
+
+  const close = () => {
+    setSelectedAmount(null);
+    setStep("form");
+  };
+
+  const pay = () => {
+    setStep("processing");
+    setTimeout(() => setStep("paid"), 1600);
+  };
+
+  return (
+    <div className="space-y-6">
+      <CertificateShowcase denominations={denominations} onPick={setSelectedAmount} />
+
+      {selectedAmount !== null ? (
+        <CertificateModal
+          title={step === "paid" ? "Сертификат оплачен" : `Сертификат на ${formatCurrency(selectedAmount)}`}
+          titleId="certificate-demo-title"
+          onClose={close}
+        >
+          {step === "form" ? (
+            <form
+              className="space-y-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setEmail(String(new FormData(event.currentTarget).get("purchaserEmail") ?? ""));
+                setStep("paying");
+              }}
+            >
+              {services.length > 0 ? (
+                <Select label="Услуга" name="serviceId" options={serviceOptions} />
+              ) : null}
+              <Input
+                label="Почта"
+                name="purchaserEmail"
+                type="email"
+                inputMode="email"
+                required
+                placeholder="you@example.com"
+              />
+              <button
+                type="submit"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-medium text-ink-contrast transition active:scale-[0.98]"
+              >
+                Оплатить {formatCurrency(selectedAmount)}
+              </button>
+            </form>
+          ) : step === "paid" ? (
+            <div className="space-y-4">
+              <div className="text-[13px]">
+                <DemoCertificatePreview
+                  design={design}
+                  masterName={masterName}
+                  amount={selectedAmount}
+                  code="OKNO-5K7Q-2M"
+                />
+              </div>
+              <p className="text-sm leading-6 text-ink-soft">
+                На сертификате QR-код — {masterName} отсканирует его при погашении. Файл
+                можно переслать тому, кому даришь.
+              </p>
+              <button
+                type="button"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-medium text-ink-contrast"
+              >
+                <Download size={16} />
+                Скачать сертификат (PDF)
+              </button>
+            </div>
+          ) : (
+            <div data-demo-payment className="space-y-4">
+              <div className="space-y-3 rounded-panel border border-line bg-panel p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-ink">
+                  <CreditCard size={16} />
+                  Оплата картой
+                </div>
+                <div className="rounded-field border border-line bg-surface px-3 py-2.5 font-mono text-sm text-ink">
+                  2200 •••• •••• 4242
+                </div>
+                <div className="grid grid-cols-2 gap-3 font-mono text-sm text-ink">
+                  <div className="rounded-field border border-line bg-surface px-3 py-2.5">12 / 29</div>
+                  <div className="rounded-field border border-line bg-surface px-3 py-2.5">•••</div>
+                </div>
+                {email ? <p className="text-xs text-muted">Чек придёт на {email}</p> : null}
+              </div>
+              <button
+                type="button"
+                onClick={pay}
+                disabled={step === "processing"}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-medium text-ink-contrast transition active:scale-[0.98] disabled:opacity-80"
+              >
+                {step === "processing" ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Проводим оплату…
+                  </>
+                ) : (
+                  `Оплатить ${formatCurrency(selectedAmount)}`
+                )}
+              </button>
+              <p className="text-center text-xs text-muted">Это демо — деньги не списываются</p>
+            </div>
+          )}
+        </CertificateModal>
+      ) : null}
+    </div>
+  );
+}
+
+function LiveGiftCertificateWidget({
   username,
   masterName,
   denominations,
@@ -178,28 +354,7 @@ export function GiftCertificateWidget({
 
   return (
     <div className="space-y-6">
-      <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
-        Подарочные сертификаты
-      </p>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {denominations.map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setSelectedAmount(value)}
-            className="card-hover flex flex-col items-center justify-center gap-3 rounded-section border border-transparent px-6 py-10 text-center transition active:scale-[0.98]"
-            style={{ backgroundColor: "var(--color-accent-soft)" }}
-          >
-            <span className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-              {formatCurrency(value)}
-            </span>
-            <span className="text-sm font-medium uppercase tracking-[0.18em] text-accent-deep">
-              Купить
-            </span>
-          </button>
-        ))}
-      </div>
+      <CertificateShowcase denominations={denominations} onPick={setSelectedAmount} />
 
       {selectedAmount !== null ? (
         <CertificateModal

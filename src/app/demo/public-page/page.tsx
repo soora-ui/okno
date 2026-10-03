@@ -5,13 +5,20 @@ import {
   landingDemoProfile,
   landingDemoServices,
 } from "@/lib/landing-demo";
-import { demoConsultantReply } from "@/lib/tour-demo-content";
+import {
+  demoCertificateDenominations,
+  demoCertificateDesign,
+  demoConsultantReply,
+} from "@/lib/tour-demo-content";
+import { GiftCertificateWidget } from "@/components/public/gift-certificate-widget";
 
 type DemoPublicPageProps = {
   searchParams: Promise<{
     tour?: string;
     /** consultant=1 — у первой услуги кнопка консультанта с демо-ответом (база знаний). */
     consultant?: string;
+    /** certificates=1 — блок подарочных сертификатов с демо-покупкой (база знаний). */
+    certificates?: string;
   }>;
 };
 
@@ -35,6 +42,17 @@ export default async function DemoPublicPage({ searchParams }: DemoPublicPagePro
       guidedDemoCleanHref="/demo/public-page?tour=off"
       tourThemeBridge={!guidedDemo}
       consultantServiceIds={consultantServiceId ? [consultantServiceId] : undefined}
+      certificateSlot={
+        params.certificates === "1" ? (
+          <GiftCertificateWidget
+            username={landingDemoProfile.username}
+            masterName={landingDemoProfile.fullName}
+            denominations={demoCertificateDenominations}
+            services={landingDemoServices}
+            demo={{ design: demoCertificateDesign }}
+          />
+        ) : undefined
+      }
       consultantDemoReplies={
         consultantServiceId ? { [consultantServiceId]: demoConsultantReply } : undefined
       }

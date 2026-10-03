@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check } from "lucide-react";
+import { DEMO_SUBMIT_EVENT } from "@/components/tour/demo-mode";
 
 type Toast = { key: number; title: string };
 
@@ -31,6 +32,13 @@ export function DemoCabinetGuard() {
     const onSubmit = (event: SubmitEvent) => {
       event.preventDefault();
       event.stopImmediatePropagation();
+      const form = event.target as HTMLFormElement;
+      // Компоненту с собственным демо-поведением (генерация дизайна)
+      // сообщаем, что его форму «отправили»; плашку он покажет сам.
+      form.dispatchEvent(
+        new CustomEvent(DEMO_SUBMIT_EVENT, { detail: { submitter: event.submitter } }),
+      );
+      if (form.hasAttribute("data-demo-silent")) return;
       setToast({ key: Date.now(), title: toastFor(event.submitter) });
     };
     window.addEventListener("submit", onSubmit, true);

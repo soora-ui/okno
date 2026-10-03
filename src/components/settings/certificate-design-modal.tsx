@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import {
   generateCertificateTemplateAction,
   previewCertificateTemplateAction,
@@ -29,6 +29,11 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DemoCertificatePreview,
+  type DemoCertificateDesign,
+} from "@/components/certificates/demo-certificate-preview";
+import { DEMO_SUBMIT_EVENT, useDemoMode } from "@/components/tour/demo-mode";
 
 // Модалка дизайна сертификата (okno-tz-certificates.md 3.1 + окно
 // okno-tz-certificates-ui-flow.md, п.4). Открывается и кнопкой "Давай
@@ -98,13 +103,22 @@ export function CertificateDesignModal({
   onClose,
   profile,
   certificateTemplate,
+  onDemoGenerated,
 }: {
   isOpen: boolean;
   onClose: () => void;
   profile: Profile;
   certificateTemplate: CertificateTemplateSummary | null;
+  /** Демо-кабинет: «сгенерированный» дизайн уходит в раздел вместо сервера. */
+  onDemoGenerated?: (design: DemoCertificateDesign) => void;
 }) {
   const router = useRouter();
+  const demo = useDemoMode();
+  const generateFormRef = useRef<HTMLFormElement>(null);
+  // Демо: генерация — это пауза и превью, нарисованное на странице. Claude и
+  // сервер в демо-кабинете не участвуют (proxy их туда и не пустит).
+  const [demoPhase, setDemoPhase] = useState<"idle" | "generating" | "done">("idle");
+  const [demoDesign, setDemoDesign] = useState<DemoCertificateDesign | null>(null);
   const shouldReduceMotion = useReducedMotion();
   const inputRef = useRef<HTMLInputElement>(null);
   const [generateState, generateAction] = useActionState(
@@ -168,7 +182,8 @@ export function CertificateDesignModal({
     previewState.regenerationCount ??
     certificateTemplate?.regenerationCount ??
     0;
-  const hasTemplate = Boolean(certificateTemplate) || generateState.success;
+  const hasTemplate =
+    Boolean(certificateTemplate) || generateState.success || demoPhase === "done";
   const attemptsLeft = Math.max(0, maxCertificateTemplateRegenerations - regenerationCount);
   const isLimitReached = hasTemplate && attemptsLeft === 0;
 
@@ -224,6 +239,32 @@ export function CertificateDesignModal({
       }
     }
   };
+
+  useEffect(() => {
+    const form = generateFormRef.current;
+    if (!demo || !isOpen || !form) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onDemoSubmit = () => {
+      const data = new FormData(form);
+      const design: DemoCertificateDesign = {
+        primaryColor: String(data.get("primaryColor") ?? primaryColor),
+        secondaryColor: String(data.get("secondaryColor") ?? secondaryColor),
+        studioName: String(data.get("studioName") ?? ""),
+        tagline: String(data.get("tagline") ?? ""),
+      };
+      setDemoPhase("generating");
+      timer = setTimeout(() => {
+        setDemoDesign(design);
+        setDemoPhase("done");
+        onDemoGenerated?.(design);
+      }, 2600);
+    };
+    form.addEventListener(DEMO_SUBMIT_EVENT, onDemoSubmit);
+    return () => {
+      form.removeEventListener(DEMO_SUBMIT_EVENT, onDemoSubmit);
+      if (timer) clearTimeout(timer);
+    };
+  }, [demo, isOpen, primaryColor, secondaryColor, onDemoGenerated]);
 
   const overlayTransition = { duration: shouldReduceMotion ? 0 : 0.2 };
   const panelTransition = {
@@ -288,7 +329,12 @@ export function CertificateDesignModal({
               </p>
 
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-                <form action={generateAction} className="space-y-4">
+                <form
+                  ref={generateFormRef}
+                  action={generateAction}
+                  data-demo-silent={demo || undefined}
+                  className="space-y-4"
+                >
                   <input type="hidden" name="logoPath" value={logoPath} />
 
                   <div className="space-y-2">
@@ -379,7 +425,19 @@ export function CertificateDesignModal({
 
                 <div className="space-y-3">
                   <div className="flex aspect-[35/24] items-center justify-center overflow-hidden rounded-panel border border-dashed border-line bg-surface">
-                    {previewSrc ? (
+                    {demoPhase === "generating" ? (
+                      <p className="flex items-center gap-2 px-4 text-center text-xs text-muted">
+                        <Loader2 size={14} className="animate-spin" />
+                        Генерирую дизайн…
+                      </p>
+                    ) : demoDesign ? (
+                      <DemoCertificatePreview
+                        design={demoDesign}
+                        masterName={profile.fullName}
+                        amount={Number(testAmount) || undefined}
+                        className="text-[15px]"
+                      />
+                    ) : previewSrc ? (
                       // eslint-disable-next-line @next/next/no-img-element -- data: base64 предпросмотр, next/image его не оптимизирует
                       <img src={previewSrc} alt="Превью сертификата" className="h-full w-full object-contain" />
                     ) : (
@@ -390,7 +448,11 @@ export function CertificateDesignModal({
                   </div>
 
                   {hasTemplate ? (
-                    <form action={previewAction} className="flex items-end gap-2">
+                    <form
+                      action={previewAction}
+                      data-demo-silent={demo || undefined}
+                      className="flex items-end gap-2"
+                    >
                       <Input
                         label="Тестовая сумма, руб."
                         name="testAmount"

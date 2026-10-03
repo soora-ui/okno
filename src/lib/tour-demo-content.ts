@@ -14,3 +14,16 @@ export const demoConsultantQuestion = "Можно в баню на следую�
 
 export const demoConsultantReply =
   "Лучше подождать: первые сутки после процедуры руки не распаривают — без бани, сауны и горячей ванны. Со второго дня уже можно. А сами накладки держатся 3–4 недели, на коррекцию мастер советует прийти через три.";
+
+// Подарочные сертификаты: номиналы и дизайн, которые сценарий вводит в
+// настройках, совпадают с тем, что клиент видит на втором телефоне.
+export const demoCertificateDenominations = [3000, 5000, 10000];
+
+export const demoCertificateDesign = {
+  primaryColor: "#6b2d3c",
+  secondaryColor: "#f7efe6",
+  studioName: "Студия Алины Мороз",
+  tagline: "Красота в деталях",
+};
+
+export const demoCertificateBuyerEmail = "anna@example.com";

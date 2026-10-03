@@ -1500,7 +1500,12 @@ function StoryBars({
   const width = useTransform(progress, (v) => `${v * 100}%`);
 
   return (
-    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${scenes.length}, 1fr)` }}>
+    // minmax(0, 1fr): длинное слово в подписи («сертификата») не распирает
+    // колонку — иначе последние шаги уезжают за край узкой колонки.
+    <div
+      className="grid gap-2"
+      style={{ gridTemplateColumns: `repeat(${scenes.length}, minmax(0, 1fr))` }}
+    >
       {scenes.map((s, i) => (
         <button
           key={s.id}
@@ -1518,7 +1523,7 @@ function StoryBars({
             ) : null}
           </span>
           <span
-            className={`hidden text-xs transition sm:block ${
+            className={`hidden text-xs transition [overflow-wrap:anywhere] [hyphens:auto] sm:block ${
               i === active ? "text-ink" : "text-muted group-hover:text-ink-soft"
             }`}
           >

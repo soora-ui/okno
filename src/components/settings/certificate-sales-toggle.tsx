@@ -20,11 +20,14 @@ export function CertificateSalesToggle({
   hasTemplate,
   yookassaConnected,
   onRequireDesign,
+  demo = false,
 }: {
   enabled: boolean;
   hasTemplate: boolean;
   yookassaConnected: boolean;
   onRequireDesign: () => void;
+  /** Демо-кабинет тура: переключаем на месте, без ЮKassa и без запроса. */
+  demo?: boolean;
 }) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [pending, startTransition] = useTransition();
@@ -43,6 +46,11 @@ export function CertificateSalesToggle({
     const next = !enabled;
     setMessage("");
     setNeedsYooKassa(false);
+
+    if (demo) {
+      setEnabled(next);
+      return;
+    }
 
     // Включить продажу без подключенной ЮKassa нельзя — не бьём по API,
     // сразу показываем ошибку и кнопку подключения.
