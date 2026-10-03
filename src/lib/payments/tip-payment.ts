@@ -4,7 +4,7 @@ import { logError } from "@/lib/observability/logger";
 import { createYooKassaPayment } from "@/lib/payments/yookassa";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseMissingTableError } from "@/lib/supabase/auth-errors";
-import { isValidTipAmount } from "@/lib/tips";
+import { isTipAllowed, isValidTipAmount } from "@/lib/tips";
 import { env } from "@/lib/env";
 
 // Ядро оплаты чаевых: создаёт строку у себя и платёж в ЮKassa, возвращает
@@ -37,7 +37,7 @@ export async function startTipPayment(input: {
 
   const { data: bookingRow, error: bookingError } = await admin
     .from("bookings")
-    .select("id, profile_id")
+    .select("id, profile_id, status, starts_at")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -48,6 +48,22 @@ export async function startTipPayment(input: {
 
   if (!bookingRow) {
     return { ok: false, message: "Запись не найдена." };
+  }
+
+  // Только за состоявшийся визит (правила — в isTipAllowed). UI прячет форму
+  // по тем же правилам, но bookingId приходит из формы, и подставить
+  // чужой/будущий/отменённый — дело одной правки в devtools, поэтому граница
+  // здесь, а не на странице.
+  if (
+    !isTipAllowed({
+      status: String(bookingRow.status ?? ""),
+      startsAtIso: String(bookingRow.starts_at ?? ""),
+    })
+  ) {
+    return {
+      ok: false,
+      message: "Чаевые можно оставить только за подтверждённую и уже состоявшуюся запись.",
+    };
   }
 
   const profileId = String(bookingRow.profile_id);

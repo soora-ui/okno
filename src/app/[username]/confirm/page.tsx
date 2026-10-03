@@ -10,6 +10,7 @@ import { bookingThemeAttr } from "@/lib/booking-theme-presets";
 import { getBookingConfirmationData } from "@/lib/data";
 import { isTelegramBotConfigured } from "@/lib/env";
 import { detectCalendarPlatformFromUserAgent } from "@/lib/ics";
+import { isTipAllowed } from "@/lib/tips";
 
 type ConfirmPageProps = {
   params: Promise<{ username: string }>;
@@ -52,6 +53,15 @@ export default async function ConfirmPage({
     : isCancelled
       ? "Запись отменена"
       : "Запись подтверждена";
+
+  // Чаевые — только за состоявшийся визит: не отменённая, не pending_payment
+  // и уже начавшаяся запись (почему именно так — в isTipAllowed). Это лишь UI:
+  // ту же проверку делает startTipPayment на сервере.
+  const canTip =
+    !isCancelled &&
+    !isPendingPayment &&
+    Boolean(booking.bookingId) &&
+    isTipAllowed({ status: booking.status, startsAtIso: booking.startsAtIso });
 
   const description = isPendingPayment
     ? `${booking.clientName}, мы получили запрос на оплату предоплаты. Как только ЮKassa подтвердит платёж, запись станет подтверждённой — обнови страницу через минуту.`
@@ -106,7 +116,7 @@ export default async function ConfirmPage({
                 telegramAvailable={isTelegramBotConfigured}
               />
             ) : null}
-            <TipForm bookingId={booking.bookingId} />
+            {canTip ? <TipForm bookingId={booking.bookingId} /> : null}
             <div className="flex flex-wrap justify-center gap-3">
               {cancelToken && !isCancelled ? (
                 <ButtonLink href={`/cancel/${cancelToken}`} variant="secondary">
