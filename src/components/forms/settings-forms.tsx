@@ -212,18 +212,6 @@ export function BookingPreferencesForm({ profile }: { profile: Profile }) {
           }
         />
         <ParameterField
-          label="Перерыв после записи"
-          unit="минут"
-          name="bufferMinutes"
-          defaultValue={String(profile.bufferMinutes)}
-          description="Дополнительное время после клиента, чтобы не ставить записи вплотную."
-          example={(minutes) =>
-            minutes > 0
-              ? `${minutes} минут = визит закончился в 11:00 — следующий начнётся не раньше ${clockAfter("11:00", minutes)}.`
-              : "0 = следующий клиент может записаться сразу после окончания визита."
-          }
-        />
-        <ParameterField
           label="Отмена не позже"
           unit="часов до визита"
           name="cancellationNoticeHours"
@@ -828,6 +816,15 @@ export function ServicesSettingsForm({
           <UnitInput label="Цена" unit="₽" name="price" placeholder="1500" />
         </div>
         <UnitInput
+          label="Перерыв после визита"
+          unit="мин"
+          name="bufferMinutes"
+          defaultValue="15"
+          placeholder="Например, 15"
+          hint="Время после клиента на уборку и отдых — следующая запись начнётся не раньше. 0 — перерыв не нужен."
+          required={false}
+        />
+        <UnitInput
           label="Повторный визит через"
           unit="дн"
           name="repeatIntervalDays"
@@ -921,6 +918,15 @@ function ServiceEditor({
               defaultValue={String(service.price)}
             />
           </div>
+          <UnitInput
+            label="Перерыв после визита"
+            unit="мин"
+            name="bufferMinutes"
+            defaultValue={String(service.bufferMinutes)}
+            placeholder="Например, 15"
+            hint="Время после клиента на уборку и отдых — следующая запись начнётся не раньше. 0 — перерыв не нужен."
+            required={false}
+          />
           <UnitInput
             label="Повторный визит через"
             unit="дн"

@@ -44,7 +44,6 @@ const CONSULTANT_PROFILE_COLUMNS = [
   "monthly_booking_limit",
   "booking_window_days",
   "slot_interval_minutes",
-  "buffer_minutes",
   "cancellation_notice_hours",
   "client_reminder_hours",
   "master_reminder_hours",
@@ -65,6 +64,7 @@ const CONSULTANT_SERVICE_COLUMNS = [
   "is_active",
   "sort_order",
   "repeat_interval_days",
+  "buffer_minutes",
   "prepayment_type",
   "prepayment_value",
 ].join(",");
@@ -209,7 +209,7 @@ export async function getConsultantSlotsFrom(input: {
   const bookingsQuery = admin
     .from("bookings")
     .select(
-      "id, profile_id, client_id, service_id, status, starts_at, ends_at, created_at",
+      "id, profile_id, client_id, service_id, status, starts_at, ends_at, busy_until, created_at",
     )
     .eq("profile_id", input.profile.id)
     .in("status", ["confirmed", "pending_payment"]);

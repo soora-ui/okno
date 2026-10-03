@@ -15,6 +15,7 @@ import {
   phoneLast4,
 } from "@/lib/booking";
 import { checkBookingConflict } from "@/lib/booking-conflicts";
+import { mapService } from "@/lib/mappers/domain";
 import type { VisitStatus } from "@/lib/client-reliability";
 import { getCurrentAuthProfile } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -112,6 +113,7 @@ function hasMockConflict(input: {
   profileId: string;
   startsAtIso: string;
   endsAtIso: string;
+  // Перерыв услуги новой записи; у существующих записей — их busyUntil.
   bufferMinutes: number;
 }) {
   const candidateStart = DateTime.fromISO(input.startsAtIso, { zone: "utc" });
@@ -125,8 +127,8 @@ function hasMockConflict(input: {
     }
 
     const bookingStart = DateTime.fromISO(booking.startsAt, { zone: "utc" });
-    const bookingBusyEnd = DateTime.fromISO(booking.endsAt, { zone: "utc" }).plus({
-      minutes: input.bufferMinutes,
+    const bookingBusyEnd = DateTime.fromISO(booking.busyUntil || booking.endsAt, {
+      zone: "utc",
     });
 
     return candidateStart < bookingBusyEnd && candidateBusyEnd > bookingStart;
@@ -206,7 +208,7 @@ export async function createManualBookingAction(
         profileId: profile.id,
         startsAtIso,
         endsAtIso,
-        bufferMinutes: profile.bufferMinutes,
+        bufferMinutes: service.bufferMinutes,
       })
     ) {
       return { success: false, message: "Это время уже занято." };
@@ -243,6 +245,8 @@ export async function createManualBookingAction(
       status: "confirmed",
       startsAt: startsAtIso,
       endsAt: endsAtIso,
+      busyUntil:
+        getBusyUntilIso({ endsAtIso, bufferMinutes: service.bufferMinutes }) ?? endsAtIso,
       source: "manual",
       clientNote: parsed.data.note,
       cancellationToken: randomUUID().replace(/-/g, ""),
@@ -289,16 +293,16 @@ export async function createManualBookingAction(
     return { success: false, message: "Не получилось сохранить время записи." };
   }
 
-  const slotBusyEndIso = DateTime.fromISO(endsAtIso, { zone: "utc" })
-    .plus({ minutes: profile.bufferMinutes })
-    .toISO() ?? endsAtIso;
+  const serviceBufferMinutes = mapService(serviceRow).bufferMinutes;
+  const slotBusyEndIso =
+    getBusyUntilIso({ endsAtIso, bufferMinutes: serviceBufferMinutes }) ?? endsAtIso;
 
   const { hasConflict, error: conflictError } = await checkBookingConflict({
     client: supabase,
     profileId: profile.id,
     candidateStartIso: startsAtIso,
     candidateBusyEndIso: slotBusyEndIso,
-    bufferMinutes: profile.bufferMinutes,
+    bufferMinutes: serviceBufferMinutes,
   });
 
   if (conflictError) {
@@ -429,11 +433,7 @@ export async function createManualBookingAction(
       status: "confirmed",
       starts_at: startsAtIso,
       ends_at: endsAtIso,
-      busy_until:
-        getBusyUntilIso({
-          endsAtIso,
-          bufferMinutes: profile.bufferMinutes,
-        }) ?? slotBusyEndIso,
+      busy_until: slotBusyEndIso,
       source: "manual",
       client_note: parsed.data.note,
       cancellation_token_expires_at: cancellationDeadlineIso,

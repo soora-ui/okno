@@ -52,7 +52,6 @@ const profileSchema = z.object({
 const preferencesSchema = z.object({
   bookingWindowDays: z.coerce.number().min(1).max(365),
   slotIntervalMinutes: z.coerce.number().min(5).max(180),
-  bufferMinutes: z.coerce.number().min(0).max(180),
   cancellationNoticeHours: z.coerce.number().min(0).max(168),
   clientReminderHours: z.coerce.number().min(0).max(168),
   masterReminderHours: z.coerce.number().min(0).max(168),
@@ -359,7 +358,6 @@ export async function updateBookingPreferencesAction(
     .update({
       booking_window_days: parsed.data.bookingWindowDays,
       slot_interval_minutes: parsed.data.slotIntervalMinutes,
-      buffer_minutes: parsed.data.bufferMinutes,
       cancellation_notice_hours: parsed.data.cancellationNoticeHours,
       client_reminder_hours: parsed.data.clientReminderHours,
       master_reminder_hours: parsed.data.masterReminderHours,
@@ -827,6 +825,8 @@ const serviceSchema = z.object({
   // Пусто/0 — срок повторного визита не задан: ни напоминания клиенту, ни
   // предложения записаться повторно от AI-консультанта не будет.
   repeatIntervalDays: z.coerce.number().min(0).max(364).default(0),
+  // Перерыв после визита на эту услугу (раньше был один на мастера).
+  bufferMinutes: z.coerce.number().min(0).max(180).default(0),
   prepaymentType: z.enum(["none", "fixed", "percent"]).default("none"),
   prepaymentValue: z.coerce.number().min(0).default(0),
 });
@@ -894,6 +894,7 @@ export async function createServiceAction(
     repeat_interval_days: parsed.data.repeatIntervalDays > 0
       ? parsed.data.repeatIntervalDays
       : null,
+    buffer_minutes: parsed.data.bufferMinutes,
     prepayment_type: parsed.data.prepaymentType,
     prepayment_value: parsed.data.prepaymentValue,
   });
@@ -1001,6 +1002,7 @@ export async function updateServiceAction(
       repeat_interval_days: parsed.data.repeatIntervalDays > 0
         ? parsed.data.repeatIntervalDays
         : null,
+      buffer_minutes: parsed.data.bufferMinutes,
       prepayment_type: parsed.data.prepaymentType,
       prepayment_value: parsed.data.prepaymentValue,
     })

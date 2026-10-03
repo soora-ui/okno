@@ -38,7 +38,6 @@ export type Profile = {
   monthlyBookingsUsed: number;
   bookingWindowDays: number;
   slotIntervalMinutes: number;
-  bufferMinutes: number;
   cancellationNoticeHours: number;
   clientReminderHours: number;
   masterReminderHours: number;
@@ -72,6 +71,9 @@ export type Service = {
   // SMS-напоминание, и предложение записаться повторно, которое делает
   // AI-консультант, — чтобы клиент не получил от сервиса две разные даты.
   repeatIntervalDays: number | null;
+  // Перерыв после визита на эту услугу, минут: после одной услуги нужно
+  // время на уборку и отдых, после другой — нет. Раньше был один на мастера.
+  bufferMinutes: number;
   prepaymentType: PrepaymentType;
   prepaymentValue: number;
 };
@@ -119,6 +121,10 @@ export type Booking = {
   status: BookingStatus;
   startsAt: string;
   endsAt: string;
+  // Конец визита плюс перерыв его услуги — до этого момента время занято.
+  // Хранится в записи, а не пересчитывается: смена перерыва в услуге не
+  // должна задним числом двигать уже сделанные записи.
+  busyUntil: string;
   source: "public_page" | "manual";
   clientNote: string;
   cancellationToken: string;
@@ -211,7 +217,6 @@ export const profile: Profile = {
   monthlyBookingsUsed: 47,
   bookingWindowDays: 30,
   slotIntervalMinutes: 30,
-  bufferMinutes: 15,
   cancellationNoticeHours: 2,
   clientReminderHours: 24,
   masterReminderHours: 2,
@@ -238,6 +243,7 @@ export const services: Service[] = [
     isActive: true,
     sortOrder: 1,
     repeatIntervalDays: 21,
+    bufferMinutes: 15,
     prepaymentType: "none",
     prepaymentValue: 0,
   },
@@ -251,6 +257,7 @@ export const services: Service[] = [
     isActive: true,
     sortOrder: 2,
     repeatIntervalDays: 28,
+    bufferMinutes: 10,
     prepaymentType: "none",
     prepaymentValue: 0,
   },
@@ -286,6 +293,7 @@ export const bookings: Booking[] = [
     status: "confirmed",
     startsAt: "2026-04-03T08:30:00.000Z",
     endsAt: "2026-04-03T10:30:00.000Z",
+    busyUntil: "2026-04-03T10:45:00.000Z",
     source: "public_page",
     clientNote: "Если можно, приду на 10 минут позже.",
     cancellationToken: "cancel_1",
@@ -304,6 +312,7 @@ export const bookings: Booking[] = [
     status: "confirmed",
     startsAt: "2026-04-03T12:00:00.000Z",
     endsAt: "2026-04-03T12:45:00.000Z",
+    busyUntil: "2026-04-03T12:55:00.000Z",
     source: "public_page",
     clientNote: "У меня аллергия на один состав, расскажу на месте.",
     cancellationToken: "cancel_2",

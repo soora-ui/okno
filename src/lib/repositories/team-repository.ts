@@ -25,7 +25,6 @@ const TEAM_PROFILE_COLUMNS = [
   "monthly_booking_limit",
   "booking_window_days",
   "slot_interval_minutes",
-  "buffer_minutes",
   "cancellation_notice_hours",
   "client_reminder_hours",
   "master_reminder_hours",
@@ -51,6 +50,7 @@ const TEAM_SERVICE_COLUMNS = [
   "is_active",
   "sort_order",
   "repeat_interval_days",
+  "buffer_minutes",
   "prepayment_type",
   "prepayment_value",
 ].join(",");
@@ -63,6 +63,7 @@ const TEAM_BOOKING_COLUMNS = [
   "status",
   "starts_at",
   "ends_at",
+  "busy_until",
   "source",
   "client_note",
   "cancellation_token",

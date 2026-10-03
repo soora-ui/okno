@@ -350,7 +350,12 @@ export async function POST(request: Request) {
   const endsAt = new Date(
     startsAt.getTime() + Number(serviceRow.duration_minutes) * 60_000,
   );
-  const bufferMinutes = Number(profileRow.buffer_minutes ?? 0);
+  // Перерыв — услуги; перерыв мастера остался запасным на время, пока
+  // колонка services.buffer_minutes не появилась в базе (миграция 202610030001).
+  const bufferMinutes = Math.max(
+    0,
+    Number(serviceRow.buffer_minutes ?? profileRow.buffer_minutes ?? 0),
+  );
   const slotBusyEnd = new Date(endsAt.getTime() + bufferMinutes * 60_000);
 
   const { hasConflict, error: collisionError } = await checkBookingConflict({

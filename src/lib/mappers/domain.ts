@@ -57,7 +57,6 @@ export function mapProfile(row: Record<string, unknown>): Profile {
     monthlyBookingsUsed: Number(row.monthly_bookings_used ?? 0),
     bookingWindowDays: Number(row.booking_window_days ?? 30),
     slotIntervalMinutes: Number(row.slot_interval_minutes ?? 30),
-    bufferMinutes: Number(row.buffer_minutes ?? 15),
     cancellationNoticeHours: Number(row.cancellation_notice_hours ?? 2),
     clientReminderHours: Number(row.client_reminder_hours ?? 24),
     masterReminderHours: Number(row.master_reminder_hours ?? 2),
@@ -118,6 +117,7 @@ export function mapService(row: Record<string, unknown>) {
       row.repeat_interval_days === null || row.repeat_interval_days === undefined
         ? null
         : Number(row.repeat_interval_days),
+    bufferMinutes: Math.max(0, Number(row.buffer_minutes ?? 15)),
     prepaymentType: prepaymentType as "none" | "fixed" | "percent",
     prepaymentValue: Number(row.prepayment_value ?? 0),
   };
@@ -185,6 +185,7 @@ export function mapBooking(row: Record<string, unknown>) {
       | "pending_payment",
     startsAt: String(row.starts_at),
     endsAt: String(row.ends_at),
+    busyUntil: String(row.busy_until ?? row.ends_at),
     source,
     clientNote: String(row.client_note ?? ""),
     cancellationToken: String(row.cancellation_token ?? ""),

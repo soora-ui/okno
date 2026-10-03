@@ -103,15 +103,18 @@ export function buildBookingSlotsForService(input: {
       if (slotStart < now) continue;
 
       const slotEnd = slotStart.plus({ minutes: service.durationMinutes });
-      const slotBusyEnd = slotEnd.plus({ minutes: profile.bufferMinutes });
+      // Перерыв — у каждой услуги свой: новая запись занимает время до конца
+      // своего перерыва, а уже сделанная — до своего busy_until (там перерыв
+      // её услуги, зафиксированный на момент записи).
+      const slotBusyEnd = slotEnd.plus({ minutes: Math.max(0, service.bufferMinutes) });
 
       const intersectsBooking = futureBookings.some((booking) => {
         const bookingStart = DateTime.fromISO(booking.startsAt, { zone: "utc" }).setZone(
           profile.timezone,
         );
-        const bookingBusyEnd = DateTime.fromISO(booking.endsAt, { zone: "utc" })
-          .setZone(profile.timezone)
-          .plus({ minutes: profile.bufferMinutes });
+        const bookingBusyEnd = DateTime.fromISO(booking.busyUntil || booking.endsAt, {
+          zone: "utc",
+        }).setZone(profile.timezone);
 
         return overlaps(slotStart, slotBusyEnd, bookingStart, bookingBusyEnd);
       });

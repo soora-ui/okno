@@ -16,6 +16,7 @@ type BookingConflictRow = {
   id?: string;
   starts_at?: string;
   ends_at?: string;
+  busy_until?: string | null;
 };
 
 type BlockedSlotConflictRow = {
@@ -45,7 +46,10 @@ type ConflictCheckInput = {
   client: unknown;
   profileId: string;
   candidateStartIso: string;
+  // Конец новой записи вместе с перерывом её услуги.
   candidateBusyEndIso: string;
+  // Перерыв услуги новой записи. В проверке существующих записей не
+  // участвует — у них свой busy_until; остался для сигнатуры RPC.
   bufferMinutes: number;
   excludeBookingId?: string;
 };
@@ -70,18 +74,16 @@ async function checkBookingConflictFallback(
   const client = input.client as ConflictClient;
   const candidateStart = new Date(input.candidateStartIso);
   const candidateBusyEnd = new Date(input.candidateBusyEndIso);
-  const normalizedBufferMinutes = Math.max(input.bufferMinutes, 0);
-  const bookingEndThreshold = new Date(
-    candidateStart.getTime() - normalizedBufferMinutes * 60_000,
-  );
 
+  // Существующая запись занята до своего busy_until: там перерыв её услуги,
+  // а не услуги новой записи.
   let bookingsQuery = client
     .from("bookings")
-    .select("id, starts_at, ends_at")
+    .select("id, starts_at, ends_at, busy_until")
     .eq("profile_id", input.profileId)
     .in("status", ["confirmed", "pending_payment"])
     .lt("starts_at", input.candidateBusyEndIso)
-    .gt("ends_at", bookingEndThreshold.toISOString());
+    .gt("busy_until", input.candidateStartIso);
 
   if (input.excludeBookingId) {
     bookingsQuery = bookingsQuery.neq("id", input.excludeBookingId);
@@ -105,15 +107,13 @@ async function checkBookingConflictFallback(
   }
 
   const bookingConflict = (bookingResult.data ?? []).some(
-    (booking: { starts_at?: string; ends_at?: string }) => {
+    (booking: BookingConflictRow) => {
       if (!booking.starts_at || !booking.ends_at) {
         return false;
       }
 
       const bookingStart = new Date(booking.starts_at);
-      const bookingBusyEnd = new Date(
-        new Date(booking.ends_at).getTime() + normalizedBufferMinutes * 60_000,
-      );
+      const bookingBusyEnd = new Date(booking.busy_until ?? booking.ends_at);
 
       return overlaps(candidateStart, candidateBusyEnd, bookingStart, bookingBusyEnd);
     },

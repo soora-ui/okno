@@ -296,7 +296,7 @@ export async function rescheduleBookingByTokenAction(
 
   const { data: profileRow, error: profileError } = await admin
     .from("profiles")
-    .select("timezone, buffer_minutes, cancellation_notice_hours, username, telegram_chat_id, full_name, client_reminder_hours, master_reminder_hours")
+    .select("timezone, cancellation_notice_hours, username, telegram_chat_id, full_name, client_reminder_hours, master_reminder_hours")
     .eq("id", bookingRow.profile_id)
     .maybeSingle();
 
@@ -306,7 +306,7 @@ export async function rescheduleBookingByTokenAction(
 
   const { data: serviceRow, error: serviceError } = await admin
     .from("services")
-    .select("title, duration_minutes, repeat_interval_days")
+    .select("title, duration_minutes, repeat_interval_days, buffer_minutes")
     .eq("id", bookingRow.service_id)
     .maybeSingle();
 
@@ -356,17 +356,17 @@ export async function rescheduleBookingByTokenAction(
     };
   }
 
+  // Перерыв — услуги этой записи (раньше был общий у мастера).
+  const bufferMinutes = Math.max(0, Number(serviceRow.buffer_minutes ?? 0));
   const slotBusyEndIso =
-    DateTime.fromISO(nextEndIso, { zone: "utc" })
-      .plus({ minutes: Number(profileRow.buffer_minutes ?? 0) })
-      .toISO() ?? nextEndIso;
+    getBusyUntilIso({ endsAtIso: nextEndIso, bufferMinutes }) ?? nextEndIso;
 
   const { hasConflict, error: conflictError } = await checkBookingConflict({
     client: admin,
     profileId: String(bookingRow.profile_id),
     candidateStartIso: nextStartIso,
     candidateBusyEndIso: slotBusyEndIso,
-    bufferMinutes: Number(profileRow.buffer_minutes ?? 0),
+    bufferMinutes,
     excludeBookingId: String(bookingRow.id),
   });
 
@@ -391,11 +391,7 @@ export async function rescheduleBookingByTokenAction(
     .update({
       starts_at: nextStartIso,
       ends_at: nextEndIso,
-      busy_until:
-        getBusyUntilIso({
-          endsAtIso: nextEndIso,
-          bufferMinutes: Number(profileRow.buffer_minutes ?? 0),
-        }) ?? slotBusyEndIso,
+      busy_until: slotBusyEndIso,
       cancellation_token_expires_at:
         getCancellationDeadlineIso({
           startsAtIso: nextStartIso,

@@ -90,6 +90,7 @@ export function getDemoCabinetData() {
       status: "confirmed",
       startsAt: iso(startsAt),
       endsAt: iso(startsAt.plus({ minutes: service.durationMinutes })),
+      busyUntil: iso(startsAt.plus({ minutes: service.durationMinutes + service.bufferMinutes })),
       source: "public_page",
       clientNote: note,
       cancellationToken: `demo-cancel-${index + 1}`,
