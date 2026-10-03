@@ -251,6 +251,50 @@ export default async function DashboardPage() {
             ctaLabel="Открыть публичную страницу"
             ctaHref={`/${profile.username}`}
           />
+
+          <Card className="space-y-4">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-semibold text-ink">
+                Быстрые действия
+              </h2>
+              <p className="text-sm text-muted">
+                Полезные шаги, которые можно сделать прямо сейчас.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <QuickAction
+                icon={<Settings2 size={18} className="text-accent-deep" />}
+                title="Проверить параметры записи"
+                description="Окно записи, шаг времени и буфер между клиентами."
+                href="/settings"
+                ctaLabel="Открыть настройки"
+                statusLabel="Важно"
+                statusTone="accent"
+              />
+              <QuickAction
+                icon={<MessageCircle size={18} className="text-success" />}
+                title="Подключить Telegram"
+                description={
+                  profile.telegramChatId
+                    ? "Telegram уже подключен, уведомления можно получать сразу."
+                    : "Чтобы быстрее узнавать о новых визитах и изменениях."
+                }
+                href="/settings"
+                ctaLabel={profile.telegramChatId ? "Проверить подключение" : "Подключить"}
+                statusLabel={profile.telegramChatId ? "Готово" : "Не подключено"}
+                statusTone={profile.telegramChatId ? "success" : "warning"}
+              />
+              <QuickAction
+                icon={<Globe size={18} className="text-warning" />}
+                title="Открыть публичную страницу"
+                description="Посмотри, как запись выглядит для клиента с телефона."
+                href={`/${profile.username}`}
+                ctaLabel="Открыть страницу"
+                statusLabel="Проверка"
+                statusTone="neutral"
+              />
+            </div>
+          </Card>
         </div>
 
         <div className="space-y-6">
@@ -345,50 +389,6 @@ export default async function DashboardPage() {
           </Card>
 
           <CertificateScannerModal />
-
-          <Card className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-2xl font-semibold text-ink">
-                Быстрые действия
-              </h2>
-              <p className="text-sm text-muted">
-                Полезные шаги, которые можно сделать прямо сейчас.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <QuickAction
-                icon={<Settings2 size={18} className="text-accent-deep" />}
-                title="Проверить параметры записи"
-                description="Окно записи, шаг времени и буфер между клиентами."
-                href="/settings"
-                ctaLabel="Открыть настройки"
-                statusLabel="Важно"
-                statusTone="accent"
-              />
-              <QuickAction
-                icon={<MessageCircle size={18} className="text-success" />}
-                title="Подключить Telegram"
-                description={
-                  profile.telegramChatId
-                    ? "Telegram уже подключен, уведомления можно получать сразу."
-                    : "Чтобы быстрее узнавать о новых визитах и изменениях."
-                }
-                href="/settings"
-                ctaLabel={profile.telegramChatId ? "Проверить подключение" : "Подключить"}
-                statusLabel={profile.telegramChatId ? "Готово" : "Не подключено"}
-                statusTone={profile.telegramChatId ? "success" : "warning"}
-              />
-              <QuickAction
-                icon={<Globe size={18} className="text-warning" />}
-                title="Открыть публичную страницу"
-                description="Посмотри, как запись выглядит для клиента с телефона."
-                href={`/${profile.username}`}
-                ctaLabel="Открыть страницу"
-                statusLabel="Проверка"
-                statusTone="neutral"
-              />
-            </div>
-          </Card>
         </div>
       </div>
     </div>
