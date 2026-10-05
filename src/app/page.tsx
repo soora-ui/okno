@@ -13,6 +13,7 @@ import {
   Sparkles,
   Users2,
 } from "lucide-react";
+import { DemoTourTeaser } from "@/components/landing/demo-tour-teaser";
 import { HeroLinkBuilder } from "@/components/landing/hero-link-builder";
 import { SiteShell } from "@/components/layout/site-shell";
 import { SectionTitle } from "@/components/sections/section-title";
@@ -41,6 +42,8 @@ import {
 const maxPrepaidDiscount = Math.max(
   ...billingPeriods.map((period) => period.discountPercent),
 );
+
+const demoTourHref = "/demo/tour";
 
 const valueProps = [
   "Мастер запускается за 3 шага и получает ссылку сразу",
@@ -104,8 +107,8 @@ export default function HomePage() {
   return (
     <SiteShell
       hideGuestMenu
-      publicPageHrefOverride={landingDemoPublicPageHref}
-      publicPageLabelOverride="Демо-страница"
+      publicPageHrefOverride={demoTourHref}
+      publicPageLabelOverride="Демо-тур"
       showFooter
     >
       <div className="space-y-20 pb-10">
@@ -155,10 +158,10 @@ export default function HomePage() {
                 <p className="text-sm leading-6 text-ink-soft">
                   {trialDays} дней бесплатно, карта не нужна. Или{" "}
                   <Link
-                    href={landingDemoPublicPageHref}
+                    href={demoTourHref}
                     className="underline underline-offset-4 transition hover:text-ink"
                   >
-                    открыть демо-профиль
+                    посмотреть демо-тур
                   </Link>
                   .
                 </p>
@@ -173,6 +176,11 @@ export default function HomePage() {
                 </Reveal>
               ))}
             </div>
+            {/* Под тремя карточками слева было пусто — правая колонка с
+                демо-профилем выше. Сюда встаёт вход в демо-тур. */}
+            <Reveal variant="fade-up" delay={0.3}>
+              <DemoTourTeaser />
+            </Reveal>
           </div>
 
           <RoundedReveal finalRadius="28px">
