@@ -10,17 +10,8 @@ export const accountModes = [
   {
     value: "studio",
     title: "Студия",
-    description: "Администратор создает сотрудников и следит за всей командой.",
-  },
-  {
-    value: "barbershop",
-    title: "Барбершоп",
-    description: "Подходит для команды с разными мастерами и отдельными кабинетами.",
-  },
-  {
-    value: "company",
-    title: "Компания",
-    description: "Для салона, сети или бренда, где нужны роли и общая админка.",
+    description:
+      "Команда мастеров: салон, барбершоп или сеть. Администратор создаёт сотрудников и видит всех.",
   },
 ] as const;
 
@@ -28,9 +19,14 @@ export type AccountMode = (typeof accountModes)[number]["value"];
 
 export const defaultAccountMode: AccountMode = "solo";
 
+// Раньше были ещё «Барбершоп» и «Компания» — по сути та же студия. Тип
+// команды уточняется потом в настройках, а старые ссылки ведут в студию.
+const legacyTeamModes = new Set(["barbershop", "company"]);
+
 // Значение приходит из адресной строки, поэтому доверять ему нельзя: всё
 // неизвестное сводим к одиночному мастеру, а не роняем страницу.
 export function parseAccountMode(value: string | undefined): AccountMode {
+  if (value && legacyTeamModes.has(value)) return "studio";
   const match = accountModes.find((mode) => mode.value === value);
   return match ? match.value : defaultAccountMode;
 }

@@ -281,7 +281,7 @@ export default function HomePage() {
                 мастер продолжает работать в своем отдельном кабинете без лишней путаницы.
               </p>
               <ButtonLink
-                href="/register?mode=company"
+                href="/register?mode=studio"
                 variant="secondary"
                 className="w-fit gap-2"
               >
