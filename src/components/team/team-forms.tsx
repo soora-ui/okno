@@ -12,11 +12,8 @@ import {
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CityPicker } from "@/components/ui/city-picker";
 import { Select } from "@/components/ui/select";
-import {
-  cityOptions,
-  resolveCityValue,
-} from "@/lib/cities";
 import { workspaceKindValues, type WorkspaceKind } from "@/lib/workspace";
 
 const initialState: TeamActionState = {
@@ -122,11 +119,10 @@ export function CreateTeamMemberForm({ defaultCity }: { defaultCity: string }) {
           hint="Нужен для входа и личного кабинета сотрудника."
           required
         />
-        <Select
+        <CityPicker
           label="Город"
           name="city"
           defaultValue={defaultCity}
-          options={cityOptions}
           hint="Часовой пояс сотрудника определим автоматически."
         />
       </div>
@@ -268,14 +264,11 @@ export function TeamMemberCard({
               defaultValue={member.username}
               required
             />
-            <Select
+            <CityPicker
               label="Город"
               name="city"
-              defaultValue={resolveCityValue({
-                locationText: member.locationText,
-                timezone: member.timezone,
-              })}
-              options={cityOptions}
+              defaultValue={member.locationText}
+              timezone={member.timezone}
             />
             <Input
               label="Новый пароль"

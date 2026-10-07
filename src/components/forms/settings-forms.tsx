@@ -67,12 +67,9 @@ import {
 import { prepaymentTypeLabels } from "@/lib/prepayment";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { Input } from "@/components/ui/input";
+import { CityPicker } from "@/components/ui/city-picker";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  cityOptions,
-  resolveCityValue,
-} from "@/lib/cities";
 import type { AvailabilityRule, Profile, Service } from "@/lib/mock-data";
 
 const ProfileMediaUploadSection = dynamic(
@@ -116,14 +113,11 @@ export function ProfileSettingsForm({ profile }: { profile: Profile }) {
             defaultValue={profile.specialty}
             required
           />
-          <Select
+          <CityPicker
             label="Город"
             name="city"
-            defaultValue={resolveCityValue({
-              locationText: profile.locationText,
-              timezone: profile.timezone,
-            })}
-            options={cityOptions}
+            defaultValue={profile.locationText}
+            timezone={profile.timezone}
             hint="Часовой пояс записей и уведомлений определим автоматически."
           />
           <Input

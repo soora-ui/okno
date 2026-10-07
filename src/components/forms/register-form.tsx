@@ -7,12 +7,8 @@ import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { initialAuthActionState } from "@/components/forms/auth-state";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { CityPicker } from "@/components/ui/city-picker";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  cityOptions,
-  defaultCityValue,
-} from "@/lib/cities";
 import { publicLinkHost, suggestUsername } from "@/lib/site";
 import {
   accountModes,
@@ -182,11 +178,10 @@ export function RegisterForm({
             }
             required
           />
-          <Select
+          <CityPicker
             label="Город"
             name="city"
-            defaultValue={values?.city || defaultCityValue}
-            options={cityOptions}
+            defaultValue={values?.city}
             hint="Часовой пояс определим автоматически. Точный адрес добавишь в кабинете."
           />
         </div>
