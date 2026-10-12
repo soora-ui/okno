@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { SiteShell } from "@/components/layout/site-shell";
 import { BookingFlow } from "@/components/booking/booking-flow";
 import { getPublicPageData } from "@/lib/data";
 import { isPhoneVerificationRequired } from "@/lib/phone-verification";
+
+// Служебная страница: в выдаче не нужна.
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 type Props = {
   params: Promise<{ username: string }>;

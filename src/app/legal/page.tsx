@@ -12,6 +12,7 @@ import {
 } from "@/config/legal";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal" },
   title: "Правовые документы — okno",
   description:
     "Публичная оферта, политика в отношении обработки персональных данных и архив предыдущих редакций okno.business.",

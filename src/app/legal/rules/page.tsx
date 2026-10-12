@@ -6,6 +6,7 @@ import { rulesPreamble, rulesSections } from "@/content/legal/rules";
 const doc = getLegalDocument("rules");
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/rules" },
   title: "Правила использования Сервиса — okno",
   description: doc.description,
   robots: doc.status === "draft" ? { index: false, follow: true } : undefined,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Ban, CalendarX2, CheckCircle2 } from "lucide-react";
 import { ClientCancellationForm } from "@/components/forms/client-cancellation-form";
@@ -8,6 +9,11 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getBookingCancellationData } from "@/lib/data";
 import { isConsultationAvailable } from "@/lib/service-consultant/availability";
+
+// Служебная страница: в выдаче не нужна.
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 type CancelBookingPageProps = {
   params: Promise<{

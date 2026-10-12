@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
@@ -11,6 +12,11 @@ import { getBookingConfirmationData } from "@/lib/data";
 import { isTelegramBotConfigured } from "@/lib/env";
 import { detectCalendarPlatformFromUserAgent } from "@/lib/ics";
 import { isTipAllowed } from "@/lib/tips";
+
+// Служебная страница: в выдаче не нужна.
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 type ConfirmPageProps = {
   params: Promise<{ username: string }>;

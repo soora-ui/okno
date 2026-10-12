@@ -5,6 +5,7 @@ import { getLegalDocument } from "@/config/legal";
 const doc = getLegalDocument("cookie");
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/cookie/archive" },
   title: "Архив редакций политики обработки файлов cookie — okno",
   description:
     "Предыдущие редакции политики обработки файлов cookie okno.business с указанием периода действия.",

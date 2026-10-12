@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import { BriefcaseBusiness, Users2 } from "lucide-react";
 import { SiteShell } from "@/components/layout/site-shell";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LoginForm } from "@/components/forms/login-form";
+
+// Служебная страница: в выдаче не нужна.
+export const metadata: Metadata = {
+  title: "Вход — okno",
+  robots: { index: false, follow: true },
+};
 
 type LoginPageProps = {
   searchParams: Promise<{

@@ -6,6 +6,7 @@ import { consentPreamble, consentSections } from "@/content/legal/consent";
 const doc = getLegalDocument("consent");
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/consent" },
   title: "Согласие на обработку персональных данных мастера — okno",
   description: doc.description,
   robots: doc.status === "draft" ? { index: false, follow: true } : undefined,

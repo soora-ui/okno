@@ -25,6 +25,9 @@ const protectedMatchers = [
 // ones here, before they reach rendering or the database.
 const SINGLE_SEGMENT_PATH = /^\/[^/]+$/;
 const VALID_SEGMENT_PATH = /^\/[a-z0-9-]+$/;
+// Служебные файлы для поисковиков и AI-краулеров (src/app/robots.ts,
+// sitemap.ts, llms.txt) — с точкой в имени, но настоящие маршруты.
+const CRAWLER_FILES = new Set(["/robots.txt", "/sitemap.xml", "/llms.txt"]);
 
 function buildLoginRedirect(
   request: NextRequest,
@@ -47,6 +50,10 @@ function buildLoginRedirect(
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (CRAWLER_FILES.has(pathname)) {
+    return NextResponse.next();
+  }
 
   if (SINGLE_SEGMENT_PATH.test(pathname) && !VALID_SEGMENT_PATH.test(pathname)) {
     return new NextResponse(null, { status: 404 });

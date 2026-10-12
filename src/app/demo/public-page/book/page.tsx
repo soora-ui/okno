@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Check, ChevronRight } from "lucide-react";
 import { BrandLogo } from "@/components/layout/brand-logo";
@@ -11,6 +12,11 @@ import {
   landingDemoPublicPageHref,
   landingDemoServices,
 } from "@/lib/landing-demo";
+
+// Служебная страница: в выдаче не нужна.
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 type DemoBookingPageProps = {
   searchParams: Promise<{

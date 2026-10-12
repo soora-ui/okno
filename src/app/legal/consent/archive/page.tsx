@@ -5,6 +5,7 @@ import { getLegalDocument } from "@/config/legal";
 const doc = getLegalDocument("consent");
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/consent/archive" },
   title: "Архив редакций согласия на обработку персональных данных — okno",
   description:
     "Предыдущие редакции согласия на обработку персональных данных мастера с указанием периода действия.",

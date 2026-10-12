@@ -5,6 +5,7 @@ import { getLegalDocument } from "@/config/legal";
 const doc = getLegalDocument("rules");
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/rules/archive" },
   title: "Архив редакций правил использования Сервиса — okno",
   description:
     "Предыдущие редакции правил использования сервиса okno.business с указанием периода действия.",

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Building2, CheckCircle2, Link2, Users2 } from "lucide-react";
 import { SiteShell } from "@/components/layout/site-shell";
@@ -7,6 +8,12 @@ import { RegisterForm } from "@/components/forms/register-form";
 import { publicLinkHost } from "@/lib/site";
 import { normalizeReferralCode } from "@/lib/referral";
 import { parseAccountMode } from "@/lib/account-modes";
+
+// Служебная страница: в выдаче не нужна.
+export const metadata: Metadata = {
+  title: "Регистрация — okno",
+  robots: { index: false, follow: true },
+};
 
 export default async function RegisterPage({
   searchParams,

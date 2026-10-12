@@ -11,6 +11,7 @@ import {
 const doc = getLegalDocument("consent-client");
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/consent-client" },
   title: "Согласие на обработку персональных данных клиента — okno",
   description: doc.description,
   // Шаблон с незаполненными реквизитами оператора в выдаче не нужен: клиент

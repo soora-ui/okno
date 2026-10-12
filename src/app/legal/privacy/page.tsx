@@ -6,6 +6,7 @@ import { privacyPreamble, privacySections } from "@/content/legal/privacy";
 const doc = getLegalDocument("privacy");
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/privacy" },
   title: "Политика в отношении обработки персональных данных — okno",
   description: doc.description,
   robots: doc.status === "draft" ? { index: false, follow: true } : undefined,

@@ -5,6 +5,7 @@ import { getLegalDocument } from "@/config/legal";
 const doc = getLegalDocument("privacy");
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/privacy/archive" },
   title: "Архив редакций политики обработки персональных данных — okno",
   description:
     "Предыдущие редакции политики в отношении обработки персональных данных okno.business с указанием периода действия.",

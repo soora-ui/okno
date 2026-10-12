@@ -7,6 +7,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/ui/reveal";
 import { SectionTitle } from "@/components/sections/section-title";
+import { JsonLd } from "@/components/seo/json-ld";
 import { PricingPlanCards } from "@/components/pricing/pricing-plan-cards";
 import {
   billingPeriods,
@@ -23,11 +24,26 @@ import {
   trialOffer,
   type PlanComparisonValue,
 } from "@/config/plans";
+import { defaultOgImage, siteName } from "@/config/site";
+
+const minPlanPriceRub = Math.min(...pricingPlans.map((plan) => plan.priceRub));
+const pricingTitle = `Тарифы okno — онлайн-запись от ${minPlanPriceRub} ₽ в месяц`;
+const pricingDescription =
+  `Пробный месяц, три тарифа от ${minPlanPriceRub} ₽ и доплата за сотрудников. Сравнение возможностей, порядок оплаты и ответы на вопросы о подписке.`;
 
 export const metadata: Metadata = {
-  title: "Тарифы — okno",
-  description:
-    "Пробный месяц, три тарифа от 690 ₽ и доплата за сотрудников. Сравнение возможностей, порядок оплаты и ответы на вопросы о подписке.",
+  title: pricingTitle,
+  description: pricingDescription,
+  alternates: { canonical: "/pricing" },
+  openGraph: {
+    title: pricingTitle,
+    description: pricingDescription,
+    url: "/pricing",
+    images: [defaultOgImage],
+    siteName,
+    locale: "ru_RU",
+    type: "website",
+  },
 };
 
 // Пример расчёта для студии: три сотрудника включены, четвёртый и пятый —
@@ -105,9 +121,23 @@ function ComparisonCell({ value }: { value: PlanComparisonValue }) {
   return <span className="text-sm text-ink">{value}</span>;
 }
 
+// Rich-сниппета FAQ Google больше не даёт, но разметку читают AI-поиск и
+// Алиса. Ответы те же, что на странице, — разметка не должна расходиться
+// с видимым текстом.
+const faqStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: paymentFaq.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: { "@type": "Answer", text: item.answer },
+  })),
+};
+
 export default function PricingPage() {
   return (
     <SiteShell resolveAuth={false} showFooter>
+      <JsonLd data={faqStructuredData} />
       <div className="space-y-16 py-6">
         <div className="space-y-8">
           <Reveal variant="blur">

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { BookingThemeStyles } from "@/components/booking/booking-theme-styles";
+import { siteDescription, siteName, siteTitle, siteUrl } from "@/config/site";
 import "./globals.css";
 
 // Manrope — переменный шрифт (200–800), поэтому weight не указываем: одного
@@ -21,10 +22,19 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// openGraph страницы заменяет этот целиком, а не дополняет: страницы со своим
+// og:title повторяют siteName, locale и type сами. Картинку Next подставляет
+// из opengraph-image.tsx для всех вложенных маршрутов.
 export const metadata: Metadata = {
-  title: "okno",
-  description:
-    "Минималистичный сервис онлайн-записи для начинающих мастеров маникюра и бровей.",
+  metadataBase: new URL(siteUrl),
+  title: siteTitle,
+  description: siteDescription,
+  applicationName: siteName,
+  openGraph: {
+    siteName,
+    locale: "ru_RU",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

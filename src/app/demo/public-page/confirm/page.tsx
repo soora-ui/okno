@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { CalendarClock, CheckCircle2, MapPin } from "lucide-react";
 import { SiteShell } from "@/components/layout/site-shell";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { landingDemoProfile } from "@/lib/landing-demo";
+
+// Служебная страница: в выдаче не нужна.
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 type DemoConfirmPageProps = {
   searchParams: Promise<{

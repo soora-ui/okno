@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -16,6 +17,7 @@ import {
 import { DemoTourTeaser } from "@/components/landing/demo-tour-teaser";
 import { HeroLinkBuilder } from "@/components/landing/hero-link-builder";
 import { SiteShell } from "@/components/layout/site-shell";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SectionTitle } from "@/components/sections/section-title";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -35,6 +37,56 @@ import {
   pricingPlans,
   trialDays,
 } from "@/config/plans";
+import { legalEntity } from "@/config/legal";
+import { siteDescription, siteName, siteTitle, siteUrl } from "@/config/site";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: siteTitle,
+    description: siteDescription,
+    url: "/",
+    siteName,
+    locale: "ru_RU",
+    type: "website",
+  },
+};
+
+// Цены в разметке берём из тех же тарифов, что видит мастер, — иначе
+// после смены цены сниппет начнёт врать. Рейтинга нет сознательно: без
+// реальных отзывов на внешних площадках Яндекс за него наказывает.
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${siteUrl}/#organization`,
+      name: siteName,
+      url: siteUrl,
+      logo: `${siteUrl}/logo.png`,
+      email: legalEntity.email,
+      legalName: legalEntity.name,
+      taxID: legalEntity.inn,
+    },
+    {
+      "@type": "SoftwareApplication",
+      name: siteName,
+      url: siteUrl,
+      description: siteDescription,
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      inLanguage: "ru",
+      publisher: { "@id": `${siteUrl}/#organization` },
+      offers: {
+        "@type": "AggregateOffer",
+        priceCurrency: "RUB",
+        lowPrice: Math.min(...pricingPlans.map((plan) => plan.priceRub)),
+        highPrice: Math.max(...pricingPlans.map((plan) => plan.priceRub)),
+        offerCount: pricingPlans.length,
+      },
+    },
+  ],
+};
 
 // Лендинг показывает месячную цену: переключатель периода — инструмент выбора,
 // а здесь мастер ещё не выбирает, а приценивается. Про скидку говорим строкой,
@@ -111,6 +163,7 @@ export default function HomePage() {
       publicPageLabelOverride="Демо-тур"
       showFooter
     >
+      <JsonLd data={structuredData} />
       <div className="space-y-20 pb-10">
         <section className="grid gap-8 py-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
           <div className="space-y-8">

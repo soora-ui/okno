@@ -6,6 +6,7 @@ import { cookiePreamble, cookieSections } from "@/content/legal/cookie";
 const doc = getLegalDocument("cookie");
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/cookie" },
   title: "Политика обработки файлов cookie — okno",
   description: doc.description,
   robots: doc.status === "draft" ? { index: false, follow: true } : undefined,

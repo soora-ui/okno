@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PublicProfileView } from "@/components/public/public-profile-view";
 import {
   landingDemoBookHref,
@@ -11,6 +12,11 @@ import {
   demoConsultantReply,
 } from "@/lib/tour-demo-content";
 import { GiftCertificateWidget } from "@/components/public/gift-certificate-widget";
+
+// Служебная страница: в выдаче не нужна.
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 type DemoPublicPageProps = {
   searchParams: Promise<{

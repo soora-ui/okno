@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { DemoTour } from "@/components/tour/demo-tour";
 import {
   landingDemoBookHref,
   landingDemoBookingSlotsByService,
   landingDemoServices,
 } from "@/lib/landing-demo";
+
+// Служебная страница: в выдаче не нужна.
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 // Тур «как ролик» по главам: настоящие демо-страницы в рамке телефона или
 // ноутбука, поверх них камера, подсветка и палец. Сам по себе ничего не

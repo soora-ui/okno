@@ -10,6 +10,7 @@ import {
 const doc = getLegalDocument("offer");
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/offer" },
   title: "Публичная оферта — okno",
   description: doc.description,
   // Черновик редакции в поиске не нужен: индексируем только вступивший в силу
