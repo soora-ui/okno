@@ -15,7 +15,8 @@ if (supabaseUrl) {
   remotePatterns.push({
     protocol: parsedSupabaseUrl.protocol.replace(":", "") as "http" | "https",
     hostname: parsedSupabaseUrl.hostname,
-    pathname: "/storage/v1/object/public/profile-media/**",
+    // Свой Supabase живёт под префиксом (okno.business/supabase), облачный — в корне.
+    pathname: `${parsedSupabaseUrl.pathname.replace(/\/$/, "")}/storage/v1/object/public/profile-media/**`,
   });
 }
 
@@ -51,6 +52,10 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns,
+    // На проде okno.business резолвится в 127.0.0.1 (/etc/hosts): свой Supabase на
+    // том же сервере. Next 16 по умолчанию не оптимизирует картинки с локальных IP;
+    // источники всё равно ограничены remotePatterns — только публичные файлы.
+    dangerouslyAllowLocalIP: true,
   },
 };
 
