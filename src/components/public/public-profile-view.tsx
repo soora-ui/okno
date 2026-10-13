@@ -24,6 +24,8 @@ import {
   TourThemeBridge,
 } from "@/components/public/demo-theme-switcher";
 import { PortfolioModal } from "@/components/public/portfolio-modal";
+import { PublicMapSection } from "@/components/public/public-map-section";
+import { SocialIcon } from "@/components/public/social-icons";
 import { ServiceConsultantButton } from "@/components/support/service-consultant-widget";
 import {
   getClosestSlots,
@@ -36,6 +38,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
 import { bookingThemeAttr } from "@/lib/booking-theme-presets";
+import { socialNetworkMeta, socialNetworks } from "@/lib/booking-page-settings";
 import { formatCurrency } from "@/lib/mock-data";
 
 export function PublicProfileView({
@@ -60,6 +63,8 @@ export function PublicProfileView({
     services.length > 0 ? Math.min(...services.map((service) => service.price)) : null;
   const shortestDuration =
     services.length > 0 ? Math.min(...services.map((service) => service.durationMinutes)) : null;
+  const { socialLinks, mapLocation } = profile.bookingPageSettings;
+  const filledSocials = socialNetworks.filter((network) => socialLinks[network]);
 
   // В демо-туре пресет можно переключать прямо на странице, поэтому он
   // живёт в состоянии; на реальной странице мастера это просто его пресет.
@@ -88,7 +93,7 @@ export function PublicProfileView({
       />
 
       <div className="relative mx-auto max-w-7xl px-4 pb-6 pt-4 sm:px-6 lg:px-8">
-        <header className="sticky top-4 z-30 mb-8">
+        <header className="sticky top-4 z-30 mb-6">
           <div
             className="flex items-center justify-between gap-4 rounded-full border px-4 py-3 shadow-subtle backdrop-blur"
             style={{
@@ -127,32 +132,32 @@ export function PublicProfileView({
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div
             data-demo-id="hero"
-            className="h-full space-y-6 rounded-section border p-6 shadow-section backdrop-blur sm:p-8 lg:p-10"
+            className="h-full space-y-5 rounded-section border p-5 shadow-section backdrop-blur sm:p-6 lg:p-8"
             style={{
               backgroundColor: "var(--public-surface)",
               borderColor: "var(--public-edge)",
             }}
           >
-            <div className="space-y-4">
+            <div className="space-y-3">
               <Badge tone="accent">{eyebrowLabel}</Badge>
-              <div data-tour="identity" className="space-y-4">
+              <div data-tour="identity" className="space-y-3">
                 <div className="flex items-start justify-between gap-6">
-                  <h1 className="min-w-0 flex-1 text-5xl font-semibold tracking-[-0.04em] text-ink sm:text-6xl">
+                  <h1 className="min-w-0 flex-1 text-4xl font-semibold tracking-[-0.04em] text-ink sm:text-5xl">
                     {profile.fullName}
                   </h1>
                   <div className="shrink-0 overflow-hidden rounded-full border border-white/90 bg-panel shadow-subtle">
                     <Image
                       src={profile.avatarUrl}
                       alt={profile.fullName}
-                      width={88}
-                      height={88}
+                      width={72}
+                      height={72}
                       priority
                       loading="eager"
-                      className="h-[72px] w-[72px] object-cover sm:h-[88px] sm:w-[88px]"
+                      className="h-[60px] w-[60px] object-cover sm:h-[72px] sm:w-[72px]"
                     />
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 text-base text-ink-soft sm:text-lg">
+                <div className="flex flex-wrap items-center gap-3 text-base text-ink-soft">
                   <span>{profile.specialty}</span>
                   <span className="hidden h-1.5 w-1.5 rounded-full bg-[var(--color-line)] sm:block" />
                   <span className="inline-flex items-center gap-2">
@@ -163,23 +168,45 @@ export function PublicProfileView({
                 {profile.address ? (
                   <p className="text-sm text-ink-soft">{profile.address}</p>
                 ) : null}
+                {filledSocials.length > 0 ? (
+                  <ul className="flex flex-wrap gap-2" aria-label="Соцсети мастера">
+                    {filledSocials.map((network) => {
+                      const meta = socialNetworkMeta[network];
+                      return (
+                        <li key={network}>
+                          <a
+                            href={meta.buildUrl(socialLinks[network])}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={meta.label}
+                            title={meta.label}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line text-ink-soft transition hover:-translate-y-0.5 hover:text-accent-deep"
+                            style={{ backgroundColor: "var(--ui-field-bg)" }}
+                          >
+                            <SocialIcon network={network} size={18} />
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
               </div>
               {profile.bookingPageSettings.headline ? (
-                <p className="max-w-2xl text-xl font-medium leading-snug text-ink sm:text-2xl">
+                <p className="max-w-2xl text-lg font-medium leading-snug text-ink sm:text-xl">
                   {profile.bookingPageSettings.headline}
                 </p>
               ) : null}
               {profile.bookingPageSettings.subheadline ? (
-                <p className="max-w-2xl text-base leading-7 text-muted">
+                <p className="max-w-2xl text-sm leading-6 text-muted sm:text-base">
                   {profile.bookingPageSettings.subheadline}
                 </p>
               ) : null}
-              <p className="max-w-2xl text-base leading-8 text-ink-soft sm:text-lg">
+              <p className="max-w-2xl text-base leading-7 text-ink-soft">
                 {profile.bio}
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               {publicTrustItems.map((item) => {
                 const icons = {
                   MessageCircleHeart,
@@ -191,10 +218,10 @@ export function PublicProfileView({
                 return (
                 <div
                   key={item.label}
-                  className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm text-ink-soft"
+                  className="inline-flex items-center gap-2 rounded-full border border-line px-3.5 py-1.5 text-sm text-ink-soft"
                   style={{ backgroundColor: "var(--ui-field-bg)" }}
                 >
-                  <Icon size={16} className="text-accent-deep" />
+                  <Icon size={15} className="text-accent-deep" />
                   <span>{item.label}</span>
                 </div>
                 );
@@ -227,29 +254,29 @@ export function PublicProfileView({
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div
-                className="rounded-card border border-line p-5"
+                className="rounded-card border border-line px-4 py-3.5"
                 style={{ backgroundColor: "var(--ui-card-bg)" }}
               >
                 <p className="text-sm text-muted">Цена от</p>
-                <p className="mt-2 text-2xl font-semibold text-ink">
+                <p className="mt-1 text-xl font-semibold text-ink">
                   {startingPrice !== null ? formatCurrency(startingPrice) : "По запросу"}
                 </p>
               </div>
               <div
-                className="rounded-card border border-line p-5"
+                className="rounded-card border border-line px-4 py-3.5"
                 style={{ backgroundColor: "var(--ui-card-bg)" }}
               >
                 <p className="text-sm text-muted">Длительность от</p>
-                <p className="mt-2 text-2xl font-semibold text-ink">
+                <p className="mt-1 text-xl font-semibold text-ink">
                   {shortestDuration !== null ? `${shortestDuration} мин` : "Уточняется"}
                 </p>
               </div>
               <div
-                className="rounded-card border border-line p-5"
+                className="rounded-card border border-line px-4 py-3.5"
                 style={{ backgroundColor: "var(--color-accent-soft)" }}
               >
                 <p className="text-sm text-muted">Свободные окна</p>
-                <p className="mt-2 text-2xl font-semibold text-ink">
+                <p className="mt-1 text-xl font-semibold text-ink">
                   {closestSlots.length > 0 ? "Есть онлайн" : "По запросу"}
                 </p>
               </div>
@@ -258,7 +285,7 @@ export function PublicProfileView({
 
           <div
             data-demo-id="slots"
-            className="relative h-full overflow-hidden rounded-section border p-6 shadow-section backdrop-blur sm:p-8"
+            className="relative h-full overflow-hidden rounded-section border p-5 shadow-section backdrop-blur sm:p-6 lg:p-8"
             style={{
               backgroundColor: "var(--public-surface-strong)",
               borderColor: "var(--public-edge)",
@@ -287,7 +314,7 @@ export function PublicProfileView({
                   <p className="text-sm uppercase tracking-[0.2em] text-muted">
                     Ближайшие окна
                   </p>
-                  <h2 className="mt-2 text-3xl font-semibold text-ink sm:text-[2rem]">
+                  <h2 className="mt-1.5 text-2xl font-semibold text-ink sm:text-[1.75rem]">
                     {showDemoSections ? "Можно выбрать онлайн" : "Свободные окна"}
                   </h2>
                 </div>
@@ -295,22 +322,22 @@ export function PublicProfileView({
               </div>
 
               {closestSlots.length > 0 ? (
-                <div className="mt-6 space-y-3">
+                <div className="mt-5 space-y-2.5">
                   {closestSlots.map((slot) => (
                     guidedDemo ? (
                       <a
                         key={`${slot.serviceId}-${slot.date}-${slot.time}`}
                         href={bookingHref}
-                        className="flex items-center justify-between gap-4 rounded-card border border-line px-4 py-4 shadow-subtle transition hover:-translate-y-0.5"
+                        className="flex items-center justify-between gap-4 rounded-card border border-line px-4 py-3 shadow-subtle transition hover:-translate-y-0.5"
                         style={{ backgroundColor: "var(--ui-card-bg)" }}
                       >
                         <div className="min-w-0">
                           <p className="truncate text-base font-medium text-ink">
                             {slot.serviceTitle}
                           </p>
-                          <p className="mt-1 text-sm text-ink-soft">{slot.dateLabel}</p>
+                          <p className="mt-0.5 text-sm text-ink-soft">{slot.dateLabel}</p>
                         </div>
-                        <div className="shrink-0 rounded-full bg-panel px-4 py-2 text-base font-medium text-ink">
+                        <div className="shrink-0 rounded-full bg-panel px-3.5 py-1.5 text-base font-medium text-ink">
                           {slot.time}
                         </div>
                       </a>
@@ -318,16 +345,16 @@ export function PublicProfileView({
                       <Link
                         key={`${slot.serviceId}-${slot.date}-${slot.time}`}
                         href={bookingHref}
-                        className="flex items-center justify-between gap-4 rounded-card border border-line px-4 py-4 shadow-subtle transition hover:-translate-y-0.5"
+                        className="flex items-center justify-between gap-4 rounded-card border border-line px-4 py-3 shadow-subtle transition hover:-translate-y-0.5"
                         style={{ backgroundColor: "var(--ui-card-bg)" }}
                       >
                         <div className="min-w-0">
                           <p className="truncate text-base font-medium text-ink">
                             {slot.serviceTitle}
                           </p>
-                          <p className="mt-1 text-sm text-ink-soft">{slot.dateLabel}</p>
+                          <p className="mt-0.5 text-sm text-ink-soft">{slot.dateLabel}</p>
                         </div>
-                        <div className="shrink-0 rounded-full bg-panel px-4 py-2 text-base font-medium text-ink">
+                        <div className="shrink-0 rounded-full bg-panel px-3.5 py-1.5 text-base font-medium text-ink">
                           {slot.time}
                         </div>
                       </Link>
@@ -665,6 +692,14 @@ export function PublicProfileView({
 
         {certificateSlot ? (
           <section className="mt-12">{certificateSlot}</section>
+        ) : null}
+
+        {mapLocation ? (
+          <PublicMapSection
+            location={mapLocation}
+            city={profile.locationText}
+            address={profile.address}
+          />
         ) : null}
 
         {guidedDemo ? (

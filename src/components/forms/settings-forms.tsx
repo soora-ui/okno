@@ -12,6 +12,7 @@ import {
   updateGiftCertificateSettingsAction,
   updateProfileAction,
   updateServiceAction,
+  updateSocialLinksAction,
   type SettingsActionState,
 } from "@/app/actions/settings";
 import { saveServiceManualAction } from "@/app/actions/service-manuals";
@@ -56,8 +57,11 @@ import {
   headlineMaxLength,
   masterContactMaxLength,
   maxGiftCertificateDenominations,
+  socialNetworkMeta,
+  socialNetworks,
   subheadlineMaxLength,
 } from "@/lib/booking-page-settings";
+import { SocialIcon } from "@/components/public/social-icons";
 import {
   manualConfirmationLabel,
   manualMaxLength,
@@ -138,6 +142,44 @@ export function ProfileSettingsForm({ profile }: { profile: Profile }) {
         </form>
       </div>
     </div>
+  );
+}
+
+export function SocialLinksSettingsForm({ profile }: { profile: Profile }) {
+  const [state, action] = useActionState(updateSocialLinksAction, initialState);
+  const links = profile.bookingPageSettings.socialLinks;
+
+  return (
+    <form action={action} className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        {socialNetworks.map((network) => {
+          const meta = socialNetworkMeta[network];
+          return (
+            <div key={network} className="flex items-start gap-3">
+              <span className="mt-[30px] inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-field border border-line bg-panel text-ink-soft">
+                <SocialIcon network={network} size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <Input
+                  label={meta.label}
+                  name={network}
+                  defaultValue={links[network] ? `@${links[network]}` : ""}
+                  placeholder={meta.placeholder}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted">
+        Ник или ссылка на профиль — как удобнее. На странице записи появятся только
+        заполненные соцсети.
+      </p>
+      <FormMessage message={state.message} success={state.success} />
+      <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
+    </form>
   );
 }
 

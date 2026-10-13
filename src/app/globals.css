@@ -537,3 +537,39 @@ input[type="number"] {
     display: none !important;
   }
 }
+
+/* Карта OpenStreetMap (src/components/maps/osm-map.tsx). Тёмных тайлов у OSM
+   нет, поэтому на тёмной теме клиентской страницы инвертируем светлые:
+   hue-rotate возвращает воде синий, а зелени — зелёный. */
+.osm-map.leaflet-container {
+  font: inherit;
+  background: var(--color-panel, #f2efe9);
+}
+.osm-map .leaflet-control-attribution {
+  font-size: 10px;
+  background: var(--public-surface-strong, rgba(255, 255, 255, 0.8));
+  color: var(--color-muted);
+}
+.osm-map .leaflet-control-attribution a {
+  color: var(--color-ink-soft);
+}
+.osm-map .leaflet-bar {
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: none;
+}
+.osm-map .leaflet-bar a,
+.osm-map .leaflet-bar a:hover {
+  background: var(--ui-card-bg, var(--color-surface));
+  color: var(--color-ink);
+  border-bottom-color: var(--color-line);
+}
+@media (prefers-color-scheme: dark) {
+  [data-booking-theme]:not([data-booking-theme-mode="light"]) .osm-tiles {
+    filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.55);
+  }
+}
+[data-booking-theme][data-booking-theme-mode="dark"] .osm-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.55);
+}

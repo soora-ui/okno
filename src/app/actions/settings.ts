@@ -17,7 +17,13 @@ import {
   headlineMaxLength,
   masterContactMaxLength,
   maxGiftCertificateDenominations,
+  normalizeSocialHandle,
+  parseMapLocation,
+  socialNetworkMeta,
+  socialNetworks,
   subheadlineMaxLength,
+  type BookingPageSettings,
+  type SocialLinks,
 } from "@/lib/booking-page-settings";
 import { getCurrentAuthProfile } from "@/lib/data";
 import { getMasterYooKassaAccount } from "@/lib/payments/yookassa-oauth";
@@ -530,6 +536,118 @@ export async function updateBookingPageSettingsAction(
   return {
     success: true,
     message: "Страница записи обновлена.",
+  };
+}
+
+async function saveBookingPageSettingsPatch(
+  profile: NonNullable<Awaited<ReturnType<typeof requireProfile>>>,
+  patch: Partial<BookingPageSettings>,
+) {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      booking_page_settings: { ...profile.bookingPageSettings, ...patch },
+    })
+    .eq("id", profile.id);
+
+  if (!error) {
+    revalidateProfilePaths(profile.username);
+  }
+
+  return error;
+}
+
+// Соцсети живут в booking_page_settings, отдельная колонка не нужна.
+export async function updateSocialLinksAction(
+  _prevState: SettingsActionState,
+  formData: FormData,
+): Promise<SettingsActionState> {
+  if (!isSupabaseConfigured) {
+    return { success: false, message: "Для сохранения нужно подключение к Supabase." };
+  }
+
+  const profile = await requireProfile();
+  if (!profile) {
+    return { success: false, message: "Сессия истекла. Войди заново." };
+  }
+
+  const socialLinks = {} as SocialLinks;
+  const invalid: string[] = [];
+  for (const network of socialNetworks) {
+    const raw = formData.get(network);
+    const handle = normalizeSocialHandle(network, typeof raw === "string" ? raw : "");
+    if (handle === null) {
+      invalid.push(socialNetworkMeta[network].label);
+      socialLinks[network] = "";
+    } else {
+      socialLinks[network] = handle;
+    }
+  }
+
+  if (invalid.length > 0) {
+    return {
+      success: false,
+      message: `Не получилось разобрать: ${invalid.join(", ")}. Укажи ник (например, @alina_nails) или ссылку на профиль.`,
+    };
+  }
+
+  const error = await saveBookingPageSettingsPatch(profile, { socialLinks });
+  if (error) {
+    logError("Failed to update social links", { profileId: profile.id, error });
+    return { success: false, message: "Не получилось сохранить соцсети. Попробуй ещё раз." };
+  }
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "booking_page_settings.updated",
+    targetType: "profile",
+    targetId: profile.id,
+    metadata: {
+      socialNetworks: socialNetworks.filter((network) => socialLinks[network]),
+    },
+  });
+
+  return { success: true, message: "Соцсети сохранены." };
+}
+
+// Точка на Яндекс Карте для публичной страницы. null — убрать карту.
+export async function updateMapLocationAction(input: {
+  lat: number;
+  lon: number;
+  zoom: number;
+} | null): Promise<SettingsActionState> {
+  if (!isSupabaseConfigured) {
+    return { success: false, message: "Для сохранения нужно подключение к Supabase." };
+  }
+
+  const profile = await requireProfile();
+  if (!profile) {
+    return { success: false, message: "Сессия истекла. Войди заново." };
+  }
+
+  const mapLocation = input ? parseMapLocation(input) : null;
+  if (input && !mapLocation) {
+    return { success: false, message: "Не получилось распознать точку на карте." };
+  }
+
+  const error = await saveBookingPageSettingsPatch(profile, { mapLocation });
+  if (error) {
+    logError("Failed to update map location", { profileId: profile.id, error });
+    return { success: false, message: "Не получилось сохранить точку на карте." };
+  }
+
+  await writeAuditLog({
+    ...getAuditProfileContext(profile),
+    eventType: "booking_page_settings.updated",
+    targetType: "profile",
+    targetId: profile.id,
+    metadata: { hasMapLocation: Boolean(mapLocation) },
+  });
+
+  return {
+    success: true,
+    message: mapLocation ? "Точка на карте сохранена." : "Карта убрана со страницы.",
   };
 }
 

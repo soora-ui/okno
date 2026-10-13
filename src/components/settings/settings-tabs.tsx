@@ -7,7 +7,9 @@ import {
   Gift,
   Globe2,
   LayoutTemplate,
+  MapPinned,
   Palette,
+  Share2,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
@@ -31,6 +33,7 @@ import {
   BookingPreferencesForm,
   ProfileSettingsForm,
   ServicesSettingsForm,
+  SocialLinksSettingsForm,
   SubscriptionSettingsForm,
 } from "@/components/forms/settings-forms";
 import { ReferralSettings } from "@/components/settings/referral-settings";
@@ -56,6 +59,20 @@ const BookingThemeSettings = dynamic(
         <div className="h-[34rem] animate-pulse rounded-nested border border-line bg-panel" />
         <div className="h-[34rem] animate-pulse rounded-nested border border-line bg-panel" />
       </div>
+    ),
+  },
+);
+
+// Leaflet работает только в браузере и весит заметно — грузим пикер отдельно.
+const MapLocationPicker = dynamic(
+  () =>
+    import("@/components/settings/map-location-picker").then(
+      (mod) => mod.MapLocationPicker,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[360px] animate-pulse rounded-nested border border-line bg-panel" />
     ),
   },
 );
@@ -203,6 +220,34 @@ export function SettingsTabs({
               <h2 className="text-xl font-semibold text-ink">О мастере</h2>
             </div>
             <ProfileSettingsForm profile={profile} />
+          </Card>
+
+          <Card className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Share2 size={18} className="text-accent-deep" />
+              <h2 className="text-xl font-semibold text-ink">Соцсети</h2>
+            </div>
+            <p className="text-sm leading-6 text-ink-soft">
+              Иконки появятся в блоке о тебе на странице записи — клиент сможет посмотреть
+              твои работы и написать напрямую.
+            </p>
+            <SocialLinksSettingsForm profile={profile} />
+          </Card>
+
+          <Card className="space-y-4">
+            <div className="flex items-center gap-3">
+              <MapPinned size={18} className="text-warning" />
+              <h2 className="text-xl font-semibold text-ink">Место на карте</h2>
+            </div>
+            <p className="text-sm leading-6 text-ink-soft">
+              Отметь, где проходит приём. Карта с кнопкой «Построить маршрут» появится
+              в самом конце страницы записи.
+            </p>
+            <MapLocationPicker
+              initialLocation={profile.bookingPageSettings.mapLocation}
+              city={profile.locationText}
+              address={profile.address}
+            />
           </Card>
 
           <Card className="space-y-4">

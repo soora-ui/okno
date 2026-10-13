@@ -34,6 +34,119 @@ export const giftCertificateMaxAmount = 50_000;
 export const maxGiftCertificateDenominations = 6;
 export const defaultGiftCertificateDenominations = [1000, 2000, 3000];
 
+// Соцсети мастера на публичной странице. Храним только ник/идентификатор,
+// а ссылку собираем при показе: мастер вставляет кто «@alina», кто полную
+// ссылку из браузера, кто «t.me/alina» — к одному виду их приводит
+// normalizeSocialHandle, и на странице не оказывается битых ссылок.
+export const socialNetworks = ["telegram", "vk", "instagram", "twitter", "tiktok"] as const;
+export type SocialNetwork = (typeof socialNetworks)[number];
+export type SocialLinks = Record<SocialNetwork, string>;
+
+export const socialNetworkMeta: Record<
+  SocialNetwork,
+  { label: string; placeholder: string; hosts: string[]; buildUrl: (handle: string) => string }
+> = {
+  telegram: {
+    label: "Telegram",
+    placeholder: "@alina_nails или t.me/alina_nails",
+    hosts: ["t.me", "telegram.me"],
+    buildUrl: (handle) => `https://t.me/${handle}`,
+  },
+  vk: {
+    label: "ВКонтакте",
+    placeholder: "alina_nails или vk.com/alina_nails",
+    hosts: ["vk.com", "vk.ru", "m.vk.com"],
+    buildUrl: (handle) => `https://vk.com/${handle}`,
+  },
+  instagram: {
+    label: "Instagram",
+    placeholder: "@alina_nails",
+    hosts: ["instagram.com"],
+    buildUrl: (handle) => `https://instagram.com/${handle}`,
+  },
+  twitter: {
+    label: "X (Twitter)",
+    placeholder: "@alina_nails",
+    hosts: ["x.com", "twitter.com"],
+    buildUrl: (handle) => `https://x.com/${handle}`,
+  },
+  tiktok: {
+    label: "TikTok",
+    placeholder: "@alina_nails",
+    hosts: ["tiktok.com"],
+    buildUrl: (handle) => `https://www.tiktok.com/@${handle}`,
+  },
+};
+
+export const emptySocialLinks: SocialLinks = {
+  telegram: "",
+  vk: "",
+  instagram: "",
+  twitter: "",
+  tiktok: "",
+};
+
+const socialHandlePattern = /^[A-Za-z0-9_.-]{1,64}$/;
+
+/**
+ * «@alina», «alina», «https://t.me/alina», «instagram.com/alina/?hl=ru» → «alina».
+ * null — строку не удалось разобрать (чужой домен, пробелы, кириллица).
+ * Пустая строка — поле очищено.
+ */
+export function normalizeSocialHandle(network: SocialNetwork, raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return "";
+
+  let handle = value;
+  const looksLikeUrl = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}\//i.test(value);
+  if (looksLikeUrl) {
+    let url: URL;
+    try {
+      url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+    } catch {
+      return null;
+    }
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (!socialNetworkMeta[network].hosts.includes(host)) return null;
+    handle = url.pathname.split("/").filter(Boolean)[0] ?? "";
+  }
+
+  handle = handle.replace(/^@/, "");
+  return socialHandlePattern.test(handle) ? handle : null;
+}
+
+// Точка на карте: координаты, которые мастер выбрал в настройках. Отдельно от
+// текстового адреса — адрес пишут как удобно («вход со двора, 3 этаж»), а
+// карте нужна точная точка.
+export type MapLocation = { lat: number; lon: number; zoom: number };
+
+export const defaultMapZoom = 16;
+
+const mapLocationSchema = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lon: z.coerce.number().min(-180).max(180),
+  zoom: z.coerce.number().int().min(3).max(19).default(defaultMapZoom),
+});
+
+export function parseMapLocation(raw: unknown): MapLocation | null {
+  const parsed = mapLocationSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  // 0,0 — точка в океане, а не реальный адрес: так выглядят пустые поля формы.
+  if (parsed.data.lat === 0 && parsed.data.lon === 0) return null;
+  return {
+    lat: Math.round(parsed.data.lat * 1e6) / 1e6,
+    lon: Math.round(parsed.data.lon * 1e6) / 1e6,
+    zoom: parsed.data.zoom,
+  };
+}
+
+// Маршрут строим в Яндекс Картах: сама карта на странице — OpenStreetMap
+// (бесплатно, без ключа и рекламы), но навигатором клиенты в РФ пользуются
+// яндексовским, и ссылка с маршрутом открывает его приложение.
+export function buildYandexRouteUrl(location: MapLocation) {
+  return `https://yandex.ru/maps/?rtext=~${location.lat},${location.lon}&rtt=auto`;
+}
+
 export type BookingPageSettings = {
   schemaVersion: 1;
   headline: string;
@@ -49,6 +162,10 @@ export type BookingPageSettings = {
   // не меняются при последующей смене настроек мастером.
   giftCertificateNoExpiry: boolean;
   giftCertificateExpiryDate: string | null;
+  /** Пустая строка — соцсеть не указана и на странице не показывается. */
+  socialLinks: SocialLinks;
+  /** null — точка не выбрана, блока с картой на странице нет. */
+  mapLocation: MapLocation | null;
 };
 
 export const defaultBookingPageSettings: BookingPageSettings = {
@@ -61,6 +178,8 @@ export const defaultBookingPageSettings: BookingPageSettings = {
   giftCertificateDenominations: defaultGiftCertificateDenominations,
   giftCertificateNoExpiry: true,
   giftCertificateExpiryDate: null,
+  socialLinks: emptySocialLinks,
+  mapLocation: null,
 };
 
 const denominationSchema = z.coerce
@@ -135,8 +254,21 @@ const storedSchema = z
     giftCertificateDenominations: z.array(denominationSchema).optional(),
     giftCertificateNoExpiry: z.boolean().optional(),
     giftCertificateExpiryDate: z.string().nullable().optional(),
+    socialLinks: z.record(z.string(), z.unknown()).optional(),
+    mapLocation: z.unknown().optional(),
   })
   .partial();
+
+function normalizeStoredSocialLinks(raw: Record<string, unknown> | undefined): SocialLinks {
+  const links = { ...emptySocialLinks };
+  if (!raw) return links;
+  for (const network of socialNetworks) {
+    const value = raw[network];
+    if (typeof value !== "string") continue;
+    links[network] = normalizeSocialHandle(network, value) ?? "";
+  }
+  return links;
+}
 
 export function normalizeBookingPageSettings(raw: unknown): BookingPageSettings {
   let source: unknown = raw;
@@ -172,6 +304,8 @@ export function normalizeBookingPageSettings(raw: unknown): BookingPageSettings 
     giftCertificateDenominations: denominations.slice(0, maxGiftCertificateDenominations),
     giftCertificateNoExpiry: noExpiry,
     giftCertificateExpiryDate: noExpiry ? null : expiryDate,
+    socialLinks: normalizeStoredSocialLinks(data.socialLinks),
+    mapLocation: data.mapLocation ? parseMapLocation(data.mapLocation) : null,
   };
 }
 

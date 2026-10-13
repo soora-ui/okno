@@ -44,6 +44,14 @@ export const landingDemoProfile: Profile = {
     ...defaultBookingPageSettings,
     headline: "Аккуратный маникюр и брови, которые держатся",
     subheadline: "Свободное окно видно сразу — запись за минуту, без переписки",
+    // Демо показывает соцсети и карту, чтобы было видно, как они выглядят.
+    socialLinks: {
+      ...defaultBookingPageSettings.socialLinks,
+      telegram: "alina_nails",
+      vk: "alina_nails",
+      instagram: "alina_nails",
+    },
+    mapLocation: { lat: 44.9521, lon: 34.1024, zoom: 16 },
   },
   subscriptionTier: "free",
   subscriptionUntil: null,
