@@ -165,7 +165,7 @@ export default function HomePage() {
     >
       <JsonLd data={structuredData} />
       <div className="space-y-20 pb-10">
-        <section className="grid gap-8 py-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
+        <section className="grid gap-8 py-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-stretch">
           <div className="space-y-8">
             <Reveal variant="blur">
               <Badge tone="accent">Для мастеров, студий, салонов и барбершопов</Badge>
@@ -220,22 +220,28 @@ export default function HomePage() {
                 </p>
               </div>
             </Reveal>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {valueProps.map((item, index) => (
-                <Reveal key={item} variant="fade-up" delay={index * 0.1}>
-                  <Card className="h-full rounded-nested p-4">
-                    <p className="text-sm leading-6 text-ink-soft">{item}</p>
-                  </Card>
-                </Reveal>
-              ))}
-            </div>
-            {/* Под тремя карточками слева было пусто — правая колонка с
-                демо-профилем выше. Сюда встаёт вход в демо-тур. */}
-            <Reveal variant="fade-up" delay={0.3}>
-              <DemoTourTeaser />
-            </Reveal>
           </div>
 
+          {/* Справа в герое — вход в демо-тур: показать продукт в деле
+              важнее, чем сразу просить заполнить поля. */}
+          <RoundedReveal finalRadius="28px" className="h-full">
+            <DemoTourTeaser layout="stack" />
+          </RoundedReveal>
+
+          {/* Преимущества — отдельным рядом на всю ширину: тизер справа
+              заканчивается вровень с «30 дней бесплатно», без пустоты под ним. */}
+          <div className="grid gap-3 sm:grid-cols-3 lg:col-span-2">
+            {valueProps.map((item, index) => (
+              <Reveal key={item} variant="fade-up" delay={index * 0.1}>
+                <Card className="h-full rounded-nested p-4">
+                  <p className="text-sm leading-6 text-ink-soft">{item}</p>
+                </Card>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
+        <section>
           <RoundedReveal finalRadius="28px">
             <HeroLinkBuilder
               demoName={landingDemoProfile.fullName}
@@ -243,6 +249,7 @@ export default function HomePage() {
               demoBio={landingDemoProfile.bio}
               services={landingDemoServices}
               bookHref={landingDemoBookHref}
+              layout="wide"
             />
           </RoundedReveal>
         </section>

@@ -42,7 +42,15 @@ const spring = { type: "spring", stiffness: 120, damping: 20 } as const;
  * Анимация идёт, только пока блок на экране, и не идёт вовсе при
  * prefers-reduced-motion — тогда стоит первый кадр.
  */
-export function DemoTourTeaser() {
+export function DemoTourTeaser({
+  layout = "row",
+}: {
+  /**
+   * row — текст и телефон рядом; stack — колонка героя: компактно, телефон рядом
+   * с главами, чтобы блок не был выше левой колонки героя.
+   */
+  layout?: "row" | "stack";
+}) {
   const reduceMotion = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { margin: "-15% 0px" });
@@ -55,96 +63,148 @@ export function DemoTourTeaser() {
   }, [reduceMotion, inView]);
 
   const step = STEPS[index];
+  const stacked = layout === "stack";
+
+  const intro = (
+    <div className={stacked ? "space-y-2" : "space-y-3"}>
+      <p className="inline-flex items-center gap-2 text-sm font-medium uppercase tracking-[0.2em] text-muted">
+        <PlayCircle size={16} className="text-accent-deep" />
+        Демо-тур
+      </p>
+      <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+        Посмотри okno глазами мастера и клиента
+      </h2>
+      {stacked ? null : (
+        <p className="text-sm leading-6 text-ink-soft">
+          Три короткие главы на настоящих страницах: витрина мастера, запись клиента и
+          кабинет. Листаешь сам или включаешь автопросмотр — на телефоне или ноутбуке.
+        </p>
+      )}
+    </div>
+  );
+
+  const chapters = (
+    <ol className={stacked ? "flex flex-col items-start gap-2" : "flex flex-wrap gap-2"}>
+      {CHAPTERS.map((title, chapter) => {
+        const active = chapter === step.chapter;
+        return (
+          <li
+            key={title}
+            className={`relative rounded-full border px-3 py-1.5 text-xs font-medium transition-colors duration-500 ${
+              active ? "border-transparent text-ink-contrast" : "border-line text-ink-soft"
+            }`}
+          >
+            {active ? (
+              <motion.span
+                layoutId={`teaser-chapter-${layout}`}
+                className="absolute inset-0 rounded-full bg-ink"
+                transition={spring}
+              />
+            ) : null}
+            <span className="relative">
+              {chapter + 1}. {title}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+
+  const caption = (
+    <span className="min-h-5 text-sm text-muted" aria-live="polite">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={step.caption}
+          className="inline-block"
+          initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.35 }}
+        >
+          {step.caption}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+
+  const cta = (
+    <ButtonLink href="/demo/tour" className={`gap-2 ${stacked ? "w-full justify-center" : ""}`}>
+      Смотреть демо-тур
+      <ArrowRight size={16} />
+    </ButtonLink>
+  );
+
+  const phone = (
+    <Link
+      href="/demo/tour"
+      aria-label="Открыть демо-тур"
+      className={`block rounded-[30px] transition duration-300 hover:-translate-y-1 ${
+        stacked ? "shrink-0" : "mx-auto sm:mx-0"
+      }`}
+    >
+      <MiniPhone step={step} reduceMotion={Boolean(reduceMotion)} />
+    </Link>
+  );
 
   return (
     <div
       ref={ref}
-      className="relative overflow-hidden rounded-section border border-line p-6 shadow-card sm:p-7"
+      className={`relative overflow-hidden rounded-section border border-line shadow-card ${
+        stacked ? "h-full p-6" : "p-6 sm:p-7"
+      }`}
       style={{ backgroundColor: "var(--ui-card-bg)" }}
     >
       {/* Мягкое свечение за телефоном — блок не должен выглядеть очередной карточкой. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full opacity-60 blur-3xl"
+        className={`pointer-events-none absolute rounded-full opacity-60 blur-3xl ${
+          stacked ? "-left-10 top-1/3 h-72 w-72" : "-right-16 -top-20 h-64 w-64"
+        }`}
         style={{ background: "var(--color-accent-soft)" }}
       />
 
-      <div className="relative grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-        <div className="space-y-5">
-          <div className="space-y-3">
-            <p className="inline-flex items-center gap-2 text-sm font-medium uppercase tracking-[0.2em] text-muted">
-              <PlayCircle size={16} className="text-accent-deep" />
-              Демо-тур
-            </p>
-            <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-              Посмотри okno глазами мастера и клиента
-            </h2>
-            <p className="text-sm leading-6 text-ink-soft">
-              Три короткие главы на настоящих страницах: витрина мастера, запись клиента и
-              кабинет. Листаешь сам или включаешь автопросмотр — на телефоне или ноутбуке.
-            </p>
+      {stacked ? (
+        <div className="relative flex h-full flex-col gap-4">
+          {intro}
+          <div className="flex flex-1 items-center gap-5">
+            {phone}
+            <div className="flex min-w-0 flex-col gap-3">
+              {chapters}
+              {caption}
+            </div>
           </div>
-
-          <ol className="flex flex-wrap gap-2">
-            {CHAPTERS.map((title, chapter) => {
-              const active = chapter === step.chapter;
-              return (
-                <li
-                  key={title}
-                  className={`relative rounded-full border px-3 py-1.5 text-xs font-medium transition-colors duration-500 ${
-                    active ? "border-transparent text-ink-contrast" : "border-line text-ink-soft"
-                  }`}
-                >
-                  {active ? (
-                    <motion.span
-                      layoutId="teaser-chapter"
-                      className="absolute inset-0 rounded-full bg-ink"
-                      transition={spring}
-                    />
-                  ) : null}
-                  <span className="relative">
-                    {chapter + 1}. {title}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <ButtonLink href="/demo/tour" className="gap-2">
-              Смотреть демо-тур
-              <ArrowRight size={16} />
-            </ButtonLink>
-            <span className="min-h-5 text-sm text-muted" aria-live="polite">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={step.caption}
-                  className="inline-block"
-                  initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.35 }}
-                >
-                  {step.caption}
-                </motion.span>
-              </AnimatePresence>
-            </span>
-          </div>
+          {cta}
         </div>
-
-        <Link
-          href="/demo/tour"
-          aria-label="Открыть демо-тур"
-          className="mx-auto block rounded-[30px] transition duration-300 hover:-translate-y-1 sm:mx-0"
-        >
-          <MiniPhone step={step} reduceMotion={Boolean(reduceMotion)} />
-        </Link>
-      </div>
+      ) : (
+        <div className="relative grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="space-y-5">
+            {intro}
+            {chapters}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+              {cta}
+              {caption}
+            </div>
+          </div>
+          {phone}
+        </div>
+      )}
     </div>
   );
 }
 
+// Внешний размер мини-телефона: экран 112×220 и рамка по 6px.
+const PHONE_W = 124;
+const PHONE_H = 232;
+
 function MiniPhone({ step, reduceMotion }: { step: Step; reduceMotion: boolean }) {
+  return (
+    <div style={{ width: PHONE_W, height: PHONE_H }}>
+      <MiniPhoneBody step={step} reduceMotion={reduceMotion} />
+    </div>
+  );
+}
+
+function MiniPhoneBody({ step, reduceMotion }: { step: Step; reduceMotion: boolean }) {
   return (
     <div className="rounded-[30px] bg-[#141512] p-[6px] shadow-hover ring-1 ring-white/15">
       <div

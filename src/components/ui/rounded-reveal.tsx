@@ -42,8 +42,11 @@ export function RoundedReveal({
         shouldReduceMotion ? { duration: 0 } : { duration: 1, ease: [0.16, 1, 0.3, 1] }
       }
     >
+      {/* h-full: если обёртке задали высоту (колонка героя), содержимое
+          её занимает; без заданной высоты это ничего не меняет. */}
       <motion.div
         data-reveal
+        className="h-full"
         initial={{ opacity: 0 }}
         animate={{ opacity: settled ? 1 : 0 }}
         transition={
