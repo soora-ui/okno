@@ -70,6 +70,13 @@ function absoluteUrl(url: string) {
   return new URL(url, siteUrl).toString();
 }
 
+// Аватары лежат в оригинале (бывает по 2 МБ) — Telegram и VK такие тянут
+// медленно или не тянут вовсе. Отдаём через оптимизатор Next: 1080 px и
+// q=75 — ширина и качество из его разрешённых по умолчанию.
+function previewImageUrl(url: string) {
+  return `${siteUrl}/_next/image?url=${encodeURIComponent(url)}&w=1080&q=75`;
+}
+
 function truncate(text: string, max: number) {
   const normalized = text.replace(/\s+/g, " ").trim();
   if (normalized.length <= max) return normalized;
@@ -88,7 +95,10 @@ function buildTitle(summary: PublicPageSummary) {
 }
 
 function buildDescription(summary: PublicPageSummary) {
-  const serviceNames = summary.services.slice(0, 3).map((service) => service.title);
+  const serviceNames = summary.services
+    .slice(0, 3)
+    .map((service) => service.title.trim())
+    .filter(Boolean);
   const price = minPrice(summary.services);
   const parts = [
     serviceNames.length > 0
@@ -127,7 +137,7 @@ export function buildPublicProfileMetadata(
       locale: "ru_RU",
       type: "profile",
       images: summary.avatarUrl
-        ? [{ url: summary.avatarUrl, alt: summary.name }]
+        ? [{ url: previewImageUrl(summary.avatarUrl), alt: summary.name }]
         : [defaultOgImage],
     },
   };
@@ -161,7 +171,7 @@ export function buildPublicProfileJsonLd(data: PublicPageData, username: string)
             name: "Услуги",
             itemListElement: summary.services.map((service) => ({
               "@type": "Offer",
-              itemOffered: { "@type": "Service", name: service.title },
+              itemOffered: { "@type": "Service", name: service.title.trim() },
               ...(service.price > 0
                 ? { price: service.price, priceCurrency: "RUB" }
                 : {}),
