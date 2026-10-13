@@ -111,10 +111,14 @@ export function ProfileSettingsForm({ profile }: { profile: Profile }) {
             defaultValue={profile.fullName}
             required
           />
+          {/* Ниша, город и названия услуг попадают в заголовок страницы мастера
+              в поиске (src/lib/seo/public-profile.ts). «Маник» никто не ищет. */}
           <Input
             label="Ниша"
             name="specialty"
             defaultValue={profile.specialty}
+            placeholder="Маникюр и педикюр"
+            hint="По ней вас найдут в Яндексе и Google. Пишите полными словами, как ищут клиенты: «маникюр и педикюр», а не «маник»."
             required
           />
           <CityPicker
@@ -136,6 +140,7 @@ export function ProfileSettingsForm({ profile }: { profile: Profile }) {
             name="bio"
             defaultValue={profile.bio}
             placeholder="Пара слов о мастере и атмосфере приема"
+            hint="Этот текст тоже читают поисковики. Напишите, с чем работаете и в каком районе принимаете."
           />
           <FormMessage message={state.message} success={state.success} />
           <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
@@ -841,7 +846,13 @@ export function ServicesSettingsForm({
 
       <form action={createAction} className="space-y-4 rounded-panel border border-dashed border-line p-4">
         <h3 className="text-lg font-semibold text-ink">Новая услуга</h3>
-        <Input label="Название" name="title" placeholder="Маникюр без покрытия" required />
+        <Input
+          label="Название"
+          name="title"
+          placeholder="Маникюр без покрытия"
+          hint="Название видно в поиске. Пишите так, как ищут клиенты: «маникюр с покрытием гель-лаком», а не «маник»."
+          required
+        />
         <Textarea
           label="Описание"
           name="description"
@@ -938,7 +949,13 @@ function ServiceEditor({
       {open ? (
         <>
           <input type="hidden" name="isActive" value={service.isActive ? "on" : ""} />
-          <Input label="Название" name="title" defaultValue={service.title} required />
+          <Input
+            label="Название"
+            name="title"
+            defaultValue={service.title}
+            hint="Название видно в поиске. Пишите так, как ищут клиенты: «маникюр с покрытием гель-лаком», а не «маник»."
+            required
+          />
           <Textarea label="Описание" name="description" defaultValue={service.description} />
           <div className="grid gap-4 sm:grid-cols-2">
             <UnitInput

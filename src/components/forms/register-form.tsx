@@ -137,6 +137,11 @@ export function RegisterForm({
             label={isSolo ? "Ниша" : "Роль или специализация"}
             name="specialty"
             placeholder={isSolo ? "Маникюр и брови" : "Управляющий студией"}
+            hint={
+              isSolo
+                ? "По ней вас найдут в поиске — пишите полными словами, как ищут клиенты."
+                : undefined
+            }
             defaultValue={seedSpecialty}
             onChange={(event) => {
               nameParts.current.specialty = event.target.value;
