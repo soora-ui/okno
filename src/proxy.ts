@@ -16,7 +16,16 @@ const protectedMatchers = [
   "/archive",
   "/knowledge",
   "/admin",
+  "/reviews",
 ];
+
+// Точное совпадение с разделом или его подпутём: простой startsWith("/team")
+// захватывал бы и публичные страницы мастеров вроде /team-anna.
+function isProtectedPath(pathname: string) {
+  return protectedMatchers.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
+}
 
 // Any real route segment (static pages and usernames alike) is lowercase
 // alnum/hyphen. Bots probing for exploit paths (wp-config.php.save, .env,
@@ -59,7 +68,7 @@ export async function proxy(request: NextRequest) {
     return new NextResponse(null, { status: 404 });
   }
 
-  const isProtectedRoute = protectedMatchers.some((path) => pathname.startsWith(path));
+  const isProtectedRoute = isProtectedPath(pathname);
 
   // Next strips its internal RSC/prefetch headers before Proxy runs, but the
   // browser's Sec-Fetch-Dest survives: "document" is a real top-level
