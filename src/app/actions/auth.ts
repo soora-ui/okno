@@ -17,6 +17,7 @@ import {
   isSupabaseMissingTableError,
 } from "@/lib/supabase/auth-errors";
 import { generateReferralCode, normalizeReferralCode } from "@/lib/referral";
+import { RESERVED_USERNAME_MESSAGE, isReservedUsername } from "@/lib/reserved-usernames";
 import {
   isAccountActive,
   normalizeAccountRole,
@@ -183,6 +184,14 @@ export async function registerMasterAction(
     return {
       success: false,
       message: "Для одиночного мастера заполни первую услугу: название, цену и длительность.",
+      values: echoValues,
+    };
+  }
+
+  if (isReservedUsername(parsed.data.username)) {
+    return {
+      success: false,
+      message: RESERVED_USERNAME_MESSAGE,
       values: echoValues,
     };
   }

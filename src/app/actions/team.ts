@@ -17,6 +17,7 @@ import {
 } from "@/lib/workspace";
 import { hasCapability, resolveSubscription } from "@/lib/subscription";
 import { loadSeatBalance } from "@/lib/subscription-seats";
+import { RESERVED_USERNAME_MESSAGE, isReservedUsername } from "@/lib/reserved-usernames";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Profile } from "@/lib/mock-data";
 
@@ -221,6 +222,10 @@ export async function createTeamMemberAction(
     };
   }
 
+  if (isReservedUsername(parsed.data.username)) {
+    return { success: false, message: RESERVED_USERNAME_MESSAGE };
+  }
+
   const admin = createSupabaseAdminClient();
 
   // Место сверх оплаченных внутри длинного периода нужно оплатить сразу:
@@ -349,6 +354,15 @@ export async function updateTeamMemberAction(
 
   if (!memberRow) {
     return { success: false, message: "Сотрудник не найден." };
+  }
+
+  // Проверяем только смену username: сотрудник, заведённый до появления
+  // списка, должен сохранять остальные поля без принудительного переименования.
+  if (
+    parsed.data.username !== memberRow.username &&
+    isReservedUsername(parsed.data.username)
+  ) {
+    return { success: false, message: RESERVED_USERNAME_MESSAGE };
   }
 
   const [{ data: usernameTaken }, { data: emailTaken }] = await Promise.all([
