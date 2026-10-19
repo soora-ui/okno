@@ -1,5 +1,9 @@
 import { revalidatePath } from "next/cache";
 import { DateTime } from "luxon";
+import {
+  answerTelegramSurvey,
+  attachTelegramFeedbackText,
+} from "@/lib/feedback/service";
 import { env, isSupportEscalationConfigured } from "@/lib/env";
 import { logError } from "@/lib/observability/logger";
 import { formatPublicProfileLink } from "@/lib/site";
@@ -827,7 +831,48 @@ async function handleCallbackData(input: {
   data: string;
   profile: TelegramLinkedProfile;
 }): Promise<{ reply: BotReply; toast?: string }> {
-  const [action, argument] = input.data.split(":");
+  const [action, argument, extra] = input.data.split(":");
+
+  // Ответ на опрос обратной связи: fb:<повод>:<причина>.
+  if (action === "fb" && (argument === "trial_ended" || argument === "cancel") && extra) {
+    const outcome = await answerTelegramSurvey({
+      profileId: input.profile.id,
+      kind: argument,
+      reason: extra,
+    });
+
+    if (outcome === "failed") {
+      return {
+        reply: { text: "Не получилось записать ответ. Попробуй ещё раз чуть позже." },
+        toast: "Ошибка",
+      };
+    }
+
+    const wantsToStay = extra === "ready" || extra === "forgot";
+
+    return {
+      reply: {
+        text: wantsToStay
+          ? [
+              "<b>Отлично!</b>",
+              "",
+              "Подключить тариф можно в настройках кабинета — онлайн-запись откроется сразу после оплаты.",
+            ].join("\n")
+          : [
+              "<b>Спасибо, записали.</b>",
+              "",
+              outcome === "duplicate"
+                ? "Твой ответ у команды."
+                : "Если хочешь — напиши одним сообщением подробнее, что не так. Я передам это команде: так мы быстрее поймём, что исправить.",
+            ].join("\n"),
+        keyboard:
+          wantsToStay && supportsLinkButtons
+            ? [[{ text: "Открыть настройки", url: `${settingsUrl}?tab=account` }]]
+            : undefined,
+      },
+      toast: "Спасибо!",
+    };
+  }
 
   if (action === "today") {
     return { reply: await replyToday(input.profile) };
@@ -1072,6 +1117,16 @@ async function handleMessage(message: TelegramMessage) {
   const parsed = parseCommand(text);
 
   if (!parsed) {
+    // Подробности к только что выбранной причине в опросе — они уходят
+    // команде, а не в меню бота.
+    if (profile && (await attachTelegramFeedbackText({ profileId: profile.id, text }))) {
+      await deliver({
+        chatId,
+        reply: { text: "Передал команде okno. Спасибо, что нашёл минуту — это правда помогает." },
+      });
+      return;
+    }
+
     if (profile) {
       await deliver({ chatId, reply: { text: helpText, keyboard: mainKeyboard() } });
       return;

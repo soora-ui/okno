@@ -6,12 +6,19 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/admin", label: "Обзор" },
+  { href: "/admin/feedback", label: "Обратная связь" },
   { href: "/admin/support", label: "Поддержка" },
   { href: "/admin/logs", label: "Логи" },
   { href: "/admin/errors", label: "Ошибки" },
 ];
 
-export function AdminNav({ unresolvedErrors }: { unresolvedErrors: number }) {
+export function AdminNav({
+  unresolvedErrors,
+  newFeedback = 0,
+}: {
+  unresolvedErrors: number;
+  newFeedback?: number;
+}) {
   const pathname = usePathname();
 
   return (
@@ -38,6 +45,17 @@ export function AdminNav({ unresolvedErrors }: { unresolvedErrors: number }) {
             )}
           >
             {link.label}
+            {link.href === "/admin/feedback" && newFeedback > 0 ? (
+              <span
+                style={{
+                  backgroundColor: "var(--color-accent-deep)",
+                  color: "#ffffff",
+                }}
+                className="inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold"
+              >
+                {newFeedback}
+              </span>
+            ) : null}
             {link.href === "/admin/errors" && unresolvedErrors > 0 ? (
               <span
                 style={{

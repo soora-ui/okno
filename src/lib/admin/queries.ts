@@ -1,3 +1,5 @@
+import { DateTime } from "luxon";
+import type { FeedbackKind, FeedbackStatus } from "@/lib/feedback/config";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseMissingTableError } from "@/lib/supabase/auth-errors";
 import { planIds } from "@/config/plans";
@@ -431,4 +433,169 @@ export async function getSupportEscalations(
       answeredAt: (record.answered_at as string | null) ?? null,
     };
   });
+}
+
+// ---- Обратная связь мастеров ----
+
+export type AdminFeedbackEntry = {
+  id: string;
+  kind: FeedbackKind;
+  channel: string;
+  reason: string | null;
+  message: string;
+  context: Record<string, unknown>;
+  status: FeedbackStatus;
+  adminReply: string | null;
+  replySentAt: string | null;
+  replyChannel: string | null;
+  createdAt: string;
+  masterName: string | null;
+  masterEmail: string | null;
+  masterUsername: string | null;
+};
+
+export type FeedbackFilter = "open" | "ideas" | "cancel" | "trial" | "pulse" | "all";
+
+const feedbackFilterKinds: Record<FeedbackFilter, FeedbackKind[] | null> = {
+  open: null,
+  ideas: ["idea", "bug"],
+  cancel: ["cancel"],
+  trial: ["trial_ending", "trial_ended"],
+  pulse: ["pulse"],
+  all: null,
+};
+
+export async function getMasterFeedback(input: {
+  filter: FeedbackFilter;
+  limit?: number;
+}): Promise<AdminFeedbackEntry[]> {
+  const supabase = createSupabaseAdminClient();
+  let query = supabase
+    .from("master_feedback")
+    .select(
+      "id, kind, channel, reason, message, context, status, admin_reply, reply_sent_at, reply_channel, created_at, profiles(full_name, email, username)",
+    )
+    .order("created_at", { ascending: false })
+    .limit(input.limit ?? 200);
+
+  const kinds = feedbackFilterKinds[input.filter];
+
+  if (kinds) {
+    query = query.in("kind", kinds);
+  }
+
+  // «Открытые» — то, что требует внимания: новые и запланированные идеи и
+  // проблемы. Ответы на опросы — статистика, их разбирают сводкой выше.
+  if (input.filter === "open") {
+    query = query.in("kind", ["idea", "bug"]).in("status", ["new", "planned"]);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    if (isSupabaseMissingTableError(error, "master_feedback")) {
+      return [];
+    }
+    throw error;
+  }
+
+  return (data ?? []).map((row) => {
+    const record = row as Record<string, unknown>;
+    const rawMaster = record.profiles;
+    const master = (Array.isArray(rawMaster) ? rawMaster[0] : rawMaster) as
+      | Record<string, unknown>
+      | undefined;
+
+    return {
+      id: String(record.id),
+      kind: record.kind as FeedbackKind,
+      channel: String(record.channel ?? "site"),
+      reason: (record.reason as string | null) ?? null,
+      message: String(record.message ?? ""),
+      context: (record.context as Record<string, unknown> | null) ?? {},
+      status: record.status as FeedbackStatus,
+      adminReply: (record.admin_reply as string | null) ?? null,
+      replySentAt: (record.reply_sent_at as string | null) ?? null,
+      replyChannel: (record.reply_channel as string | null) ?? null,
+      createdAt: String(record.created_at ?? ""),
+      masterName: (master?.full_name as string | null) ?? null,
+      masterEmail: (master?.email as string | null) ?? null,
+      masterUsername: (master?.username as string | null) ?? null,
+    };
+  });
+}
+
+export type FeedbackSummary = {
+  // Вопрос Эллиса за последние полгода.
+  pulseTotal: number;
+  pulseVery: number;
+  pulseSomewhat: number;
+  pulseNot: number;
+  // Причины отключения автопродления и сколько из них ушли в паузу.
+  cancelReasons: { reason: string; count: number }[];
+  cancelTotal: number;
+  savedByPause: number;
+  trialReasons: { reason: string; count: number }[];
+  trialTotal: number;
+  openIdeas: number;
+};
+
+function countBy(rows: { reason: string | null }[]) {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const key = row.reason ?? "—";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((left, right) => right.count - left.count);
+}
+
+export async function getFeedbackSummary(): Promise<FeedbackSummary> {
+  const supabase = createSupabaseAdminClient();
+  const since = DateTime.now().minus({ days: 180 }).toUTC().toISO();
+  const { data, error } = await supabase
+    .from("master_feedback")
+    .select("kind, reason, status, context")
+    .gte("created_at", since)
+    .limit(5000);
+
+  if (error && !isSupabaseMissingTableError(error, "master_feedback")) {
+    throw error;
+  }
+
+  const rows = (data ?? []) as {
+    kind: FeedbackKind;
+    reason: string | null;
+    status: FeedbackStatus;
+    context: Record<string, unknown> | null;
+  }[];
+  const pulse = rows.filter((row) => row.kind === "pulse");
+  const cancel = rows.filter((row) => row.kind === "cancel");
+  const trial = rows.filter((row) => row.kind === "trial_ending" || row.kind === "trial_ended");
+
+  return {
+    pulseTotal: pulse.length,
+    pulseVery: pulse.filter((row) => row.reason === "very").length,
+    pulseSomewhat: pulse.filter((row) => row.reason === "somewhat").length,
+    pulseNot: pulse.filter((row) => row.reason === "not").length,
+    cancelReasons: countBy(cancel),
+    cancelTotal: cancel.length,
+    savedByPause: cancel.filter((row) => row.context?.outcome === "paused").length,
+    trialReasons: countBy(trial),
+    trialTotal: trial.length,
+    openIdeas: rows.filter(
+      (row) => (row.kind === "idea" || row.kind === "bug") && row.status === "new",
+    ).length,
+  };
+}
+
+export async function getNewFeedbackCount(): Promise<number> {
+  const { count, error } = await createSupabaseAdminClient()
+    .from("master_feedback")
+    .select("id", { count: "exact", head: true })
+    .in("kind", ["idea", "bug"])
+    .eq("status", "new");
+
+  return error ? 0 : (count ?? 0);
 }

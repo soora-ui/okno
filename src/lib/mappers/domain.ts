@@ -53,6 +53,9 @@ export function mapProfile(row: Record<string, unknown>): Profile {
     subscriptionUntil: row.subscription_until
       ? String(row.subscription_until)
       : null,
+    subscriptionPausedUntil: row.subscription_paused_until
+      ? String(row.subscription_paused_until)
+      : null,
     monthlyBookingLimit: Number(row.monthly_booking_limit ?? 50),
     monthlyBookingsUsed: Number(row.monthly_bookings_used ?? 0),
     bookingWindowDays: Number(row.booking_window_days ?? 30),

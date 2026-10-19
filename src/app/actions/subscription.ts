@@ -19,6 +19,8 @@ import {
   isBillingPeriodId,
   isPlanId,
 } from "@/config/plans";
+import { cancelReasons, feedbackMessageMaxLength } from "@/lib/feedback/config";
+import { recordFeedback } from "@/lib/feedback/service";
 import { countActiveWorkspaceSeats } from "@/lib/repositories/team-repository";
 import { resolveSubscription } from "@/lib/subscription";
 import { loadSeatBalance } from "@/lib/subscription-seats";
@@ -339,9 +341,8 @@ export async function startSeatTopUpAction(
 // незачем: job продления проверяет оба флага.
 export async function disableSubscriptionAutopayAction(
   _prevState: SubscriptionActionState,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<SubscriptionActionState> {
-  void _formData;
 
   if (!isSupabaseConfigured) {
     return {
@@ -376,6 +377,25 @@ export async function disableSubscriptionAutopayAction(
     targetId: profile.id,
     metadata: { reason: "master_request" },
   });
+
+  // Опрос при отключении необязательный и отключение не блокирует: пустая
+  // причина — тоже ответ, просто без отзыва.
+  const reason = formData.get("reason");
+  const message = String(formData.get("message") ?? "").trim().slice(0, feedbackMessageMaxLength);
+
+  if (
+    typeof reason === "string" &&
+    cancelReasons.some((item) => item.code === reason)
+  ) {
+    await recordFeedback({
+      profile,
+      kind: "cancel",
+      channel: "site",
+      reason,
+      message,
+      context: { path: "/settings", outcome: "autopay_disabled" },
+    });
+  }
 
   revalidatePath("/settings");
   return {

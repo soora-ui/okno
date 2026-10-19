@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { DateTime } from "luxon";
 import { z } from "zod";
 import { requirePlatformAdmin } from "@/lib/admin/access";
+import { deliverFeedbackReply } from "@/lib/feedback/service";
 import { isSupabaseConfigured } from "@/lib/env";
 import { writeAuditLog } from "@/lib/observability/audit";
 import { logError } from "@/lib/observability/logger";
@@ -232,4 +233,62 @@ export async function resolveErrorGroupAction(formData: FormData): Promise<void>
 
   revalidatePath("/admin/errors");
   revalidatePath("/admin");
+}
+
+const feedbackUpdateSchema = z.object({
+  id: z.string().regex(UUID_PATTERN),
+  status: z.enum(["new", "planned", "done", "declined"]),
+  reply: z.string().trim().max(2000).optional(),
+  notify: z.literal("on").optional(),
+});
+
+// Разбор обратной связи: статус и, по желанию, ответ мастеру. Ответ уходит в
+// Telegram, а если бота нет — ждёт мастера на странице «Идеи и проблемы».
+export async function updateFeedbackAction(
+  _prevState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  await requirePlatformAdmin();
+
+  const parsed = feedbackUpdateSchema.safeParse({
+    id: formData.get("id"),
+    status: formData.get("status"),
+    reply: formData.get("reply") || undefined,
+    notify: formData.get("notify") || undefined,
+  });
+
+  if (!parsed.success) {
+    return { success: false, message: "Проверь форму." };
+  }
+
+  const { id, status, reply, notify } = parsed.data;
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("master_feedback")
+    .update({
+      status,
+      ...(reply ? { admin_reply: reply } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) {
+    logError("Admin: feedback update failed", { id, error });
+    return { success: false, message: "Не получилось сохранить." };
+  }
+
+  let message = "Сохранено.";
+
+  if (notify && reply) {
+    const channel = await deliverFeedbackReply({ feedbackId: id, reply, status });
+    message =
+      channel === "telegram"
+        ? "Сохранено, ответ ушёл мастеру в Telegram."
+        : channel === "site"
+          ? "Сохранено. Telegram у мастера не подключён — ответ ждёт его в кабинете."
+          : "Сохранено, но ответ отправить не получилось.";
+  }
+
+  revalidatePath("/admin/feedback");
+  return { success: true, message };
 }

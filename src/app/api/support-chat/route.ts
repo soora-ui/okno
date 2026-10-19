@@ -134,13 +134,19 @@ function getAnthropicClient(): Anthropic {
 function describePlan(profile: {
   subscriptionTier: string;
   subscriptionUntil: string | null;
+  subscriptionPausedUntil: string | null;
   joinedAt: string;
 }): string {
   const access = resolveSubscription({
     subscriptionTier: profile.subscriptionTier,
     subscriptionUntil: profile.subscriptionUntil,
+    subscriptionPausedUntil: profile.subscriptionPausedUntil,
     joinedAt: profile.joinedAt,
   });
+
+  if (access.pausedUntil) {
+    return "подписка на паузе";
+  }
 
   if (access.isTrial) {
     return "пробный период";

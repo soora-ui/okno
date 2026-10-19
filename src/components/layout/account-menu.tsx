@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, BookOpen, CalendarDays, Globe, LayoutDashboard, LogOut, Menu, Settings, Users, X } from "lucide-react";
+import { Archive, BookOpen, CalendarDays, Globe, LayoutDashboard, Lightbulb, LogOut, Menu, Settings, Users, X } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
 import { ClientPortal } from "@/components/ui/client-portal";
 import { usePresence } from "@/components/ui/use-presence";
@@ -42,6 +42,7 @@ export function AccountMenu({
     { href: "/clients", label: "Клиенты", icon: Users },
     { href: "/settings", label: "Настройки", icon: Settings },
     { href: "/knowledge", label: "База знаний", icon: BookOpen },
+    { href: "/feedback", label: "Идеи и проблемы", icon: Lightbulb },
   ];
 
   useEffect(() => {
@@ -94,7 +95,7 @@ export function AccountMenu({
 
           <div
             data-state={presence.state}
-            className="morph-panel morph-glass fixed right-4 top-20 z-50 w-[min(92vw,360px)] rounded-card border border-line p-4 shadow-hover"
+            className="morph-panel morph-glass fixed right-4 top-20 z-50 max-h-[calc(100dvh-6rem)] w-[min(92vw,360px)] overflow-y-auto overscroll-contain rounded-card border border-line p-4 shadow-hover"
           >
             {authenticated ? (
               <div className="space-y-2">
@@ -102,13 +103,13 @@ export function AccountMenu({
                   <p className="text-xs uppercase tracking-[0.24em] text-muted">
                     Навигация
                   </p>
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-2 space-y-0.5">
                     {authLinks.map((item) => (
                       <Link
                         key={item.href}
                         href={item.href}
                         onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 rounded-panel px-3 py-3 text-sm font-medium text-ink transition hover:bg-surface"
+                        className="flex items-center gap-3 rounded-panel px-3 py-2.5 text-sm font-medium text-ink transition hover:bg-surface"
                       >
                         <item.icon size={16} />
                         {item.label}
@@ -118,7 +119,7 @@ export function AccountMenu({
                       <Link
                         href={`/${username}`}
                         onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 rounded-panel px-3 py-3 text-sm font-medium text-ink transition hover:bg-surface"
+                        className="flex items-center gap-3 rounded-panel px-3 py-2.5 text-sm font-medium text-ink transition hover:bg-surface"
                       >
                         <Globe size={16} />
                         Публичная страница

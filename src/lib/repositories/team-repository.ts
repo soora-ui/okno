@@ -22,6 +22,7 @@ const TEAM_PROFILE_COLUMNS = [
   "booking_theme_preset",
   "subscription_tier",
   "subscription_until",
+  "subscription_paused_until",
   "monthly_booking_limit",
   "booking_window_days",
   "slot_interval_minutes",

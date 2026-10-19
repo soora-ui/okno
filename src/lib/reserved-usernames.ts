@@ -11,6 +11,7 @@ const RESERVED_USERNAMES = new Set([
   "archive",
   "clients",
   "dashboard",
+  "feedback",
   "knowledge",
   "reviews",
   "schedule",

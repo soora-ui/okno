@@ -18,6 +18,7 @@ import {
   isCancellationAllowed,
 } from "@/lib/booking";
 import { buildAccountNotificationItems } from "@/lib/account-notifications";
+import { countUnseenReplies } from "@/lib/feedback/service";
 import { pricingPlans } from "@/config/plans";
 import { normalizeBookingThemePresetId } from "@/lib/booking-theme-presets";
 import { renderCertificateThumbnailPng } from "@/lib/certificates/render";
@@ -204,6 +205,7 @@ const PUBLIC_PROFILE_BASE_COLUMNS = [
   "booking_page_settings",
   "subscription_tier",
   "subscription_until",
+  "subscription_paused_until",
   "monthly_booking_limit",
   "booking_window_days",
   "slot_interval_minutes",
@@ -596,10 +598,13 @@ export async function getAccountNotificationPanelData(input: {
     };
   }
 
-  const notificationData = await getOwnerNotificationRows({
-    profileId: input.profile.id,
-    timezone: input.profile.timezone,
-  });
+  const [notificationData, unseenFeedbackReplies] = await Promise.all([
+    getOwnerNotificationRows({
+      profileId: input.profile.id,
+      timezone: input.profile.timezone,
+    }),
+    countUnseenReplies(input.profile.id).catch(() => 0),
+  ]);
 
   return {
     storageKey: `okno.notifications.last-seen.${input.profile.id}`,
@@ -610,6 +615,7 @@ export async function getAccountNotificationPanelData(input: {
         mapNotificationEvent(row),
       ),
       monthlyBookingsUsed: notificationData.monthlyBookingsUsed,
+      unseenFeedbackReplies,
     }),
   };
 }

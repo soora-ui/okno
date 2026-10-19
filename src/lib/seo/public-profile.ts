@@ -195,6 +195,7 @@ type SitemapProfileRow = {
   account_status: string | null;
   subscription_tier: string | null;
   subscription_until: string | null;
+  subscription_paused_until: string | null;
   created_at: string | null;
 };
 
@@ -211,7 +212,7 @@ export async function getIndexablePublicProfilePaths(): Promise<string[]> {
     admin
       .from("profiles")
       .select(
-        "id,username,workspace_id,workspace_kind,account_role,account_status,subscription_tier,subscription_until,created_at",
+        "id,username,workspace_id,workspace_kind,account_role,account_status,subscription_tier,subscription_until,subscription_paused_until,created_at",
       )
       .not("username", "is", null),
     admin.from("services").select("profile_id").eq("is_active", true),
@@ -247,6 +248,7 @@ export async function getIndexablePublicProfilePaths(): Promise<string[]> {
       const hasAccess = hasActiveSubscription({
         subscriptionTier: String(payer.subscription_tier ?? ""),
         subscriptionUntil: payer.subscription_until,
+        subscriptionPausedUntil: payer.subscription_paused_until,
         joinedAt: payer.created_at,
       });
       if (!hasAccess) return false;

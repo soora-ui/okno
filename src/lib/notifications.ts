@@ -49,7 +49,7 @@ export async function sendPhoneVerificationSms(input: {
 // когда чат отвечает 403. Пока бота не было, такой ответ означал вечные
 // неудачные попытки в очереди; теперь привязка гасится, и очередь перестаёт
 // стучаться в мёртвый чат.
-async function sendMasterTelegram(
+export async function sendMasterTelegram(
   chatId: string | null,
   text: string,
   keyboard?: TelegramInlineKeyboard,

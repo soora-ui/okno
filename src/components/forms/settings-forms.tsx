@@ -17,7 +17,6 @@ import {
 } from "@/app/actions/settings";
 import { saveServiceManualAction } from "@/app/actions/service-manuals";
 import {
-  disableSubscriptionAutopayAction,
   startProSubscriptionAction,
   startSeatTopUpAction,
 } from "@/app/actions/subscription";
@@ -47,6 +46,10 @@ import {
   reminderLeadDaysFor,
 } from "@/config/plans";
 import { PlanPeriodTabs } from "@/components/pricing/plan-period-tabs";
+import {
+  CancelAutopayFlow,
+  SubscriptionPauseCard,
+} from "@/components/feedback/subscription-pause";
 import { pluralizeRu } from "@/lib/utils";
 import {
   commentFieldModeLabels,
@@ -526,15 +529,13 @@ function AutopayCard({
   autopay,
   nextChargeLabel,
   nextChargeAmountRub,
+  canPause,
 }: {
   autopay: AutopayState;
   nextChargeLabel: string | null;
   nextChargeAmountRub: number;
+  canPause: boolean;
 }) {
-  const [state, action] = useActionState(
-    disableSubscriptionAutopayAction,
-    initialState,
-  );
   const method = autopay.method;
 
   if (!method) {
@@ -565,13 +566,7 @@ function AutopayCard({
           автопродление отключится.
         </p>
       ) : null}
-      <form action={action}>
-        <FormMessage message={state.message} success={state.success} />
-        <SubmitButton
-          idleLabel="Отключить и отвязать карту"
-          pendingLabel="Отключаю..."
-        />
-      </form>
+      <CancelAutopayFlow canPause={canPause} />
     </div>
   );
 }
@@ -635,6 +630,11 @@ export function SubscriptionSettingsForm({
   // Карта без согласия (и наоборот) — не повод показывать половину блока:
   // управлять есть чем, только когда есть и то, и другое.
   const hasAutopay = autopay.enabled && Boolean(autopay.method);
+  const pausedUntilLabel = formatSubscriptionUntil(access.pausedUntil);
+  // Пауза — для оплаченного тарифа с конечным сроком: в пробном периоде
+  // замораживать нечего, бессрочному доступу пауза ни к чему.
+  const canPause =
+    access.isActive && !access.isTrial && Boolean(access.planId) && Boolean(access.activeUntil);
 
   const statusTitle = currentPlan
     ? `Тариф «${currentPlan.title}»`
@@ -642,7 +642,9 @@ export function SubscriptionSettingsForm({
       ? "Пробный период"
       : "Тариф не подключён";
 
-  const statusHint = currentPlan
+  const statusHint = pausedUntilLabel
+    ? `На паузе до ${pausedUntilLabel}`
+    : currentPlan
     ? untilLabel
       ? `Активен до ${untilLabel}`
       : "Активен бессрочно"
@@ -664,14 +666,30 @@ export function SubscriptionSettingsForm({
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs ${
-            access.isActive ? "bg-success-soft text-success" : "bg-surface text-muted"
+            access.isActive
+              ? "bg-success-soft text-success"
+              : pausedUntilLabel
+                ? "bg-warning-soft text-warning"
+                : "bg-surface text-muted"
           }`}
         >
-          {currentPlan ? currentPlan.title : access.isTrial ? "Пробный" : "Нет доступа"}
+          {pausedUntilLabel
+            ? "Пауза"
+            : currentPlan
+              ? currentPlan.title
+              : access.isTrial
+                ? "Пробный"
+                : "Нет доступа"}
         </span>
       </div>
 
       <SeatTopUpCard balance={seatBalance} />
+
+      <SubscriptionPauseCard
+        pausedUntilLabel={pausedUntilLabel}
+        untilLabel={untilLabel}
+        canPause={canPause}
+      />
 
       {hasAutopay ? (
         <AutopayCard
@@ -682,6 +700,7 @@ export function SubscriptionSettingsForm({
             findBillingPeriodByDays(autopay.periodDays).id,
             activeSeats,
           )}
+          canPause={canPause}
         />
       ) : null}
 

@@ -24,6 +24,9 @@ export function buildAccountNotificationItems(input: {
   profile: Profile;
   notificationEvents: MappedNotificationEvent[];
   monthlyBookingsUsed: number;
+  // Ответы команды на идеи мастера, которых он ещё не видел (у кого нет
+  // Telegram — для них это единственный канал).
+  unseenFeedbackReplies?: number;
 }) {
   const { profile, notificationEvents } = input;
   // Лимит записей отменён вместе с бесплатным тарифом: предупреждаем не об
@@ -99,7 +102,30 @@ export function buildAccountNotificationItems(input: {
       )
     : null;
 
-  if (!subscription.isActive) {
+  if (input.unseenFeedbackReplies) {
+    systemItems.push({
+      id: "system-feedback-reply",
+      title: "Команда okno ответила тебе",
+      description: "Посмотри ответ на свою идею или сообщение о проблеме.",
+      href: "/feedback",
+      tone: "accent",
+      createdAt: stableSystemIso,
+      createdAtLabel: "Сегодня",
+    });
+  }
+
+  if (subscription.pausedUntil) {
+    systemItems.push({
+      id: "system-subscription",
+      title: "Подписка на паузе",
+      description:
+        "Клиенты пока не могут записаться онлайн. Вернуться раньше можно в настройках.",
+      href: "/settings?tab=account",
+      tone: "neutral",
+      createdAt: stableSystemIso,
+      createdAtLabel: "Сегодня",
+    });
+  } else if (!subscription.isActive) {
     systemItems.push({
       id: "system-subscription",
       title: subscription.isTrial ? "Пробный период закончился" : "Тариф не подключён",

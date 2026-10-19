@@ -55,6 +55,7 @@ export const landingDemoProfile: Profile = {
   },
   subscriptionTier: "free",
   subscriptionUntil: null,
+  subscriptionPausedUntil: null,
   monthlyBookingLimit: 50,
   monthlyBookingsUsed: 32,
   bookingWindowDays: 30,

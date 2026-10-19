@@ -19,7 +19,9 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FeedbackPromptCard } from "@/components/feedback/feedback-prompt-card";
 import { getDashboardData } from "@/lib/data";
+import { pickFeedbackPrompt } from "@/lib/feedback/service";
 import { isDemoCabinetHeaders } from "@/lib/demo-cabinet";
 import { getOwnerFreeWindows } from "@/lib/free-windows-data";
 import { canManageWorkspace, isTeamWorkspaceKind } from "@/lib/workspace";
@@ -51,6 +53,8 @@ export default async function DashboardPage() {
   // Лимита записей больше нет: доступ определяется тарифом или пробным
   // периодом. Здесь показываем, сколько дней доступа осталось.
   const subscription = resolveSubscription(profile);
+  const feedbackPrompt = await pickFeedbackPrompt(profile);
+  const pausedUntilLabel = formatSubscriptionUntil(subscription.pausedUntil);
   // Демо-кабинет отдаёт картинку со своего адреса: заголовок демо proxy
   // ставит только на /demo/cabinet/*, на /api запрос ушёл бы без него.
   const freeWindowsStoryHref = isDemoCabinetHeaders(await headers())
@@ -143,6 +147,14 @@ export default async function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {feedbackPrompt ? (
+        <FeedbackPromptCard
+          key={feedbackPrompt.key}
+          promptKey={feedbackPrompt.key}
+          kind={feedbackPrompt.kind}
+        />
+      ) : null}
 
       {unmarkedPastVisitsCount > 0 ? (
         <Card className="flex flex-wrap items-center justify-between gap-4 bg-panel">
@@ -349,7 +361,9 @@ export default async function DashboardPage() {
                   : "Не подключён"}
             </p>
             <p className="text-sm leading-7 text-white/70">
-              {subscription.isActive
+              {subscription.pausedUntil
+                ? `На паузе до ${pausedUntilLabel}: клиенты пока не могут записаться. Оплаченные дни сохранены — тариф продлится до ${accessUntilLabel}.`
+                : subscription.isActive
                 ? accessUntilLabel
                   ? subscription.isTrial
                     ? `Бесплатный доступ ко всем возможностям до ${accessUntilLabel}. Дальше нужен тариф.`
@@ -371,7 +385,11 @@ export default async function DashboardPage() {
               variant="secondary"
               className="w-fit bg-surface text-ink"
             >
-              {subscriptionPlan ? "Продлить или сменить тариф" : "Открыть тарифы"}
+              {subscription.pausedUntil
+                ? "Вернуться раньше"
+                : subscriptionPlan
+                  ? "Продлить или сменить тариф"
+                  : "Открыть тарифы"}
             </ButtonLink>
           </Card>
 

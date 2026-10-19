@@ -330,10 +330,17 @@ export async function POST(request: Request) {
     subscriptionTier: String(profileRow.subscription_tier ?? "free"),
     subscriptionUntil: (profileRow.subscription_until as string | null) ?? null,
     joinedAt: (profileRow.created_at as string | null) ?? null,
+    subscriptionPausedUntil:
+      (profileRow.subscription_paused_until as string | null) ?? null,
   });
 
   if (!masterSubscription.isActive) {
-    return respondWithError(403, "Мастер сейчас не принимает новые записи.");
+    return respondWithError(
+      403,
+      masterSubscription.pausedUntil
+        ? "Мастер взял перерыв и сейчас не принимает новые записи."
+        : "Мастер сейчас не принимает новые записи.",
+    );
   }
 
   const startsAtIso = toUtcIsoFromLocalSlot({

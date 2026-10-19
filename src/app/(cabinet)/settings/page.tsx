@@ -175,6 +175,18 @@ export default async function SettingsPage({
       {/* На мобильном меню в шапке скрыто в пользу нижней панели, а выхода
           среди её вкладок нет — его дом здесь. Публичная страница уже есть
           выше отдельной карточкой со ссылкой. */}
+      <Card className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-ink">Чего-то не хватает?</p>
+          <p className="text-sm leading-6 text-ink-soft">
+            Напиши идею или расскажи, что мешает, — команда okno читает каждое сообщение.
+          </p>
+        </div>
+        <ButtonLink href="/feedback" variant="secondary">
+          Идеи и проблемы
+        </ButtonLink>
+      </Card>
+
       <Card>
         <form action={signOutAction}>
           <button

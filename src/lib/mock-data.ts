@@ -34,6 +34,7 @@ export type Profile = {
   bookingPageSettings: BookingPageSettings;
   subscriptionTier: SubscriptionTier;
   subscriptionUntil: string | null;
+  subscriptionPausedUntil: string | null;
   monthlyBookingLimit: number;
   monthlyBookingsUsed: number;
   bookingWindowDays: number;
@@ -213,6 +214,7 @@ export const profile: Profile = {
   bookingPageSettings: defaultBookingPageSettings,
   subscriptionTier: "free",
   subscriptionUntil: null,
+  subscriptionPausedUntil: null,
   monthlyBookingLimit: 50,
   monthlyBookingsUsed: 47,
   bookingWindowDays: 30,

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { signOutAction } from "@/app/actions/auth";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { requirePlatformAdmin } from "@/lib/admin/access";
-import { getUnresolvedErrorGroupCount } from "@/lib/admin/queries";
+import { getNewFeedbackCount, getUnresolvedErrorGroupCount } from "@/lib/admin/queries";
 
 export const metadata = {
   title: "okno · Админ-панель",
@@ -16,7 +16,10 @@ export default async function AdminLayout({
 }) {
   // Единая точка защиты всей панели: не-админ получает 404.
   const admin = await requirePlatformAdmin();
-  const unresolvedErrors = await getUnresolvedErrorGroupCount();
+  const [unresolvedErrors, newFeedback] = await Promise.all([
+    getUnresolvedErrorGroupCount(),
+    getNewFeedbackCount(),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -39,7 +42,7 @@ export default async function AdminLayout({
       </header>
 
       <div className="mt-6">
-        <AdminNav unresolvedErrors={unresolvedErrors} />
+        <AdminNav unresolvedErrors={unresolvedErrors} newFeedback={newFeedback} />
       </div>
 
       <main className="mt-8">{children}</main>

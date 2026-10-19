@@ -25,6 +25,9 @@ export const env = {
   // privacy mode в группах отдаёт боту только ответы на его собственные
   // сообщения — то есть ровно то, что нам нужно, и ничего лишнего.
   supportTelegramChatId: process.env.SUPPORT_TELEGRAM_CHAT_ID,
+  // Чат, куда приходит обратная связь мастеров: идеи, причины отмены, ответы
+  // на опросы. Необязательный — без него всё уходит в группу поддержки.
+  feedbackTelegramChatId: process.env.FEEDBACK_TELEGRAM_CHAT_ID,
   jobsSecret: process.env.JOBS_SECRET,
   // Проверка автопродления вживую: укороченный расчётный период для
   // перечисленных профилей (см. src/lib/subscription-period.ts). Обе
