@@ -342,9 +342,15 @@ export function PublicProfileView({
                         </div>
                       </a>
                     ) : (
+                      // Сразу на выбранное время: если его успели занять,
+                      // форма записи сама откатится на ближайшее свободное.
                       <Link
                         key={`${slot.serviceId}-${slot.date}-${slot.time}`}
-                        href={bookingHref}
+                        href={`${bookingHref}?${new URLSearchParams({
+                          service: slot.serviceId,
+                          date: slot.date,
+                          time: slot.time,
+                        })}`}
                         className="flex items-center justify-between gap-4 rounded-card border border-line px-4 py-3 shadow-subtle transition hover:-translate-y-0.5"
                         style={{ backgroundColor: "var(--ui-card-bg)" }}
                       >

@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { DateTime } from "luxon";
 import {
@@ -12,12 +13,15 @@ import {
 } from "lucide-react";
 import { BookingCard } from "@/components/dashboard/booking-card";
 import { CertificateScannerModal } from "@/components/dashboard/certificate-scanner-modal";
+import { FreeWindowsCard } from "@/components/dashboard/free-windows-card";
 import { ManualBookingForm } from "@/components/forms/booking-operations";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getDashboardData } from "@/lib/data";
+import { isDemoCabinetHeaders } from "@/lib/demo-cabinet";
+import { getOwnerFreeWindows } from "@/lib/free-windows-data";
 import { canManageWorkspace, isTeamWorkspaceKind } from "@/lib/workspace";
 import { pluralizeRu } from "@/lib/utils";
 import { formatSubscriptionUntil, resolveSubscription } from "@/lib/subscription";
@@ -47,6 +51,12 @@ export default async function DashboardPage() {
   // Лимита записей больше нет: доступ определяется тарифом или пробным
   // периодом. Здесь показываем, сколько дней доступа осталось.
   const subscription = resolveSubscription(profile);
+  // Демо-кабинет отдаёт картинку со своего адреса: заголовок демо proxy
+  // ставит только на /demo/cabinet/*, на /api запрос ушёл бы без него.
+  const freeWindowsStoryHref = isDemoCabinetHeaders(await headers())
+    ? "/demo/cabinet/free-windows-story"
+    : "/api/free-windows/story";
+  const freeWindows = await getOwnerFreeWindows({ profile, source: data.source });
   const subscriptionPlan = subscription.planId ? getPlan(subscription.planId) : null;
   const accessUntilLabel = formatSubscriptionUntil(subscription.activeUntil);
   const daysLeft = subscription.activeUntil
@@ -364,6 +374,14 @@ export default async function DashboardPage() {
               {subscriptionPlan ? "Продлить или сменить тариф" : "Открыть тарифы"}
             </ButtonLink>
           </Card>
+
+          {freeWindows.status === "ready" ? (
+            <FreeWindowsCard
+              days={freeWindows.days}
+              bookingUrl={freeWindows.bookingUrl}
+              storyHref={freeWindowsStoryHref}
+            />
+          ) : null}
 
           <Card className="space-y-4">
             <div className="flex items-center gap-3">
