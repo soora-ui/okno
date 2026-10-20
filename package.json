@@ -15,7 +15,8 @@
     "sms:check": "node --env-file=.env.local scripts/sms-check.mjs",
     "certificates:backfill": "node --env-file=.env.local scripts/backfill-certificate-owner.mjs",
     "email:webhook": "node --env-file=.env.local scripts/unisender-webhook-setup.mjs",
-    "nalog:check": "node --env-file=.env.local scripts/nalog-check.mjs"
+    "nalog:check": "node --env-file=.env.local scripts/nalog-check.mjs",
+    "brandbook": "node --no-warnings scripts/build-brandbook.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

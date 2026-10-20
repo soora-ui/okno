@@ -1,0 +1,91 @@
+/* Базовые токены okno. Сгенерировано из src/app/globals.css — не править руками. */
+:root {
+  --font-manrope: var(--font-manrope-loaded, "Manrope"), "Avenir Next", "Segoe UI", sans-serif;
+  --font-geist-mono: "Geist Mono", "SFMono-Regular", "SF Mono", "Menlo", monospace;
+  --color-background: #faf7f1;
+  --color-panel: #eee7dc;
+  --color-panel-strong: #e3d8c7;
+  --color-line: #d3c5b3;
+  --color-ink: #23241f;
+  --color-ink-soft: #434239;
+  --color-muted: #656055;
+  --color-accent: #b8d3c4;
+  --color-accent-soft: #eef6f0;
+  --color-accent-deep: #4b6d5b;
+  --color-success: #3f7b5a;
+  --color-success-soft: #e6f3eb;
+  --color-warning: #8e6c2f;
+  --color-warning-soft: #f5ecdb;
+  --color-danger: #b14f4f;
+  --color-danger-border: #d8b1b1;
+  --color-danger-soft: #fff5f5;
+  --color-surface: #ffffff;
+  --color-surface-strong: #ffffff;
+  --color-ink-contrast: #ffffff;
+  --ui-card-bg: #ffffff;
+  --ui-field-bg: #ffffff;
+  --ui-placeholder: #8b8477;
+  --ui-primary-bg: var(--color-ink);
+  --ui-primary-text: #ffffff;
+  --ui-secondary-bg: #ffffff;
+  --ui-secondary-text: var(--color-ink);
+  --ui-secondary-border: var(--color-line);
+  --ui-ghost-text: var(--color-ink);
+  --color-glow-cool: rgba(184, 211, 196, 0.4);
+  --color-glow-warm: rgba(247, 226, 211, 0.6);
+  --radius-tight: 12px;
+  --radius-field: 16px;
+  --radius-panel: 20px;
+  --radius-nested: 24px;
+  --radius-card: 28px;
+  --radius-section: 32px;
+  --shadow-subtle: 0 10px 30px rgba(35, 36, 31, 0.04);
+  --shadow-card: 0 24px 80px rgba(35, 36, 31, 0.08);
+  --shadow-section: 0 32px 120px rgba(35, 36, 31, 0.08);
+  --shadow-hover: 0 30px 90px rgba(35, 36, 31, 0.14);
+  --shadow-ink: 0 40px 120px rgba(22, 24, 20, 0.18);
+  --gradient-ink: linear-gradient(135deg, #23241f 0%, #35362f 100%);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: #181712;
+    --color-panel: #211f19;
+    --color-panel-strong: #2a2820;
+    --color-line: #38352c;
+    --color-ink: #f2ede2;
+    --color-ink-soft: #cdc6b8;
+    --color-muted: #9a9384;
+    --color-accent: #b8d3c4;
+    --color-accent-soft: #20302a;
+    --color-accent-deep: #a7cdb9;
+    --color-success: #6cc295;
+    --color-success-soft: #1c2c23;
+    --color-warning: #d8ab63;
+    --color-warning-soft: #2c2417;
+    --color-danger: #e6a6a6;
+    --color-danger-border: #5a3a3a;
+    --color-danger-soft: #2a1b1b;
+    --color-surface: #201e18;
+    --color-surface-strong: #2a2821;
+    --color-ink-contrast: #181712;
+    --ui-card-bg: #201e18;
+    --ui-field-bg: #25231b;
+    --ui-placeholder: #8c8479;
+    --ui-primary-bg: #f2ede2;
+    --ui-primary-text: #181712;
+    --ui-secondary-bg: #2a2821;
+    --ui-secondary-text: #f2ede2;
+    --ui-secondary-border: #38352c;
+    --ui-ghost-text: #f2ede2;
+    --color-glow-cool: rgba(184, 211, 196, 0.1);
+    --color-glow-warm: rgba(247, 226, 211, 0.07);
+    --shadow-subtle: 0 8px 24px rgba(0, 0, 0, 0.14);
+    --shadow-card: 0 16px 48px rgba(0, 0, 0, 0.18);
+    --shadow-section: 0 24px 72px rgba(0, 0, 0, 0.2);
+    --shadow-hover: 0 20px 60px rgba(0, 0, 0, 0.26);
+    --shadow-ink: 0 28px 90px rgba(0, 0, 0, 0.32);
+    --gradient-ink: linear-gradient(135deg, #2a2821 0%, #35332a 100%);
+  }
+}

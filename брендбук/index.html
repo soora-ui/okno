@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>okno · брендбук</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap" />
+<link rel="stylesheet" href="tokens/base.css" />
+<link rel="stylesheet" href="tokens/public-themes.css" />
+<style>
+@font-face { font-family: "Manrope Local"; src: url("fonts/Manrope-Medium.ttf"); font-weight: 500; }
+@font-face { font-family: "Manrope Local"; src: url("fonts/Manrope-Bold.ttf"); font-weight: 600 700; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--color-background); color: var(--color-ink);
+  font-family: Manrope, "Manrope Local", "Avenir Next", "Segoe UI", sans-serif; font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at top left, var(--color-glow-cool), transparent 30%),
+              radial-gradient(circle at bottom right, var(--color-glow-warm), transparent 30%); }
+main { position: relative; max-width: 1180px; margin: 0 auto; padding: 24px 16px 96px; }
+header.top { position: sticky; top: 16px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px 16px; border: 1px solid var(--color-line); border-radius: 9999px; background: var(--color-surface); }
+.logo { display: flex; align-items: center; gap: 12px; font-weight: 600; }
+.mark { display: inline-flex; width: 40px; height: 40px; border-radius: 50%; align-items: center; justify-content: center;
+  background: var(--color-ink); color: var(--color-ink-contrast); font-weight: 600; }
+nav { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; }
+nav a { color: var(--color-ink-soft); text-decoration: none; }
+.label { font-size: 11px; font-weight: 500; letter-spacing: .2em; text-transform: uppercase; color: var(--color-muted); }
+h1 { font-size: clamp(36px, 6vw, 56px); font-weight: 600; letter-spacing: -.025em; line-height: 1.05; margin: 12px 0 16px; }
+h2 { font-size: 30px; font-weight: 600; letter-spacing: -.025em; line-height: 1.2; margin: 8px 0 8px; }
+h3 { font-size: 20px; font-weight: 600; margin: 24px 0 12px; }
+p.lead { max-width: 680px; color: var(--color-ink-soft); font-size: 17px; }
+section { margin-top: 32px; padding: 32px; border: 1px solid var(--color-line); border-radius: var(--radius-section);
+  background: var(--color-surface); box-shadow: var(--shadow-section); }
+.muted { color: var(--color-muted); }
+code { font-family: var(--font-geist-mono); font-size: 12px; color: var(--color-ink-soft); }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.sw { display: flex; gap: 12px; padding: 12px; border: 1px solid var(--color-line); border-radius: var(--radius-panel); background: var(--color-background); }
+.sw-chips { display: flex; flex-direction: column; gap: 4px; }
+.sw-chips span { width: 48px; height: 32px; border-radius: 10px; border: 1px solid rgba(0,0,0,.08); }
+.sw-chips span:only-child { height: 68px; }
+.sw-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; }
+.sw-val { font-size: 12px; color: var(--color-ink-soft); }
+.sw-role { font-size: 12px; color: var(--color-muted); }
+.type-row { display: grid; grid-template-columns: 160px 1fr; gap: 16px; padding: 16px 0; border-top: 1px solid var(--color-line); align-items: baseline; }
+.type-row:first-of-type { border-top: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 16px; }
+.radius-box { width: 96px; height: 96px; border: 1px solid var(--color-line); background: var(--color-panel); display: flex; align-items: flex-end; justify-content: center; padding: 8px; font-size: 12px; }
+.shadow-box { width: 180px; height: 110px; border: 1px solid var(--color-line); border-radius: var(--radius-card); background: var(--color-surface); display: flex; align-items: center; justify-content: center; font-size: 12px; text-align: center; padding: 8px; }
+.demo-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn { display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: 9999px; font-weight: 500; border: 1px solid transparent; }
+.btn-primary { background: var(--ui-primary-bg); color: var(--ui-primary-text); }
+.btn-secondary { background: var(--ui-secondary-bg); color: var(--ui-secondary-text); border-color: var(--ui-secondary-border); }
+.btn-ghost { color: var(--ui-ghost-text); }
+.badge { display: inline-flex; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+.field { height: 48px; padding: 0 16px; border-radius: var(--radius-field); border: 1px solid var(--color-line); background: var(--ui-field-bg); color: var(--color-ink); font: inherit; min-width: 240px; }
+.curve { width: 100%; max-width: 360px; height: 6px; border-radius: 9999px; background: var(--color-panel); position: relative; overflow: hidden; }
+.curve::after { content: ""; position: absolute; inset: 0; width: 40%; border-radius: inherit; background: var(--color-accent);
+  animation: slide 1.6s cubic-bezier(0.22, 1, 0.36, 1) infinite alternate; }
+@keyframes slide { to { transform: translateX(150%); } }
+.theme { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-line); }
+.theme:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+.theme-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; }
+.theme-swatches { display: flex; gap: 6px; }
+.theme-swatches span { width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(0,0,0,.1); }
+.theme-body { display: grid; gap: 16px; grid-template-columns: 1fr 1fr 220px; margin-top: 16px; }
+.theme-ref img { width: 100%; border-radius: var(--radius-panel); border: 1px solid var(--color-line); display: block; }
+details { margin-top: 12px; }
+summary { cursor: pointer; font-size: 13px; color: var(--color-ink-soft); }
+.tt { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+.tt th, .tt td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--color-line); vertical-align: middle; }
+.tt td small { display: block; color: var(--color-muted); }
+.dot { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,.1); margin-right: 6px; vertical-align: -2px; }
+.overflow { overflow-x: auto; }
+
+/* Мокап публичной страницы — красится только переменными темы. */
+.mock { position: relative; overflow: hidden; border-radius: var(--radius-card); background: var(--color-background); color: var(--color-ink);
+  border: 1px solid var(--color-line); padding: 16px; min-height: 300px; }
+.mock-glow { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 15% 0%, var(--public-glow-a), transparent 45%),
+              radial-gradient(circle at 90% 20%, var(--public-glow-b), transparent 40%),
+              radial-gradient(circle at 50% 100%, var(--public-glow-c), transparent 55%); }
+.mock-inner { position: relative; display: flex; flex-direction: column; gap: 12px; }
+.mock-head { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 9999px; background: var(--public-surface-strong); border: 1px solid var(--public-edge); }
+.mock-head small, .mock-row small { display: block; color: var(--color-muted); font-size: 12px; }
+.mock-head b { font-size: 14px; }
+.mock-ava { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--color-accent); color: var(--ui-primary-text); font-weight: 600; }
+.mock-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: var(--radius-nested); background: var(--ui-card-bg); border: 1px solid var(--color-line); }
+.mock-row { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.mock-slots { display: flex; gap: 6px; }
+.mock-slots span { padding: 6px 12px; border-radius: 9999px; border: 1px solid var(--color-line); background: var(--color-panel); font-size: 13px; color: var(--color-ink-soft); }
+.mock-slots .on { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-accent-deep); font-weight: 600; }
+.mock-input { height: 40px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--color-line); background: var(--ui-field-bg); color: var(--color-ink); font: inherit; font-size: 14px; }
+.mock-input::placeholder { color: var(--ui-placeholder); }
+.mock-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.mock-btns span { display: inline-flex; align-items: center; height: 38px; padding: 0 16px; border-radius: 9999px; font-size: 14px; font-weight: 500; }
+.mock .btn-p { background: var(--ui-primary-bg); color: var(--ui-primary-text); }
+.mock .btn-s { background: var(--ui-secondary-bg); border: 1px solid var(--ui-secondary-border); color: var(--color-ink); }
+.mock-badge { align-self: flex-start; padding: 4px 12px; border-radius: 9999px; background: var(--public-surface); border: 1px solid var(--public-edge); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--color-accent-deep); }
+.mock-cap { font-size: 12px; color: var(--color-muted); margin-bottom: 6px; }
+.unused { display: flex; gap: 12px; flex-wrap: wrap; }
+.unused img { width: 160px; border-radius: var(--radius-panel); border: 1px solid var(--color-line); }
+
+@media (max-width: 860px) {
+  .theme-body { grid-template-columns: 1fr; }
+  .theme-ref { max-width: 260px; }
+  section { padding: 20px; }
+  nav { display: none; }
+  .type-row { grid-template-columns: 1fr; gap: 4px; }
+}
+</style>
+</head>
+<body>
+<main>
+<header class="top">
+  <div class="logo"><span class="mark">o</span>okno <span class="label" style="margin-left:4px">брендбук</span></div>
+  <nav><a href="#logo">Логотип</a><a href="#colors">Цвета</a><a href="#type">Шрифт</a><a href="#shape">Формы</a><a href="#components">Компоненты</a><a href="#themes">Темы страницы</a></nav>
+</header>
+
+<div style="padding:56px 8px 8px">
+  <span class="label">Creative North Star</span>
+  <h1>Свет из окна</h1>
+  <p class="lead">Тёплая бумага вместо белого, чернила вместо чёрного, шалфей — единственный цветной голос.
+  Тень — это дневной свет на листе, а не уровень. Граница есть у всего. Скругления крупные, движение мягкое и на одной кривой.</p>
+  <p class="muted" style="font-size:13px">Страница собрана из кода сайта: <code>src/app/globals.css</code> и <code>src/lib/booking-theme-presets.ts</code>. Тёмная тема — по настройке системы.</p>
+</div>
+
+<section id="logo">
+  <span class="label">01</span><h2>Логотип</h2>
+  <p class="muted">Знак — строчная «o» в круге цвета чернил; рядом — слово «okno» строчными, Manrope 600. Никаких заглавных и градиентов.</p>
+  <div class="demo-row" style="gap:24px;margin-top:16px">
+    <div class="logo" style="font-size:20px"><span class="mark" style="width:56px;height:56px;font-size:22px">o</span>okno</div>
+    <div class="logo" style="padding:16px 20px;border-radius:9999px;background:#23241f;color:#faf7f1"><span class="mark" style="background:#faf7f1;color:#23241f">o</span>okno</div>
+    <img src="logo/logo.png" alt="Знак okno" width="72" height="72" style="border-radius:50%" />
+    <img src="logo/okno-mark.svg" alt="Знак okno, SVG" width="72" height="72" />
+  </div>
+  <p class="muted" style="font-size:13px;margin-top:16px">Файлы: <code>logo/logo.png</code> (512×512, как на сайте), <code>logo/okno-mark.svg</code>, <code>logo/okno-mark-inverse.svg</code>, <code>logo/okno-lockup.svg</code>.</p>
+</section>
+
+<section id="colors">
+  <span class="label">02</span><h2>Цвета приложения</h2>
+  <p class="muted">В каждой плашке верхний чип — светлая тема (каноническая), нижний — тёмная. Шалфей занимает не больше 10% экрана; зелёный, жёлтый и красный — только для статусов.</p>
+  <h3>Нейтрали бумаги</h3><div class="grid"><div class="sw">
+  <div class="sw-chips"><span style="background:#faf7f1"></span><span style="background:#181712"></span></div>
+  <div class="sw-meta"><b>Бумага</b><code>--color-background</code>
+  <span class="sw-val">#faf7f1 · <i>тёмная</i> #181712</span>
+  <span class="sw-role">Фон всех страниц. Никогда не белый.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#eee7dc"></span><span style="background:#211f19"></span></div>
+  <div class="sw-meta"><b>Панель</b><code>--color-panel</code>
+  <span class="sw-val">#eee7dc · <i>тёмная</i> #211f19</span>
+  <span class="sw-role">Вторичные подложки: бейджи, секции, неактивные вкладки.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#e3d8c7"></span><span style="background:#2a2820"></span></div>
+  <div class="sw-meta"><b>Панель плотная</b><code>--color-panel-strong</code>
+  <span class="sw-val">#e3d8c7 · <i>тёмная</i> #2a2820</span>
+  <span class="sw-role">Подложка поплотнее, вложенные блоки.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#d3c5b3"></span><span style="background:#38352c"></span></div>
+  <div class="sw-meta"><b>Линия</b><code>--color-line</code>
+  <span class="sw-val">#d3c5b3 · <i>тёмная</i> #38352c</span>
+  <span class="sw-role">Граница. Обводит каждую поверхность.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#ffffff"></span><span style="background:#201e18"></span></div>
+  <div class="sw-meta"><b>Поверхность</b><code>--color-surface</code>
+  <span class="sw-val">#ffffff · <i>тёмная</i> #201e18</span>
+  <span class="sw-role">Карточки, шапка, поля — лежит на бумаге.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#ffffff"></span><span style="background:#2a2821"></span></div>
+  <div class="sw-meta"><b>Поверхность плотная</b><code>--color-surface-strong</code>
+  <span class="sw-val">#ffffff · <i>тёмная</i> #2a2821</span>
+  <span class="sw-role">Поднятая поверхность внутри карточки.</span></div>
+</div></div>
+<h3>Чернила</h3><div class="grid"><div class="sw">
+  <div class="sw-chips"><span style="background:#23241f"></span><span style="background:#f2ede2"></span></div>
+  <div class="sw-meta"><b>Чернила</b><code>--color-ink</code>
+  <span class="sw-val">#23241f · <i>тёмная</i> #f2ede2</span>
+  <span class="sw-role">Основной текст и заливка главной кнопки.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#434239"></span><span style="background:#cdc6b8"></span></div>
+  <div class="sw-meta"><b>Чернила мягкие</b><code>--color-ink-soft</code>
+  <span class="sw-val">#434239 · <i>тёмная</i> #cdc6b8</span>
+  <span class="sw-role">Вторичный текст, навигация.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#656055"></span><span style="background:#9a9384"></span></div>
+  <div class="sw-meta"><b>Приглушённый</b><code>--color-muted</code>
+  <span class="sw-val">#656055 · <i>тёмная</i> #9a9384</span>
+  <span class="sw-role">Подписи, подсказки, мета-информация.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#ffffff"></span><span style="background:#181712"></span></div>
+  <div class="sw-meta"><b>Текст на чернилах</b><code>--color-ink-contrast</code>
+  <span class="sw-val">#ffffff · <i>тёмная</i> #181712</span>
+  <span class="sw-role">Текст на тёмной заливке.</span></div>
+</div></div>
+<h3>Акцент — шалфей</h3><div class="grid"><div class="sw">
+  <div class="sw-chips"><span style="background:#b8d3c4"></span><span style="background:#b8d3c4"></span></div>
+  <div class="sw-meta"><b>Шалфей</b><code>--color-accent</code>
+  <span class="sw-val">#b8d3c4 · <i>тёмная</i> #b8d3c4</span>
+  <span class="sw-role">Единственный акцент: активные состояния, выбранный слот.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#eef6f0"></span><span style="background:#20302a"></span></div>
+  <div class="sw-meta"><b>Шалфей светлый</b><code>--color-accent-soft</code>
+  <span class="sw-val">#eef6f0 · <i>тёмная</i> #20302a</span>
+  <span class="sw-role">Подложка акцентных бейджей.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#4b6d5b"></span><span style="background:#a7cdb9"></span></div>
+  <div class="sw-meta"><b>Шалфей глубокий</b><code>--color-accent-deep</code>
+  <span class="sw-val">#4b6d5b · <i>тёмная</i> #a7cdb9</span>
+  <span class="sw-role">Текст на шалфейной подложке, кольцо фокуса.</span></div>
+</div></div>
+<h3>Статусы</h3><div class="grid"><div class="sw">
+  <div class="sw-chips"><span style="background:#3f7b5a"></span><span style="background:#6cc295"></span></div>
+  <div class="sw-meta"><b>Успех</b><code>--color-success</code>
+  <span class="sw-val">#3f7b5a · <i>тёмная</i> #6cc295</span>
+  <span class="sw-role">Подтверждённые записи, зелёный бейдж надёжности.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#e6f3eb"></span><span style="background:#1c2c23"></span></div>
+  <div class="sw-meta"><b>Успех — подложка</b><code>--color-success-soft</code>
+  <span class="sw-val">#e6f3eb · <i>тёмная</i> #1c2c23</span>
+  </div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#8e6c2f"></span><span style="background:#d8ab63"></span></div>
+  <div class="sw-meta"><b>Внимание</b><code>--color-warning</code>
+  <span class="sw-val">#8e6c2f · <i>тёмная</i> #d8ab63</span>
+  <span class="sw-role">Истекающие сроки, жёлтый бейдж.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#f5ecdb"></span><span style="background:#2c2417"></span></div>
+  <div class="sw-meta"><b>Внимание — подложка</b><code>--color-warning-soft</code>
+  <span class="sw-val">#f5ecdb · <i>тёмная</i> #2c2417</span>
+  </div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#b14f4f"></span><span style="background:#e6a6a6"></span></div>
+  <div class="sw-meta"><b>Опасность</b><code>--color-danger</code>
+  <span class="sw-val">#b14f4f · <i>тёмная</i> #e6a6a6</span>
+  <span class="sw-role">Отмены, неявки, деструктивные действия.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#fff5f5"></span><span style="background:#2a1b1b"></span></div>
+  <div class="sw-meta"><b>Опасность — подложка</b><code>--color-danger-soft</code>
+  <span class="sw-val">#fff5f5 · <i>тёмная</i> #2a1b1b</span>
+  </div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#d8b1b1"></span><span style="background:#5a3a3a"></span></div>
+  <div class="sw-meta"><b>Опасность — граница</b><code>--color-danger-border</code>
+  <span class="sw-val">#d8b1b1 · <i>тёмная</i> #5a3a3a</span>
+  </div>
+</div></div>
+<h3>Свечения фона</h3><div class="grid"><div class="sw">
+  <div class="sw-chips"><span style="background:rgba(184, 211, 196, 0.4)"></span><span style="background:rgba(184, 211, 196, 0.1)"></span></div>
+  <div class="sw-meta"><b>Холодное свечение</b><code>--color-glow-cool</code>
+  <span class="sw-val">rgba(184, 211, 196, 0.4) · <i>тёмная</i> rgba(184, 211, 196, 0.1)</span>
+  <span class="sw-role">Шалфейное пятно в левом верхнем углу фона.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:rgba(247, 226, 211, 0.6)"></span><span style="background:rgba(247, 226, 211, 0.07)"></span></div>
+  <div class="sw-meta"><b>Тёплое свечение</b><code>--color-glow-warm</code>
+  <span class="sw-val">rgba(247, 226, 211, 0.6) · <i>тёмная</i> rgba(247, 226, 211, 0.07)</span>
+  <span class="sw-role">Персиковое пятно в правом нижнем углу фона.</span></div>
+</div></div>
+<h3>Компоненты</h3><div class="grid"><div class="sw">
+  <div class="sw-chips"><span style="background:#ffffff"></span><span style="background:#201e18"></span></div>
+  <div class="sw-meta"><b>Фон карточки</b><code>--ui-card-bg</code>
+  <span class="sw-val">#ffffff · <i>тёмная</i> #201e18</span>
+  <span class="sw-role">Компонент Card.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#ffffff"></span><span style="background:#25231b"></span></div>
+  <div class="sw-meta"><b>Фон поля</b><code>--ui-field-bg</code>
+  <span class="sw-val">#ffffff · <i>тёмная</i> #25231b</span>
+  <span class="sw-role">Input, Textarea, Select.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#8b8477"></span><span style="background:#8c8479"></span></div>
+  <div class="sw-meta"><b>Плейсхолдер</b><code>--ui-placeholder</code>
+  <span class="sw-val">#8b8477 · <i>тёмная</i> #8c8479</span>
+  <span class="sw-role">Текст-подсказка в поле.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:var(--color-ink)"></span><span style="background:#f2ede2"></span></div>
+  <div class="sw-meta"><b>Главная кнопка</b><code>--ui-primary-bg</code>
+  <span class="sw-val">var(--color-ink) · <i>тёмная</i> #f2ede2</span>
+  <span class="sw-role">Заливка primary-кнопки.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#ffffff"></span><span style="background:#181712"></span></div>
+  <div class="sw-meta"><b>Текст главной кнопки</b><code>--ui-primary-text</code>
+  <span class="sw-val">#ffffff · <i>тёмная</i> #181712</span>
+  </div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:#ffffff"></span><span style="background:#2a2821"></span></div>
+  <div class="sw-meta"><b>Вторичная кнопка</b><code>--ui-secondary-bg</code>
+  <span class="sw-val">#ffffff · <i>тёмная</i> #2a2821</span>
+  <span class="sw-role">Заливка secondary-кнопки.</span></div>
+</div><div class="sw">
+  <div class="sw-chips"><span style="background:var(--color-line)"></span><span style="background:#38352c"></span></div>
+  <div class="sw-meta"><b>Граница вторичной кнопки</b><code>--ui-secondary-border</code>
+  <span class="sw-val">var(--color-line) · <i>тёмная</i> #38352c</span>
+  </div>
+</div></div>
+  <h3>Градиент чернил</h3>
+  <div class="grid">
+    <div class="sw"><div class="sw-chips"><span style="background:linear-gradient(135deg, #23241f 0%, #35362f 100%)"></span><span style="background:linear-gradient(135deg, #2a2821 0%, #35332a 100%)"></span></div>
+    <div class="sw-meta"><b>Единственный градиент</b><code>--gradient-ink</code><span class="sw-val">linear-gradient(135deg, #23241f 0%, #35362f 100%)</span><span class="sw-role">Тёмные промо-блоки и плашки.</span></div></div>
+  </div>
+</section>
+
+<section id="type">
+  <span class="label">03</span><h2>Шрифт — Manrope</h2>
+  <p class="muted">Одна гарнитура на всё: Manrope (переменный, 200–800, латиница + кириллица), фолбэк Avenir Next → Segoe UI → sans-serif.
+  Живут два веса: 500 для интерфейса и 600 для заголовков, 400 — для текста. Bold и light не используются.
+  Моно — Geist Mono, почти не встречается.</p>
+  <div style="margin-top:16px">
+  <div class="type-row"><div><b>Display</b><br><code>48px · 600 · lh 1.1 · -0.025em</code><br><small class="muted">Первый экран лендинга, крупные секции (36–48px).</small></div>
+      <div style="font-size:48px;font-weight:600;line-height:1.1;letter-spacing:-0.025em;">Свободное окошко на завтра</div></div><div class="type-row"><div><b>Headline</b><br><code>30px · 600 · lh 1.2 · -0.025em</code><br><small class="muted">Заголовки секций внутри страниц.</small></div>
+      <div style="font-size:30px;font-weight:600;line-height:1.2;letter-spacing:-0.025em;">Свободное окошко на завтра</div></div><div class="type-row"><div><b>Title</b><br><code>20px · 600 · lh 1.3 · normal</code><br><small class="muted">Карточки, названия услуг, шапки модалок (20–24px).</small></div>
+      <div style="font-size:20px;font-weight:600;line-height:1.3;letter-spacing:normal;">Свободное окошко на завтра</div></div><div class="type-row"><div><b>Body</b><br><code>15px · 400 · lh 1.5 · normal</code><br><small class="muted">Рабочий кегль всего интерфейса; 16px — для длинного чтения.</small></div>
+      <div style="font-size:15px;font-weight:400;line-height:1.5;letter-spacing:normal;">Клиент выбирает услугу, время и записывается за минуту — без звонков и переписки.</div></div><div class="type-row"><div><b>Label</b><br><code>11px · 500 · lh 1.2 · 0.2em</code><br><small class="muted">Надзаголовки и метки. Только UPPERCASE с разрядкой 0.18–0.24em.</small></div>
+      <div style="font-size:11px;font-weight:500;line-height:1.2;letter-spacing:0.2em;text-transform:uppercase;color:var(--color-muted)">Почему okno</div></div>
+  </div>
+  <div class="demo-row" style="margin-top:16px;font-size:28px;gap:32px">
+    <span style="font-weight:400">Аа 400</span><span style="font-weight:500">Аа 500</span><span style="font-weight:600">Аа 600</span>
+  </div>
+  <p class="muted" style="font-size:13px">На сайте шрифт грузится через <code>next/font/google</code>. Файлы для макетов — в <code>fonts/</code>; полный переменный Manrope — fonts.google.com/specimen/Manrope (OFL).</p>
+</section>
+
+<section id="shape">
+  <span class="label">04</span><h2>Формы, тени, движение</h2>
+  <h3>Скругления</h3>
+  <p class="muted">Радиус растёт с площадью; вложенный элемент мягче родителя на шаг. Кнопки, бейджи и шапка — пилюли.</p>
+  <div class="chips">
+    <div class="radius-box" style="border-radius:12px"><span>tight · 12px</span></div><div class="radius-box" style="border-radius:16px"><span>field · 16px</span></div><div class="radius-box" style="border-radius:20px"><span>panel · 20px</span></div><div class="radius-box" style="border-radius:24px"><span>nested · 24px</span></div><div class="radius-box" style="border-radius:28px"><span>card · 28px</span></div><div class="radius-box" style="border-radius:32px"><span>section · 32px</span></div>
+    <div class="radius-box" style="border-radius:9999px"><span>pill</span></div>
+  </div>
+  <h3>Тени — это свет</h3>
+  <p class="muted">Большое размытие, 8% в покое. Пять ролей.</p>
+  <div class="chips">
+    <div class="shadow-box" style="box-shadow:var(--shadow-subtle)"><span><b>subtle</b><br><code>0 10px 30px rgba(35, 36, 31, 0.04)</code></span></div><div class="shadow-box" style="box-shadow:var(--shadow-card)"><span><b>card</b><br><code>0 24px 80px rgba(35, 36, 31, 0.08)</code></span></div><div class="shadow-box" style="box-shadow:var(--shadow-section)"><span><b>section</b><br><code>0 32px 120px rgba(35, 36, 31, 0.08)</code></span></div><div class="shadow-box" style="box-shadow:var(--shadow-hover)"><span><b>hover</b><br><code>0 30px 90px rgba(35, 36, 31, 0.14)</code></span></div><div class="shadow-box" style="box-shadow:var(--shadow-ink)"><span><b>ink</b><br><code>0 40px 120px rgba(22, 24, 20, 0.18)</code></span></div>
+  </div>
+  <h3>Движение</h3>
+  <p class="muted">Одна кривая на всю систему — <code>cubic-bezier(0.22, 1, 0.36, 1)</code>: появление страницы 420мс, подъём карточки на 4px за 360мс.
+  Всплывающие панели раскрываются пружиной <code>--ease-spring-soft</code> (500мс, перелёт ~4%), закрываются за 220мс без перелёта. При <code>prefers-reduced-motion</code> — только прозрачность.</p>
+  <div class="curve"></div>
+</section>
+
+<section id="components">
+  <span class="label">05</span><h2>Компоненты</h2>
+  <h3>Кнопки — 44px, пилюля</h3>
+  <div class="demo-row"><span class="btn btn-primary">Записаться</span><span class="btn btn-secondary">Подробнее</span><span class="btn btn-ghost">Отмена</span></div>
+  <h3>Поле — 48px, радиус 16px</h3>
+  <div class="demo-row"><input class="field" placeholder="Имя клиента" /></div>
+  <h3>Бейджи</h3>
+  <div class="demo-row">
+    <span class="badge" style="background:var(--color-panel);color:var(--color-ink-soft)">нейтральный</span>
+    <span class="badge" style="background:var(--color-accent-soft);color:var(--color-accent-deep)">акцент</span>
+    <span class="badge" style="background:var(--color-success-soft);color:var(--color-success)">подтверждена</span>
+    <span class="badge" style="background:var(--color-warning-soft);color:var(--color-warning)">истекает</span>
+    <span class="badge" style="background:var(--color-danger-soft);color:var(--color-danger);border:1px solid var(--color-danger-border)">неявка</span>
+  </div>
+  <h3>Карточка — радиус 28px, граница + свет</h3>
+  <div style="max-width:420px;padding:24px;border:1px solid var(--color-line);border-radius:var(--radius-card);background:var(--ui-card-bg);box-shadow:var(--shadow-card)">
+    <span class="label">Сегодня</span>
+    <div style="font-size:20px;font-weight:600;margin:6px 0 4px">5 записей · 14 500 ₽</div>
+    <div class="muted">Ближайшая — 12:30, маникюр с покрытием</div>
+  </div>
+</section>
+
+<section id="themes">
+  <span class="label">06</span><h2>Темы публичной страницы</h2>
+  <p class="muted">Мастер выбирает одну из пяти тем в настройках; она перекрашивает страницу записи через <code>data-booking-theme</code>.
+  У каждой темы есть светлая и тёмная пара — тёмная включается по настройке телефона клиента. Тёмные пары собраны не инверсией: акцент осветлён, текст на акценте становится тёмным.
+  По умолчанию — «Светлый лен».</p>
+  <div class="theme" id="theme-linen">
+    <div class="theme-head">
+      <div><h3 style="margin:0">Светлый лен <code>linen</code> <span class="badge" style="background:var(--color-accent-soft);color:var(--color-accent-deep)">по умолчанию</span></h3>
+      <div class="muted" style="font-size:13px">Нейтральный и самый универсальный вариант.</div></div>
+      <div class="theme-swatches"><span style="background:#F4F2EF" title="#F4F2EF"></span><span style="background:#161616" title="#161616"></span><span style="background:#D0C0AE" title="#D0C0AE"></span><span style="width:8px;border:0"></span><span style="background:#201E18" title="#201E18"></span><span style="background:#F2EDE2" title="#F2EDE2"></span><span style="background:#D0C0AE" title="#D0C0AE"></span></div>
+    </div>
+    <div class="theme-body">
+      <div><div class="mock-cap">Светлая</div><div class="mock" data-booking-theme="linen" data-booking-theme-mode="light">
+  <div class="mock-glow"></div>
+  <div class="mock-inner">
+    <div class="mock-head"><span class="mock-ava">А</span><div><b>Анна · брови и ресницы</b><small>Москва, Патриаршие</small></div></div>
+    <div class="mock-card">
+      <div class="mock-row"><div><b>Ламинирование ресниц</b><small>1 ч 30 мин</small></div><b>2 500 ₽</b></div>
+      <div class="mock-slots"><span>10:00</span><span class="on">12:30</span><span>15:00</span></div>
+      <input class="mock-input" placeholder="Ваше имя" />
+      <div class="mock-btns"><span class="btn-p">Записаться</span><span class="btn-s">Портфолио</span></div>
+    </div>
+    <span class="mock-badge">свободно завтра</span>
+  </div>
+</div></div>
+      <div><div class="mock-cap">Тёмная</div><div class="mock" data-booking-theme="linen" data-booking-theme-mode="dark">
+  <div class="mock-glow"></div>
+  <div class="mock-inner">
+    <div class="mock-head"><span class="mock-ava">А</span><div><b>Анна · брови и ресницы</b><small>Москва, Патриаршие</small></div></div>
+    <div class="mock-card">
+      <div class="mock-row"><div><b>Ламинирование ресниц</b><small>1 ч 30 мин</small></div><b>2 500 ₽</b></div>
+      <div class="mock-slots"><span>10:00</span><span class="on">12:30</span><span>15:00</span></div>
+      <input class="mock-input" placeholder="Ваше имя" />
+      <div class="mock-btns"><span class="btn-p">Записаться</span><span class="btn-s">Портфолио</span></div>
+    </div>
+    <span class="mock-badge">свободно завтра</span>
+  </div>
+</div></div>
+      <div class="theme-ref"><div class="mock-cap">Ключевые цвета</div><div style="font-size:12px;margin-bottom:6px"><span class="dot" style="background:#faf7f1"></span>Бумага · #faf7f1</div><div style="font-size:12px;margin-bottom:6px"><span class="dot" style="background:#161616"></span>Чернила · #161616</div><div style="font-size:12px;margin-bottom:6px"><span class="dot" style="background:#d0c0ae"></span>Шалфей · #d0c0ae</div><div style="font-size:12px;margin-bottom:6px"><span class="dot" style="background:#161616"></span>Главная кнопка · #161616</div></div>
+    </div>
+    <details><summary>Все токены темы (25)</summary><div class="overflow"><table class="tt"><thead><tr><th>Токен</th><th>Светлая</th><th>Тёмная</th></tr></thead><tbody>
+<tr><td><code>--color-ink</code><small>Чернила</small></td><td><span class="dot" style="background:#161616"></span>#161616</td><td><span class="dot" style="background:#f2ede2"></span>#f2ede2</td></tr>
+<tr><td><code>--color-ink-soft</code><small>Чернила мягкие</small></td><td><span class="dot" style="background:#4b4742"></span>#4b4742</td><td><span class="dot" style="background:#cdc6b8"></span>#cdc6b8</td></tr>
+<tr><td><code>--color-muted</code><small>Приглушённый</small></td><td><span class="dot" style="background:#736c64"></span>#736c64</td><td><span class="dot" style="background:#9a9384"></span>#9a9384</td></tr>
+<tr><td><code>--color-line</code><small>Линия</small></td><td><span class="dot" style="background:#d8cab9"></span>#d8cab9</td><td><span class="dot" style="background:#3a352c"></span>#3a352c</td></tr>
+<tr><td><code>--color-panel</code><small>Панель</small></td><td><span class="dot" style="background:#efe8df"></span>#efe8df</td><td><span class="dot" style="background:#221f19"></span>#221f19</td></tr>
+<tr><td><code>--color-accent</code><small>Шалфей</small></td><td><span class="dot" style="background:#d0c0ae"></span>#d0c0ae</td><td><span class="dot" style="background:#d0c0ae"></span>#d0c0ae</td></tr>
+<tr><td><code>--color-accent-soft</code><small>Шалфей светлый</small></td><td><span class="dot" style="background:#f4ece3"></span>#f4ece3</td><td><span class="dot" style="background:#2e281f"></span>#2e281f</td></tr>
+<tr><td><code>--color-accent-deep</code><small>Шалфей глубокий</small></td><td><span class="dot" style="background:#6f6250"></span>#6f6250</td><td><span class="dot" style="background:#e0d3c3"></span>#e0d3c3</td></tr>
+<tr><td><code>--ui-card-bg</code><small>Фон карточки</small></td><td><span class="dot" style="background:#fcfaf7"></span>#fcfaf7</td><td><span class="dot" style="background:#201e18"></span>#201e18</td></tr>
+<tr><td><code>--ui-field-bg</code><small>Фон поля</small></td><td><span class="dot" style="background:#fffdfa"></span>#fffdfa</td><td><span class="dot" style="background:#25231b"></span>#25231b</td></tr>
+<tr><td><code>--ui-placeholder</code><small>Плейсхолдер</small></td><td><span class="dot" style="background:#8c8379"></span>#8c8379</td><td><span class="dot" style="background:#8c8479"></span>#8c8479</td></tr>
+<tr><td><code>--ui-primary-bg</code><small>Главная кнопка</small></td><td><span class="dot" style="background:#161616"></span>#161616</td><td><span class="dot" style="background:#d0c0ae"></span>#d0c0ae</td></tr>
+<tr><td><code>--ui-primary-text</code><small>Текст главной кнопки</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#1a1712"></span>#1a1712</td></tr>
+<tr><td><code>--color-background</code><small>Бумага</small></td><td><span class="dot" style="background:#faf7f1"></span>#faf7f1</td><td><span class="dot" style="background:#181712"></span>#181712</td></tr>
+<tr><td><code>--color-surface</code><small>Поверхность</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#201e18"></span>#201e18</td></tr>
+<tr><td><code>--color-surface-strong</code><small>Поверхность плотная</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#2a2821"></span>#2a2821</td></tr>
+<tr><td><code>--color-ink-contrast</code><small>Текст на чернилах</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#181712"></span>#181712</td></tr>
+<tr><td><code>--ui-secondary-bg</code><small>Вторичная кнопка</small></td><td><span class="dot" style="background:#f7f1ea"></span>#f7f1ea</td><td><span class="dot" style="background:#2a2821"></span>#2a2821</td></tr>
+<tr><td><code>--ui-secondary-border</code><small>Граница вторичной кнопки</small></td><td><span class="dot" style="background:#d8cab9"></span>#d8cab9</td><td><span class="dot" style="background:#3a352c"></span>#3a352c</td></tr>
+<tr><td><code>--public-surface</code><small>Стекло страницы</small></td><td><span class="dot" style="background:rgba(252,250,247,0.78)"></span>rgba(252,250,247,0.78)</td><td><span class="dot" style="background:rgba(32,30,24,0.78)"></span>rgba(32,30,24,0.78)</td></tr>
+<tr><td><code>--public-surface-strong</code><small>Стекло плотное</small></td><td><span class="dot" style="background:rgba(255,253,250,0.88)"></span>rgba(255,253,250,0.88)</td><td><span class="dot" style="background:rgba(42,40,33,0.88)"></span>rgba(42,40,33,0.88)</td></tr>
+<tr><td><code>--public-edge</code><small>Блик края</small></td><td><span class="dot" style="background:rgba(255,255,255,0.8)"></span>rgba(255,255,255,0.8)</td><td><span class="dot" style="background:rgba(58,53,44,0.8)"></span>rgba(58,53,44,0.8)</td></tr>
+<tr><td><code>--public-glow-a</code><small>Свечение A</small></td><td><span class="dot" style="background:rgba(208,192,174,0.24)"></span>rgba(208,192,174,0.24)</td><td><span class="dot" style="background:rgba(208,192,174,0.12)"></span>rgba(208,192,174,0.12)</td></tr>
+<tr><td><code>--public-glow-b</code><small>Свечение B</small></td><td><span class="dot" style="background:rgba(255,255,255,0.72)"></span>rgba(255,255,255,0.72)</td><td><span class="dot" style="background:rgba(255,255,255,0.04)"></span>rgba(255,255,255,0.04)</td></tr>
+<tr><td><code>--public-glow-c</code><small>Свечение C</small></td><td><span class="dot" style="background:rgba(244,242,239,0.92)"></span>rgba(244,242,239,0.92)</td><td><span class="dot" style="background:rgba(24,23,18,0.9)"></span>rgba(24,23,18,0.9)</td></tr>
+</tbody></table></div></details>
+  </div>
+<div class="theme" id="theme-olive">
+    <div class="theme-head">
+      <div><h3 style="margin:0">Олива <code>olive</code></h3>
+      <div class="muted" style="font-size:13px">Глубокий оливковый на тёплом бежевом, чернила почти чёрные.</div></div>
+      <div class="theme-swatches"><span style="background:#ECE5D2" title="#ECE5D2"></span><span style="background:#1A1A1A" title="#1A1A1A"></span><span style="background:#4E5F40" title="#4E5F40"></span><span style="width:8px;border:0"></span><span style="background:#1E2219" title="#1E2219"></span><span style="background:#EDE6D3" title="#EDE6D3"></span><span style="background:#A3B587" title="#A3B587"></span></div>
+    </div>
+    <div class="theme-body">
+      <div><div class="mock-cap">Светлая</div><div class="mock" data-booking-theme="olive" data-booking-theme-mode="light">
+  <div class="mock-glow"></div>
+  <div class="mock-inner">
+    <div class="mock-head"><span class="mock-ava">А</span><div><b>Анна · брови и ресницы</b><small>Москва, Патриаршие</small></div></div>
+    <div class="mock-card">
+      <div class="mock-row"><div><b>Ламинирование ресниц</b><small>1 ч 30 мин</small></div><b>2 500 ₽</b></div>
+      <div class="mock-slots"><span>10:00</span><span class="on">12:30</span><span>15:00</span></div>
+      <input class="mock-input" placeholder="Ваше имя" />
+      <div class="mock-btns"><span class="btn-p">Записаться</span><span class="btn-s">Портфолио</span></div>
+    </div>
+    <span class="mock-badge">свободно завтра</span>
+  </div>
+</div></div>
+      <div><div class="mock-cap">Тёмная</div><div class="mock" data-booking-theme="olive" data-booking-theme-mode="dark">
+  <div class="mock-glow"></div>
+  <div class="mock-inner">
+    <div class="mock-head"><span class="mock-ava">А</span><div><b>Анна · брови и ресницы</b><small>Москва, Патриаршие</small></div></div>
+    <div class="mock-card">
+      <div class="mock-row"><div><b>Ламинирование ресниц</b><small>1 ч 30 мин</small></div><b>2 500 ₽</b></div>
+      <div class="mock-slots"><span>10:00</span><span class="on">12:30</span><span>15:00</span></div>
+      <input class="mock-input" placeholder="Ваше имя" />
+      <div class="mock-btns"><span class="btn-p">Записаться</span><span class="btn-s">Портфолио</span></div>
+    </div>
+    <span class="mock-badge">свободно завтра</span>
+  </div>
+</div></div>
+      <div class="theme-ref"><div class="mock-cap">Ключевые цвета</div><div style="font-size:12px;margin-bottom:6px"><span class="dot" style="background:#ece5d2"></span>Бумага · #ece5d2</div><div style="font-size:12px;margin-bottom:6px"><span class="dot" style="background:#1a1a1a"></span>Чернила · #1a1a1a</div><div style="font-size:12px;margin-bottom:6px"><span class="dot" style="background:#4e5f40"></span>Шалфей · #4e5f40</div><div style="font-size:12px;margin-bottom:6px"><span class="dot" style="background:#4e5f40"></span>Главная кнопка · #4e5f40</div></div>
+    </div>
+    <details><summary>Все токены темы (25)</summary><div class="overflow"><table class="tt"><thead><tr><th>Токен</th><th>Светлая</th><th>Тёмная</th></tr></thead><tbody>
+<tr><td><code>--color-ink</code><small>Чернила</small></td><td><span class="dot" style="background:#1a1a1a"></span>#1a1a1a</td><td><span class="dot" style="background:#ede6d3"></span>#ede6d3</td></tr>
+<tr><td><code>--color-ink-soft</code><small>Чернила мягкие</small></td><td><span class="dot" style="background:#45463f"></span>#45463f</td><td><span class="dot" style="background:#c9c4b0"></span>#c9c4b0</td></tr>
+<tr><td><code>--color-muted</code><small>Приглушённый</small></td><td><span class="dot" style="background:#6b6c62"></span>#6b6c62</td><td><span class="dot" style="background:#94917f"></span>#94917f</td></tr>
+<tr><td><code>--color-line</code><small>Линия</small></td><td><span class="dot" style="background:#d3cdb8"></span>#d3cdb8</td><td><span class="dot" style="background:#343a2a"></span>#343a2a</td></tr>
+<tr><td><code>--color-panel</code><small>Панель</small></td><td><span class="dot" style="background:#e3dcc6"></span>#e3dcc6</td><td><span class="dot" style="background:#1f2318"></span>#1f2318</td></tr>
+<tr><td><code>--color-accent</code><small>Шалфей</small></td><td><span class="dot" style="background:#4e5f40"></span>#4e5f40</td><td><span class="dot" style="background:#a3b587"></span>#a3b587</td></tr>
+<tr><td><code>--color-accent-soft</code><small>Шалфей светлый</small></td><td><span class="dot" style="background:#e4e6d6"></span>#e4e6d6</td><td><span class="dot" style="background:#262c1d"></span>#262c1d</td></tr>
+<tr><td><code>--color-accent-deep</code><small>Шалфей глубокий</small></td><td><span class="dot" style="background:#3c4a31"></span>#3c4a31</td><td><span class="dot" style="background:#bccaa4"></span>#bccaa4</td></tr>
+<tr><td><code>--ui-card-bg</code><small>Фон карточки</small></td><td><span class="dot" style="background:#f7f2e5"></span>#f7f2e5</td><td><span class="dot" style="background:#1e2219"></span>#1e2219</td></tr>
+<tr><td><code>--ui-field-bg</code><small>Фон поля</small></td><td><span class="dot" style="background:#fbf8ee"></span>#fbf8ee</td><td><span class="dot" style="background:#232818"></span>#232818</td></tr>
+<tr><td><code>--ui-placeholder</code><small>Плейсхолдер</small></td><td><span class="dot" style="background:#6f7061"></span>#6f7061</td><td><span class="dot" style="background:#918e79"></span>#918e79</td></tr>
+<tr><td><code>--ui-primary-bg</code><small>Главная кнопка</small></td><td><span class="dot" style="background:#4e5f40"></span>#4e5f40</td><td><span class="dot" style="background:#a3b587"></span>#a3b587</td></tr>
+<tr><td><code>--ui-primary-text</code><small>Текст главной кнопки</small></td><td><span class="dot" style="background:#f6f1e3"></span>#f6f1e3</td><td><span class="dot" style="background:#171a13"></span>#171a13</td></tr>
+<tr><td><code>--color-background</code><small>Бумага</small></td><td><span class="dot" style="background:#ece5d2"></span>#ece5d2</td><td><span class="dot" style="background:#171a13"></span>#171a13</td></tr>
+<tr><td><code>--color-surface</code><small>Поверхность</small></td><td><span class="dot" style="background:#f6f1e3"></span>#f6f1e3</td><td><span class="dot" style="background:#1e2219"></span>#1e2219</td></tr>
+<tr><td><code>--color-surface-strong</code><small>Поверхность плотная</small></td><td><span class="dot" style="background:#f9f5ea"></span>#f9f5ea</td><td><span class="dot" style="background:#272c20"></span>#272c20</td></tr>
+<tr><td><code>--color-ink-contrast</code><small>Текст на чернилах</small></td><td><span class="dot" style="background:#f6f1e3"></span>#f6f1e3</td><td><span class="dot" style="background:#171a13"></span>#171a13</td></tr>
+<tr><td><code>--ui-secondary-bg</code><small>Вторичная кнопка</small></td><td><span class="dot" style="background:#f1ebda"></span>#f1ebda</td><td><span class="dot" style="background:#272c20"></span>#272c20</td></tr>
+<tr><td><code>--ui-secondary-border</code><small>Граница вторичной кнопки</small></td><td><span class="dot" style="background:#d3cdb8"></span>#d3cdb8</td><td><span class="dot" style="background:#343a2a"></span>#343a2a</td></tr>
+<tr><td><code>--public-surface</code><small>Стекло страницы</small></td><td><span class="dot" style="background:rgba(247,242,229,0.8)"></span>rgba(247,242,229,0.8)</td><td><span class="dot" style="background:rgba(30,34,25,0.78)"></span>rgba(30,34,25,0.78)</td></tr>
+<tr><td><code>--public-surface-strong</code><small>Стекло плотное</small></td><td><span class="dot" style="background:rgba(251,248,238,0.9)"></span>rgba(251,248,238,0.9)</td><td><span class="dot" style="background:rgba(39,44,32,0.88)"></span>rgba(39,44,32,0.88)</td></tr>
+<tr><td><code>--public-edge</code><small>Блик края</small></td><td><span class="dot" style="background:rgba(255,253,246,0.78)"></span>rgba(255,253,246,0.78)</td><td><span class="dot" style="background:rgba(52,58,42,0.8)"></span>rgba(52,58,42,0.8)</td></tr>
+<tr><td><code>--public-glow-a</code><small>Свечение A</small></td><td><span class="dot" style="background:rgba(78,95,64,0.18)"></span>rgba(78,95,64,0.18)</td><td><span class="dot" style="background:rgba(163,181,135,0.12)"></span>rgba(163,181,135,0.12)</td></tr>
+<tr><td><code>--public-glow-b</code><small>Свечение B</small></td><td><span class="dot" style="background:rgba(251,248,238,0.72)"></span>rgba(251,248,238,0.72)</td><td><span class="dot" style="background:rgba(255,255,255,0.04)"></span>rgba(255,255,255,0.04)</td></tr>
+<tr><td><code>--public-glow-c</code><small>Свечение C</small></td><td><span class="dot" style="background:rgba(227,220,198,0.86)"></span>rgba(227,220,198,0.86)</td><td><span class="dot" style="background:rgba(23,26,19,0.9)"></span>rgba(23,26,19,0.9)</td></tr>
+</tbody></table></div></details>
+  </div>
+<div class="theme" id="theme-merlot">
+    <div class="theme-head">
+      <div><h3 style="margin:0">Бордо <code>merlot</code></h3>
+      <div class="muted" style="font-size:13px">Тёплая тема с акцентом на глубокий красный.</div></div>
+      <div class="theme-swatches"><span style="background:#C7C6C1" title="#C7C6C1"></span><span style="background:#2D2825" title="#2D2825"></span><span style="background:#691D20" title="#691D20"></span><span style="width:8px;border:0"></span><span style="background:#221A19" title="#221A19"></span><span style="background:#F4ECE9" title="#F4ECE9"></span><span style="background:#C9737A" title="#C9737A"></span></div>
+    </div>
+    <div class="theme-body">
+      <div><div class="mock-cap">Светлая</div><div class="mock" data-booking-theme="merlot" data-booking-theme-mode="light">
+  <div class="mock-glow"></div>
+  <div class="mock-inner">
+    <div class="mock-head"><span class="mock-ava">А</span><div><b>Анна · брови и ресницы</b><small>Москва, Патриаршие</small></div></div>
+    <div class="mock-card">
+      <div class="mock-row"><div><b>Ламинирование ресниц</b><small>1 ч 30 мин</small></div><b>2 500 ₽</b></div>
+      <div class="mock-slots"><span>10:00</span><span class="on">12:30</span><span>15:00</span></div>
+      <input class="mock-input" placeholder="Ваше имя" />
+      <div class="mock-btns"><span class="btn-p">Записаться</span><span class="btn-s">Портфолио</span></div>
+    </div>
+    <span class="mock-badge">свободно завтра</span>
+  </div>
+</div></div>
+      <div><div class="mock-cap">Тёмная</div><div class="mock" data-booking-theme="merlot" data-booking-theme-mode="dark">
+  <div class="mock-glow"></div>
+  <div class="mock-inner">
+    <div class="mock-head"><span class="mock-ava">А</span><div><b>Анна · брови и ресницы</b><small>Москва, Патриаршие</small></div></div>
+    <div class="mock-card">
+      <div class="mock-row"><div><b>Ламинирование ресниц</b><small>1 ч 30 мин</small></div><b>2 500 ₽</b></div>
+      <div class="mock-slots"><span>10:00</span><span class="on">12:30</span><span>15:00</span></div>
+      <input class="mock-input" placeholder="Ваше имя" />
+      <div class="mock-btns"><span class="btn-p">Записаться</span><span class="btn-s">Портфолио</span></div>
+    </div>
+    <span class="mock-badge">свободно завтра</span>
+  </div>
+</div></div>
+      <div class="theme-ref"><div class="mock-cap">Палитра-референс</div><img src="референсы-тем/merlot.jpeg" alt="Референс палитры Бордо" /></div>
+    </div>
+    <details><summary>Все токены темы (25)</summary><div class="overflow"><table class="tt"><thead><tr><th>Токен</th><th>Светлая</th><th>Тёмная</th></tr></thead><tbody>
+<tr><td><code>--color-ink</code><small>Чернила</small></td><td><span class="dot" style="background:#2D2825"></span>#2D2825</td><td><span class="dot" style="background:#f4ece9"></span>#f4ece9</td></tr>
+<tr><td><code>--color-ink-soft</code><small>Чернила мягкие</small></td><td><span class="dot" style="background:#58514b"></span>#58514b</td><td><span class="dot" style="background:#d3c4bf"></span>#d3c4bf</td></tr>
+<tr><td><code>--color-muted</code><small>Приглушённый</small></td><td><span class="dot" style="background:#756a64"></span>#756a64</td><td><span class="dot" style="background:#a2918b"></span>#a2918b</td></tr>
+<tr><td><code>--color-line</code><small>Линия</small></td><td><span class="dot" style="background:#d2c5bd"></span>#d2c5bd</td><td><span class="dot" style="background:#3d3230"></span>#3d3230</td></tr>
+<tr><td><code>--color-panel</code><small>Панель</small></td><td><span class="dot" style="background:#ede7e1"></span>#ede7e1</td><td><span class="dot" style="background:#241d1c"></span>#241d1c</td></tr>
+<tr><td><code>--color-accent</code><small>Шалфей</small></td><td><span class="dot" style="background:#691D20"></span>#691D20</td><td><span class="dot" style="background:#c9737a"></span>#c9737a</td></tr>
+<tr><td><code>--color-accent-soft</code><small>Шалфей светлый</small></td><td><span class="dot" style="background:#f2e4e5"></span>#f2e4e5</td><td><span class="dot" style="background:#33201f"></span>#33201f</td></tr>
+<tr><td><code>--color-accent-deep</code><small>Шалфей глубокий</small></td><td><span class="dot" style="background:#571719"></span>#571719</td><td><span class="dot" style="background:#dc949a"></span>#dc949a</td></tr>
+<tr><td><code>--ui-card-bg</code><small>Фон карточки</small></td><td><span class="dot" style="background:#faf7f4"></span>#faf7f4</td><td><span class="dot" style="background:#221a19"></span>#221a19</td></tr>
+<tr><td><code>--ui-field-bg</code><small>Фон поля</small></td><td><span class="dot" style="background:#fefbf8"></span>#fefbf8</td><td><span class="dot" style="background:#271e1d"></span>#271e1d</td></tr>
+<tr><td><code>--ui-placeholder</code><small>Плейсхолдер</small></td><td><span class="dot" style="background:#93867f"></span>#93867f</td><td><span class="dot" style="background:#907f7a"></span>#907f7a</td></tr>
+<tr><td><code>--ui-primary-bg</code><small>Главная кнопка</small></td><td><span class="dot" style="background:#691D20"></span>#691D20</td><td><span class="dot" style="background:#c9737a"></span>#c9737a</td></tr>
+<tr><td><code>--ui-primary-text</code><small>Текст главной кнопки</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#1a1413"></span>#1a1413</td></tr>
+<tr><td><code>--color-background</code><small>Бумага</small></td><td><span class="dot" style="background:#faf7f1"></span>#faf7f1</td><td><span class="dot" style="background:#1a1413"></span>#1a1413</td></tr>
+<tr><td><code>--color-surface</code><small>Поверхность</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#221a19"></span>#221a19</td></tr>
+<tr><td><code>--color-surface-strong</code><small>Поверхность плотная</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#2c2322"></span>#2c2322</td></tr>
+<tr><td><code>--color-ink-contrast</code><small>Текст на чернилах</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#1a1413"></span>#1a1413</td></tr>
+<tr><td><code>--ui-secondary-bg</code><small>Вторичная кнопка</small></td><td><span class="dot" style="background:#f5efea"></span>#f5efea</td><td><span class="dot" style="background:#2c2322"></span>#2c2322</td></tr>
+<tr><td><code>--ui-secondary-border</code><small>Граница вторичной кнопки</small></td><td><span class="dot" style="background:#d2c5bd"></span>#d2c5bd</td><td><span class="dot" style="background:#3d3230"></span>#3d3230</td></tr>
+<tr><td><code>--public-surface</code><small>Стекло страницы</small></td><td><span class="dot" style="background:rgba(252,247,245,0.8)"></span>rgba(252,247,245,0.8)</td><td><span class="dot" style="background:rgba(34,26,25,0.78)"></span>rgba(34,26,25,0.78)</td></tr>
+<tr><td><code>--public-surface-strong</code><small>Стекло плотное</small></td><td><span class="dot" style="background:rgba(255,250,248,0.9)"></span>rgba(255,250,248,0.9)</td><td><span class="dot" style="background:rgba(44,35,34,0.88)"></span>rgba(44,35,34,0.88)</td></tr>
+<tr><td><code>--public-edge</code><small>Блик края</small></td><td><span class="dot" style="background:rgba(255,244,242,0.78)"></span>rgba(255,244,242,0.78)</td><td><span class="dot" style="background:rgba(61,50,48,0.8)"></span>rgba(61,50,48,0.8)</td></tr>
+<tr><td><code>--public-glow-a</code><small>Свечение A</small></td><td><span class="dot" style="background:rgba(105,29,32,0.18)"></span>rgba(105,29,32,0.18)</td><td><span class="dot" style="background:rgba(201,115,122,0.14)"></span>rgba(201,115,122,0.14)</td></tr>
+<tr><td><code>--public-glow-b</code><small>Свечение B</small></td><td><span class="dot" style="background:rgba(255,250,248,0.72)"></span>rgba(255,250,248,0.72)</td><td><span class="dot" style="background:rgba(255,255,255,0.04)"></span>rgba(255,255,255,0.04)</td></tr>
+<tr><td><code>--public-glow-c</code><small>Свечение C</small></td><td><span class="dot" style="background:rgba(242,228,229,0.86)"></span>rgba(242,228,229,0.86)</td><td><span class="dot" style="background:rgba(26,20,19,0.9)"></span>rgba(26,20,19,0.9)</td></tr>
+</tbody></table></div></details>
+  </div>
+<div class="theme" id="theme-lagoon">
+    <div class="theme-head">
+      <div><h3 style="margin:0">Лагуна <code>lagoon</code></h3>
+      <div class="muted" style="font-size:13px">Холодный акцент со сдержанным настроением.</div></div>
+      <div class="theme-swatches"><span style="background:#BEBEBE" title="#BEBEBE"></span><span style="background:#17475D" title="#17475D"></span><span style="background:#7D6261" title="#7D6261"></span><span style="width:8px;border:0"></span><span style="background:#172127" title="#172127"></span><span style="background:#E8F0F4" title="#E8F0F4"></span><span style="background:#7FB6CF" title="#7FB6CF"></span></div>
+    </div>
+    <div class="theme-body">
+      <div><div class="mock-cap">Светлая</div><div class="mock" data-booking-theme="lagoon" data-booking-theme-mode="light">
+  <div class="mock-glow"></div>
+  <div class="mock-inner">
+    <div class="mock-head"><span class="mock-ava">А</span><div><b>Анна · брови и ресницы</b><small>Москва, Патриаршие</small></div></div>
+    <div class="mock-card">
+      <div class="mock-row"><div><b>Ламинирование ресниц</b><small>1 ч 30 мин</small></div><b>2 500 ₽</b></div>
+      <div class="mock-slots"><span>10:00</span><span class="on">12:30</span><span>15:00</span></div>
+      <input class="mock-input" placeholder="Ваше имя" />
+      <div class="mock-btns"><span class="btn-p">Записаться</span><span class="btn-s">Портфолио</span></div>
+    </div>
+    <span class="mock-badge">свободно завтра</span>
+  </div>
+</div></div>
+      <div><div class="mock-cap">Тёмная</div><div class="mock" data-booking-theme="lagoon" data-booking-theme-mode="dark">
+  <div class="mock-glow"></div>
+  <div class="mock-inner">
+    <div class="mock-head"><span class="mock-ava">А</span><div><b>Анна · брови и ресницы</b><small>Москва, Патриаршие</small></div></div>
+    <div class="mock-card">
+      <div class="mock-row"><div><b>Ламинирование ресниц</b><small>1 ч 30 мин</small></div><b>2 500 ₽</b></div>
+      <div class="mock-slots"><span>10:00</span><span class="on">12:30</span><span>15:00</span></div>
+      <input class="mock-input" placeholder="Ваше имя" />
+      <div class="mock-btns"><span class="btn-p">Записаться</span><span class="btn-s">Портфолио</span></div>
+    </div>
+    <span class="mock-badge">свободно завтра</span>
+  </div>
+</div></div>
+      <div class="theme-ref"><div class="mock-cap">Палитра-референс</div><img src="референсы-тем/lagoon.jpeg" alt="Референс палитры Лагуна" /></div>
+    </div>
+    <details><summary>Все токены темы (25)</summary><div class="overflow"><table class="tt"><thead><tr><th>Токен</th><th>Светлая</th><th>Тёмная</th></tr></thead><tbody>
+<tr><td><code>--color-ink</code><small>Чернила</small></td><td><span class="dot" style="background:#17475D"></span>#17475D</td><td><span class="dot" style="background:#e8f0f4"></span>#e8f0f4</td></tr>
+<tr><td><code>--color-ink-soft</code><small>Чернила мягкие</small></td><td><span class="dot" style="background:#5f4d4d"></span>#5f4d4d</td><td><span class="dot" style="background:#c3d2d9"></span>#c3d2d9</td></tr>
+<tr><td><code>--color-muted</code><small>Приглушённый</small></td><td><span class="dot" style="background:#746566"></span>#746566</td><td><span class="dot" style="background:#8d9ba3"></span>#8d9ba3</td></tr>
+<tr><td><code>--color-line</code><small>Линия</small></td><td><span class="dot" style="background:#cad2d7"></span>#cad2d7</td><td><span class="dot" style="background:#2c3a42"></span>#2c3a42</td></tr>
+<tr><td><code>--color-panel</code><small>Панель</small></td><td><span class="dot" style="background:#e8eef1"></span>#e8eef1</td><td><span class="dot" style="background:#19242a"></span>#19242a</td></tr>
+<tr><td><code>--color-accent</code><small>Шалфей</small></td><td><span class="dot" style="background:#17475D"></span>#17475D</td><td><span class="dot" style="background:#7fb6cf"></span>#7fb6cf</td></tr>
+<tr><td><code>--color-accent-soft</code><small>Шалфей светлый</small></td><td><span class="dot" style="background:#e5eef3"></span>#e5eef3</td><td><span class="dot" style="background:#1b2b33"></span>#1b2b33</td></tr>
+<tr><td><code>--color-accent-deep</code><small>Шалфей глубокий</small></td><td><span class="dot" style="background:#123a4c"></span>#123a4c</td><td><span class="dot" style="background:#9dc9dd"></span>#9dc9dd</td></tr>
+<tr><td><code>--ui-card-bg</code><small>Фон карточки</small></td><td><span class="dot" style="background:#fafbfd"></span>#fafbfd</td><td><span class="dot" style="background:#172127"></span>#172127</td></tr>
+<tr><td><code>--ui-field-bg</code><small>Фон поля</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#1b262c"></span>#1b262c</td></tr>
+<tr><td><code>--ui-placeholder</code><small>Плейсхолдер</small></td><td><span class="dot" style="background:#7e878d"></span>#7e878d</td><td><span class="dot" style="background:#7d8b93"></span>#7d8b93</td></tr>
+<tr><td><code>--ui-primary-bg</code><small>Главная кнопка</small></td><td><span class="dot" style="background:#17475D"></span>#17475D</td><td><span class="dot" style="background:#7fb6cf"></span>#7fb6cf</td></tr>
+<tr><td><code>--ui-primary-text</code><small>Текст главной кнопки</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#111a1e"></span>#111a1e</td></tr>
+<tr><td><code>--color-background</code><small>Бумага</small></td><td><span class="dot" style="background:#faf7f1"></span>#faf7f1</td><td><span class="dot" style="background:#111a1e"></span>#111a1e</td></tr>
+<tr><td><code>--color-surface</code><small>Поверхность</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#172127"></span>#172127</td></tr>
+<tr><td><code>--color-surface-strong</code><small>Поверхность плотная</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#1f2b31"></span>#1f2b31</td></tr>
+<tr><td><code>--color-ink-contrast</code><small>Текст на чернилах</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#111a1e"></span>#111a1e</td></tr>
+<tr><td><code>--ui-secondary-bg</code><small>Вторичная кнопка</small></td><td><span class="dot" style="background:#f2f6f8"></span>#f2f6f8</td><td><span class="dot" style="background:#1f2b31"></span>#1f2b31</td></tr>
+<tr><td><code>--ui-secondary-border</code><small>Граница вторичной кнопки</small></td><td><span class="dot" style="background:#cad2d7"></span>#cad2d7</td><td><span class="dot" style="background:#2c3a42"></span>#2c3a42</td></tr>
+<tr><td><code>--public-surface</code><small>Стекло страницы</small></td><td><span class="dot" style="background:rgba(248,251,253,0.8)"></span>rgba(248,251,253,0.8)</td><td><span class="dot" style="background:rgba(23,33,39,0.78)"></span>rgba(23,33,39,0.78)</td></tr>
+<tr><td><code>--public-surface-strong</code><small>Стекло плотное</small></td><td><span class="dot" style="background:rgba(255,255,255,0.9)"></span>rgba(255,255,255,0.9)</td><td><span class="dot" style="background:rgba(31,43,49,0.88)"></span>rgba(31,43,49,0.88)</td></tr>
+<tr><td><code>--public-edge</code><small>Блик края</small></td><td><span class="dot" style="background:rgba(244,250,253,0.8)"></span>rgba(244,250,253,0.8)</td><td><span class="dot" style="background:rgba(44,58,66,0.8)"></span>rgba(44,58,66,0.8)</td></tr>
+<tr><td><code>--public-glow-a</code><small>Свечение A</small></td><td><span class="dot" style="background:rgba(23,71,93,0.18)"></span>rgba(23,71,93,0.18)</td><td><span class="dot" style="background:rgba(127,182,207,0.14)"></span>rgba(127,182,207,0.14)</td></tr>
+<tr><td><code>--public-glow-b</code><small>Свечение B</small></td><td><span class="dot" style="background:rgba(255,255,255,0.72)"></span>rgba(255,255,255,0.72)</td><td><span class="dot" style="background:rgba(255,255,255,0.04)"></span>rgba(255,255,255,0.04)</td></tr>
+<tr><td><code>--public-glow-c</code><small>Свечение C</small></td><td><span class="dot" style="background:rgba(170,204,241,0.22)"></span>rgba(170,204,241,0.22)</td><td><span class="dot" style="background:rgba(17,26,30,0.9)"></span>rgba(17,26,30,0.9)</td></tr>
+</tbody></table></div></details>
+  </div>
+<div class="theme" id="theme-rosewood">
+    <div class="theme-head">
+      <div><h3 style="margin:0">Розовое дерево <code>rosewood</code></h3>
+      <div class="muted" style="font-size:13px">Розово-тауповая тема без лишней приторности.</div></div>
+      <div class="theme-swatches"><span style="background:#9C5869" title="#9C5869"></span><span style="background:#D6C8BF" title="#D6C8BF"></span><span style="background:#4D463C" title="#4D463C"></span><span style="width:8px;border:0"></span><span style="background:#221B1C" title="#221B1C"></span><span style="background:#F3EAE9" title="#F3EAE9"></span><span style="background:#C98494" title="#C98494"></span></div>
+    </div>
+    <div class="theme-body">
+      <div><div class="mock-cap">Светлая</div><div class="mock" data-booking-theme="rosewood" data-booking-theme-mode="light">
+  <div class="mock-glow"></div>
+  <div class="mock-inner">
+    <div class="mock-head"><span class="mock-ava">А</span><div><b>Анна · брови и ресницы</b><small>Москва, Патриаршие</small></div></div>
+    <div class="mock-card">
+      <div class="mock-row"><div><b>Ламинирование ресниц</b><small>1 ч 30 мин</small></div><b>2 500 ₽</b></div>
+      <div class="mock-slots"><span>10:00</span><span class="on">12:30</span><span>15:00</span></div>
+      <input class="mock-input" placeholder="Ваше имя" />
+      <div class="mock-btns"><span class="btn-p">Записаться</span><span class="btn-s">Портфолио</span></div>
+    </div>
+    <span class="mock-badge">свободно завтра</span>
+  </div>
+</div></div>
+      <div><div class="mock-cap">Тёмная</div><div class="mock" data-booking-theme="rosewood" data-booking-theme-mode="dark">
+  <div class="mock-glow"></div>
+  <div class="mock-inner">
+    <div class="mock-head"><span class="mock-ava">А</span><div><b>Анна · брови и ресницы</b><small>Москва, Патриаршие</small></div></div>
+    <div class="mock-card">
+      <div class="mock-row"><div><b>Ламинирование ресниц</b><small>1 ч 30 мин</small></div><b>2 500 ₽</b></div>
+      <div class="mock-slots"><span>10:00</span><span class="on">12:30</span><span>15:00</span></div>
+      <input class="mock-input" placeholder="Ваше имя" />
+      <div class="mock-btns"><span class="btn-p">Записаться</span><span class="btn-s">Портфолио</span></div>
+    </div>
+    <span class="mock-badge">свободно завтра</span>
+  </div>
+</div></div>
+      <div class="theme-ref"><div class="mock-cap">Палитра-референс</div><img src="референсы-тем/rosewood.jpeg" alt="Референс палитры Розовое дерево" /></div>
+    </div>
+    <details><summary>Все токены темы (25)</summary><div class="overflow"><table class="tt"><thead><tr><th>Токен</th><th>Светлая</th><th>Тёмная</th></tr></thead><tbody>
+<tr><td><code>--color-ink</code><small>Чернила</small></td><td><span class="dot" style="background:#4D463C"></span>#4D463C</td><td><span class="dot" style="background:#f3eae9"></span>#f3eae9</td></tr>
+<tr><td><code>--color-ink-soft</code><small>Чернила мягкие</small></td><td><span class="dot" style="background:#6a625a"></span>#6a625a</td><td><span class="dot" style="background:#d5c5c3"></span>#d5c5c3</td></tr>
+<tr><td><code>--color-muted</code><small>Приглушённый</small></td><td><span class="dot" style="background:#857a72"></span>#857a72</td><td><span class="dot" style="background:#a08f8c"></span>#a08f8c</td></tr>
+<tr><td><code>--color-line</code><small>Линия</small></td><td><span class="dot" style="background:#ddcbc5"></span>#ddcbc5</td><td><span class="dot" style="background:#3d3230"></span>#3d3230</td></tr>
+<tr><td><code>--color-panel</code><small>Панель</small></td><td><span class="dot" style="background:#f0e5df"></span>#f0e5df</td><td><span class="dot" style="background:#241e1e"></span>#241e1e</td></tr>
+<tr><td><code>--color-accent</code><small>Шалфей</small></td><td><span class="dot" style="background:#9C5869"></span>#9C5869</td><td><span class="dot" style="background:#c98494"></span>#c98494</td></tr>
+<tr><td><code>--color-accent-soft</code><small>Шалфей светлый</small></td><td><span class="dot" style="background:#f6e9ee"></span>#f6e9ee</td><td><span class="dot" style="background:#322326"></span>#322326</td></tr>
+<tr><td><code>--color-accent-deep</code><small>Шалфей глубокий</small></td><td><span class="dot" style="background:#7f4455"></span>#7f4455</td><td><span class="dot" style="background:#dda3b0"></span>#dda3b0</td></tr>
+<tr><td><code>--ui-card-bg</code><small>Фон карточки</small></td><td><span class="dot" style="background:#fff8f5"></span>#fff8f5</td><td><span class="dot" style="background:#221b1c"></span>#221b1c</td></tr>
+<tr><td><code>--ui-field-bg</code><small>Фон поля</small></td><td><span class="dot" style="background:#fffdfb"></span>#fffdfb</td><td><span class="dot" style="background:#271f20"></span>#271f20</td></tr>
+<tr><td><code>--ui-placeholder</code><small>Плейсхолдер</small></td><td><span class="dot" style="background:#93827d"></span>#93827d</td><td><span class="dot" style="background:#8f7f7d"></span>#8f7f7d</td></tr>
+<tr><td><code>--ui-primary-bg</code><small>Главная кнопка</small></td><td><span class="dot" style="background:#9C5869"></span>#9C5869</td><td><span class="dot" style="background:#c98494"></span>#c98494</td></tr>
+<tr><td><code>--ui-primary-text</code><small>Текст главной кнопки</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#1a1516"></span>#1a1516</td></tr>
+<tr><td><code>--color-background</code><small>Бумага</small></td><td><span class="dot" style="background:#faf7f1"></span>#faf7f1</td><td><span class="dot" style="background:#1a1516"></span>#1a1516</td></tr>
+<tr><td><code>--color-surface</code><small>Поверхность</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#221b1c"></span>#221b1c</td></tr>
+<tr><td><code>--color-surface-strong</code><small>Поверхность плотная</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#2c2425"></span>#2c2425</td></tr>
+<tr><td><code>--color-ink-contrast</code><small>Текст на чернилах</small></td><td><span class="dot" style="background:#ffffff"></span>#ffffff</td><td><span class="dot" style="background:#1a1516"></span>#1a1516</td></tr>
+<tr><td><code>--ui-secondary-bg</code><small>Вторичная кнопка</small></td><td><span class="dot" style="background:#f8f1ed"></span>#f8f1ed</td><td><span class="dot" style="background:#2c2425"></span>#2c2425</td></tr>
+<tr><td><code>--ui-secondary-border</code><small>Граница вторичной кнопки</small></td><td><span class="dot" style="background:#ddcbc5"></span>#ddcbc5</td><td><span class="dot" style="background:#3d3230"></span>#3d3230</td></tr>
+<tr><td><code>--public-surface</code><small>Стекло страницы</small></td><td><span class="dot" style="background:rgba(255,248,245,0.8)"></span>rgba(255,248,245,0.8)</td><td><span class="dot" style="background:rgba(34,27,28,0.78)"></span>rgba(34,27,28,0.78)</td></tr>
+<tr><td><code>--public-surface-strong</code><small>Стекло плотное</small></td><td><span class="dot" style="background:rgba(255,252,250,0.9)"></span>rgba(255,252,250,0.9)</td><td><span class="dot" style="background:rgba(44,36,37,0.88)"></span>rgba(44,36,37,0.88)</td></tr>
+<tr><td><code>--public-edge</code><small>Блик края</small></td><td><span class="dot" style="background:rgba(255,245,243,0.8)"></span>rgba(255,245,243,0.8)</td><td><span class="dot" style="background:rgba(61,50,48,0.8)"></span>rgba(61,50,48,0.8)</td></tr>
+<tr><td><code>--public-glow-a</code><small>Свечение A</small></td><td><span class="dot" style="background:rgba(156,88,105,0.2)"></span>rgba(156,88,105,0.2)</td><td><span class="dot" style="background:rgba(201,132,148,0.14)"></span>rgba(201,132,148,0.14)</td></tr>
+<tr><td><code>--public-glow-b</code><small>Свечение B</small></td><td><span class="dot" style="background:rgba(255,252,250,0.72)"></span>rgba(255,252,250,0.72)</td><td><span class="dot" style="background:rgba(255,255,255,0.04)"></span>rgba(255,255,255,0.04)</td></tr>
+<tr><td><code>--public-glow-c</code><small>Свечение C</small></td><td><span class="dot" style="background:rgba(214,200,191,0.72)"></span>rgba(214,200,191,0.72)</td><td><span class="dot" style="background:rgba(26,21,22,0.9)"></span>rgba(26,21,22,0.9)</td></tr>
+</tbody></table></div></details>
+  </div>
+  <h3>Палитры-референсы, пока не ставшие темами</h3>
+  <div class="unused"><img src="референсы-тем/не-использованы/1.jpeg" alt="Палитра-референс 1" /><img src="референсы-тем/не-использованы/2.jpeg" alt="Палитра-референс 2" /><img src="референсы-тем/не-использованы/3.jpeg" alt="Палитра-референс 3" /></div>
+</section>
+</main>
+</body>
+</html>
