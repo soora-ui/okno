@@ -1,14 +1,26 @@
 import { DateTime } from "luxon";
 import {
   parseAcquisitionSource,
+  type AcquisitionSource,
   summarizeAcquisitionSources,
   type AcquisitionSourceStat,
 } from "@/lib/acquisition-sources";
+import { DEMO_CABINET_PROFILE_ID } from "@/lib/demo-cabinet-data";
 import { logError } from "@/lib/observability/logger";
 import { isSupabaseMissingColumnError } from "@/lib/supabase/auth-errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const acquisitionStatsDays = 30;
+
+// Демо-кабинет (база знаний) показывает живую сводку: с пустой не объяснить,
+// как читать карточку.
+const demoCabinetSources: Array<[AcquisitionSource | null, number]> = [
+  ["instagram", 9],
+  ["telegram", 5],
+  ["vk", 3],
+  ["yandex_maps", 2],
+  [null, 4],
+];
 
 // Онлайн-записи мастера за 30 дней по источникам. Отменённые тоже считаем:
 // клиент пришёл и записался — канал сработал. null — сводку показать нельзя
@@ -18,7 +30,13 @@ export async function getOwnerAcquisitionStats(input: {
   profileId: string;
   source: "mock" | "supabase";
 }): Promise<AcquisitionSourceStat[] | null> {
-  // В демо и локальном режиме меток у записей нет — честнее показать пустую
+  if (input.profileId === DEMO_CABINET_PROFILE_ID) {
+    return summarizeAcquisitionSources(
+      demoCabinetSources.flatMap(([source, count]) => Array<AcquisitionSource | null>(count).fill(source)),
+    );
+  }
+
+  // В локальном режиме меток у записей нет — честнее показать пустую
   // сводку, чем выдумывать каналы.
   if (input.source === "mock") return [];
 

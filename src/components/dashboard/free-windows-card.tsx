@@ -5,6 +5,7 @@ import { Check, CircleCheck, Copy, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FreeWindowsStoryDialog } from "@/components/dashboard/free-windows-story-dialog";
+import { useDemoMode } from "@/components/tour/demo-mode";
 import {
   buildFreeWindowsShareText,
   buildFreeWindowsTimelineAxis,
@@ -30,13 +31,18 @@ export function FreeWindowsCard({
   // Цвет сторис по умолчанию — в тон странице записи мастера.
   storyDefaultPalette: StoryPalette;
 }) {
+  const demo = useDemoMode();
   const [copied, setCopied] = useState(false);
   const [storyDialogOpen, setStoryDialogOpen] = useState(false);
   const closeStoryDialog = useCallback(() => setStoryDialogOpen(false), []);
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(buildFreeWindowsShareText(days, bookingUrl));
+      // В демо (база знаний в кабинете) буфер мастера не трогаем — только
+      // показываем, что текст скопировался бы.
+      if (!demo) {
+        await navigator.clipboard.writeText(buildFreeWindowsShareText(days, bookingUrl));
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {

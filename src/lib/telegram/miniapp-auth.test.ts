@@ -35,7 +35,10 @@ function buildInitData(input: {
   const secret = createHmac("sha256", "WebAppData").update(botToken).digest();
   const hash = createHmac("sha256", secret).update(dataCheckString).digest("hex");
 
-  params.set("hash", input.breakSignature ? hash.replace(/^./, "0") : hash);
+  // Первый символ меняем на заведомо другой: замена на «0» не портила хеш,
+  // который с «0» и начинался (раз в 16 прогонов).
+  const broken = hash.replace(/^./, (first) => (first === "0" ? "1" : "0"));
+  params.set("hash", input.breakSignature ? broken : hash);
 
   return params.toString();
 }

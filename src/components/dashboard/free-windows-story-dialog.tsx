@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Check, Download, LoaderCircle, Share, X } from "lucide-react";
+import { useDemoMode } from "@/components/tour/demo-mode";
 import { Button } from "@/components/ui/button";
 import {
   storyPaletteMeta,
@@ -62,11 +63,14 @@ export function FreeWindowsStoryDialog({
   defaultPalette: StoryPalette;
   onClose: () => void;
 }) {
+  // Демо живёт на том же адресе, что и настоящий кабинет: свой выбор стиля
+  // ему не читаем и не запоминаем, чтобы не подменить выбор мастера.
+  const demo = useDemoMode();
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const [style, setStyle] = useState<StoryStyle>(() => readSavedChoice().style ?? "light");
+  const [style, setStyle] = useState<StoryStyle>(() => (demo ? undefined : readSavedChoice().style) ?? "light");
   const [palette, setPalette] = useState<StoryPalette>(
-    () => readSavedChoice().palette ?? defaultPalette,
+    () => (demo ? undefined : readSavedChoice().palette) ?? defaultPalette,
   );
   const [previewState, setPreviewState] = useState<"loading" | "ready" | "error">("loading");
   const [actionState, setActionState] = useState<"idle" | "working" | "error">("idle");
@@ -81,9 +85,9 @@ export function FreeWindowsStoryDialog({
       setStyle(choice.style);
       setPalette(choice.palette);
       setPreviewState("loading");
-      saveChoice(choice);
+      if (!demo) saveChoice(choice);
     },
-    [palette, style],
+    [demo, palette, style],
   );
 
   useEffect(() => {

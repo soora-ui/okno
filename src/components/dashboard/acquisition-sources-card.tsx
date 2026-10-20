@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, Copy, Route } from "lucide-react";
+import { useDemoMode } from "@/components/tour/demo-mode";
 import { Card } from "@/components/ui/card";
 import {
   acquisitionSourceLabels,
@@ -23,6 +24,7 @@ export function AcquisitionSourcesCard({
   stats: AcquisitionSourceStat[] | null;
   statsDays: number;
 }) {
+  const demo = useDemoMode();
   const [copiedSource, setCopiedSource] = useState<AcquisitionSource | null>(null);
   const counts = new Map(stats?.map((stat) => [stat.source, stat.count]) ?? []);
   const total = stats?.reduce((sum, stat) => sum + stat.count, 0) ?? 0;
@@ -36,7 +38,10 @@ export function AcquisitionSourcesCard({
 
   async function handleCopy(source: AcquisitionSource) {
     try {
-      await navigator.clipboard.writeText(withAcquisitionSource(bookingUrl, source));
+      // В демо буфер мастера не трогаем.
+      if (!demo) {
+        await navigator.clipboard.writeText(withAcquisitionSource(bookingUrl, source));
+      }
       setCopiedSource(source);
       setTimeout(() => setCopiedSource(null), 2000);
     } catch {

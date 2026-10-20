@@ -110,6 +110,28 @@ const inside =
 
 const DEMO_SERVICE = "Накладки soft gel";
 
+const FREE_WINDOWS = "Где в расписании пусто";
+const SOURCES = "Откуда клиенты";
+const STORY_DIALOG = '[role="dialog"][aria-modal="true"]';
+const STORY_CLOSE = `${STORY_DIALOG} button[aria-label="Закрыть"]`;
+
+/**
+ * Превью сторис рисует сервер. Следующий стиль выбираем, когда картинка
+ * готова: иначе запросы встают в очередь и нужное превью приходит последним.
+ */
+async function storyPreviewReady(c: SceneCtx) {
+  for (let i = 0; i < 60; i++) {
+    await c.wait(200);
+    const img = c.doc.querySelector<HTMLImageElement>(`${STORY_DIALOG} img`);
+    if (img?.complete && img.naturalWidth > 0) return;
+  }
+}
+
+/** Шаг мог начаться с открытым окном сторис (назад или повтор) — закрываем без анимации. */
+function closeStoryDialog(c: SceneCtx) {
+  if (c.doc.querySelector(STORY_CLOSE)) c.click(STORY_CLOSE);
+}
+
 const DESIGN_DIALOG = '[role="dialog"][aria-label="Дизайн сертификата"]';
 
 /** Форма номиналов и срока действия в разделе сертификатов. */
@@ -189,6 +211,11 @@ const chapters = [
     title: "Уведомления и сертификаты",
     short: "Telegram",
     summary: "Бот в Telegram и подарочные сертификаты: от дизайна до покупки и погашения.",
+  },
+  {
+    title: "Горящие окошки и соцсети",
+    short: "Продвижение",
+    summary: "Свободное время — в сторис и чаты, и какая соцсеть приводит записи.",
   },
   {
     title: "Аккаунт",
@@ -631,10 +658,99 @@ const scenes: Scene[] = [
     run: (c) => c.focus(card("Погасить сертификат")),
   },
 
-  // Глава 7 — аккаунт.
+  // Глава 7 — продвижение: горящие окошки и источники записей.
+  {
+    id: "kb-free-windows",
+    chapter: 6,
+    frame: "dashboard",
+    title: "Горящие окошки",
+    text: "На главной видно, где в расписании пусто на сегодня, завтра и послезавтра. Окошки считаются по рабочим часам, записям и перерывам — ровно то, что клиент увидит по ссылке.",
+    ms: 10000,
+    run: async (c) => {
+      closeStoryDialog(c);
+      await c.focus(card(FREE_WINDOWS));
+      await c.wait(2600);
+      // Полоски по дням: тёмные отрезки — свободное время.
+      await c.focus((doc) => {
+        const host = card(FREE_WINDOWS);
+        return (typeof host === "function" ? host(doc) : null)?.querySelector("ul");
+      });
+    },
+  },
+  {
+    id: "kb-free-windows-story",
+    chapter: 6,
+    frame: "dashboard",
+    title: "Картинка для сторис",
+    text: "Одна кнопка — и готова вертикальная картинка с окошками и ссылкой на запись. Три стиля и пять цветов; на телефоне она сразу уходит через «Поделиться» в сторис Instagram, Telegram или VK.",
+    ms: 19000,
+    exit: STORY_CLOSE,
+    run: async (c) => {
+      if (!c.doc.querySelector(STORY_DIALOG)) {
+        await c.focus(card(FREE_WINDOWS));
+        await c.wait(900);
+        await c.tap(button("Картинка для сторис"), { click: true });
+        await c.wait(900);
+      }
+      await c.focus(STORY_DIALOG);
+      await storyPreviewReady(c);
+      await c.wait(1000);
+      await c.tap(button("Арка", STORY_DIALOG), { click: true });
+      await storyPreviewReady(c);
+      await c.wait(1000);
+      await c.tap(visible(`${STORY_DIALOG} button[aria-label="Бордо"]`), { click: true });
+      await storyPreviewReady(c);
+      await c.focus(`${STORY_DIALOG} img`);
+    },
+  },
+  {
+    id: "kb-free-windows-text",
+    chapter: 6,
+    frame: "dashboard",
+    title: "Текст для чатов",
+    text: "«Скопировать текст» — окошки списком и ссылка на запись. Вставь в чат с постоянными клиентами, в Telegram-канал или статус WhatsApp.",
+    ms: 9000,
+    run: async (c) => {
+      closeStoryDialog(c);
+      await c.focus(card(FREE_WINDOWS));
+      await c.wait(1200);
+      await c.tap(button("Скопировать текст", card(FREE_WINDOWS)), { click: true });
+    },
+  },
+  {
+    id: "kb-sources",
+    chapter: 6,
+    frame: "dashboard",
+    title: "Откуда клиенты",
+    text: "Сколько онлайн-записей за 30 дней принёс каждый канал. Сверху — те, что работают: их стоит усиливать. «Не определён» — заходы без метки: по QR, из закладок или по прямой ссылке.",
+    ms: 11000,
+    run: async (c) => {
+      closeStoryDialog(c);
+      await c.focus(card(SOURCES));
+      await c.wait(3000);
+      await c.focus(inside(card(SOURCES), "Instagram", "li"));
+    },
+  },
+  {
+    id: "kb-sources-link",
+    chapter: 6,
+    frame: "dashboard",
+    title: "Ссылка с меткой",
+    text: "Нажми «Ссылка» у канала — скопируется адрес твоей страницы с меткой, например okno.business/alina-nails?from=instagram. Поставь его в шапку профиля, и каждая запись оттуда попадёт в счёт канала. Клиенту ссылка выглядит обычной.",
+    ms: 12000,
+    run: async (c) => {
+      closeStoryDialog(c);
+      const link = 'button[aria-label="Скопировать ссылку для Instagram"]';
+      await c.focus(inside(card(SOURCES), "Instagram", "li"));
+      await c.wait(1400);
+      await c.tap(link, { click: true });
+    },
+  },
+
+  // Глава 8 — аккаунт.
   {
     id: "kb-plan",
-    chapter: 6,
+    chapter: 7,
     frame: "settings",
     title: "Подписка",
     text: "Твой тариф и до какого числа он оплачен. Здесь же продление и смена тарифа.",
@@ -646,7 +762,7 @@ const scenes: Scene[] = [
   },
   {
     id: "kb-referral",
-    chapter: 6,
+    chapter: 7,
     frame: "settings",
     title: "Приглашения",
     text: "Твоя ссылка для приглашения коллег и список тех, кто по ней зарегистрировался.",
@@ -658,7 +774,7 @@ const scenes: Scene[] = [
   },
   {
     id: "kb-access",
-    chapter: 6,
+    chapter: 7,
     frame: "settings",
     title: "Вход в кабинет",
     text: "Email и пароль для входа. Чтобы их поменять, понадобится текущий пароль.",

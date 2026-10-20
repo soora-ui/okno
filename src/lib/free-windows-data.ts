@@ -32,7 +32,7 @@ export async function getOwnerFreeWindows(input: {
   }
 
   const subscription = resolveSubscription(profile);
-  if (!subscription.isActive) {
+  if (!subscription.isActive || subscription.pausedUntil) {
     return { status: "booking-off" };
   }
 

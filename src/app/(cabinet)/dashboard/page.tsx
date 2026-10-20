@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { DateTime } from "luxon";
@@ -22,7 +23,6 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FeedbackPromptCard } from "@/components/feedback/feedback-prompt-card";
 import { getDashboardData } from "@/lib/data";
-import { pickFeedbackPrompt } from "@/lib/feedback/service";
 import { isDemoCabinetHeaders } from "@/lib/demo-cabinet";
 import { getOwnerFreeWindows } from "@/lib/free-windows-data";
 import { defaultStoryPalette } from "@/lib/free-windows-story-options";
@@ -31,6 +31,7 @@ import {
   getOwnerAcquisitionStats,
 } from "@/lib/acquisition-sources-data";
 import { env } from "@/lib/env";
+import { pickFeedbackPrompt } from "@/lib/feedback/service";
 import { canManageWorkspace, isTeamWorkspaceKind } from "@/lib/workspace";
 import { pluralizeRu } from "@/lib/utils";
 import { formatSubscriptionUntil, resolveSubscription } from "@/lib/subscription";
@@ -60,20 +61,20 @@ export default async function DashboardPage() {
   // Лимита записей больше нет: доступ определяется тарифом или пробным
   // периодом. Здесь показываем, сколько дней доступа осталось.
   const subscription = resolveSubscription(profile);
-  const feedbackPrompt = await pickFeedbackPrompt(profile);
-  const pausedUntilLabel = formatSubscriptionUntil(subscription.pausedUntil);
   // Демо-кабинет отдаёт картинку со своего адреса: заголовок демо proxy
   // ставит только на /demo/cabinet/*, на /api запрос ушёл бы без него.
   const freeWindowsStoryHref = isDemoCabinetHeaders(await headers())
     ? "/demo/cabinet/free-windows-story"
     : "/api/free-windows/story";
-  const [freeWindows, acquisitionStats] = await Promise.all([
+  const [feedbackPrompt, freeWindows, acquisitionStats] = await Promise.all([
+    pickFeedbackPrompt(profile),
     getOwnerFreeWindows({ profile, source: data.source }),
     getOwnerAcquisitionStats({ profileId: profile.id, source: data.source }),
   ]);
   // Источники — только у соло-мастера: у студии свой путь к форме записи.
   const showAcquisitionSources =
     Boolean(profile.username) && !isTeamWorkspaceKind(profile.workspaceKind);
+  const pausedUntilLabel = formatSubscriptionUntil(subscription.pausedUntil);
   const subscriptionPlan = subscription.planId ? getPlan(subscription.planId) : null;
   const accessUntilLabel = formatSubscriptionUntil(subscription.activeUntil);
   const daysLeft = subscription.activeUntil
@@ -126,7 +127,7 @@ export default async function DashboardPage() {
       return total;
     }
 
-    return total + (servicesMap.get(booking.serviceId)?.price ?? 0);
+    return total + (booking.price ?? servicesMap.get(booking.serviceId)?.price ?? 0);
   }, 0);
   const manualBookingsThisMonth = bookings.filter((booking) => {
     if (booking.status !== "confirmed" || booking.source !== "manual") return false;
@@ -207,6 +208,12 @@ export default async function DashboardPage() {
               <p className="text-3xl font-semibold text-ink">
                 {new Intl.NumberFormat("ru-RU").format(monthlyRevenue)} ₽
               </p>
+              <Link
+                href="/analytics"
+                className="text-sm text-accent-deep underline-offset-4 hover:underline"
+              >
+                Подробнее в аналитике
+              </Link>
             </Card>
           </div>
 
