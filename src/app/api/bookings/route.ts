@@ -55,6 +55,7 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { resolveSubscription } from "@/lib/subscription";
 import { profile as mockProfile, services as mockServices } from "@/lib/mock-data";
+import { parseAcquisitionSource } from "@/lib/acquisition-sources";
 
 const bookingSchema = z.object({
   username: z.string().trim().regex(/^[a-z0-9][a-z0-9-]{1,30}$/),
@@ -67,7 +68,22 @@ const bookingSchema = z.object({
   phoneVerificationToken: z.string().optional().default(""),
   wantsRepeatVisitReminder: z.coerce.boolean().optional().default(false),
   certificateCode: z.string().optional().default(""),
+  // Источник записи (документы/источники-записей.md). Чужое значение не
+  // повод отказать клиенту в записи — просто не сохраняем его.
+  acquisitionSource: z.unknown().optional().transform(parseAcquisitionSource),
 });
+
+// Колонку источника добавляет миграция 202610190002. Вставка с неизвестной
+// колонкой падает в PostgREST кодом PGRST204, а не 42703, как чтение.
+function isMissingAcquisitionSourceColumn(error: unknown) {
+  if (isSupabaseMissingColumnError(error, "acquisition_source")) return true;
+  const target = error as { code?: unknown; message?: unknown } | null;
+  return (
+    target?.code === "PGRST204" &&
+    typeof target.message === "string" &&
+    target.message.includes("acquisition_source")
+  );
+}
 
 export async function POST(request: Request) {
   const parsed = bookingSchema.safeParse(await request.json());
@@ -556,34 +572,47 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: bookingRow, error: bookingError } = await admin
+  const bookingInsertPayload = {
+    profile_id: profileRow.id,
+    client_id: clientRow.id,
+    service_id: serviceRow.id,
+    status: prepaymentRequired ? "pending_payment" : "confirmed",
+    starts_at: startsAt.toISOString(),
+    ends_at: endsAt.toISOString(),
+    busy_until:
+      getBusyUntilIso({
+        endsAtIso: endsAt.toISOString(),
+        bufferMinutes,
+      }) ?? slotBusyEnd.toISOString(),
+    source: "public_page",
+    client_note: parsed.data.note,
+    prepayment_required: prepaymentRequired,
+    cancellation_token_expires_at:
+      getCancellationDeadlineIso({
+        startsAtIso: startsAt.toISOString(),
+        cancellationNoticeHours: Number(profileRow.cancellation_notice_hours ?? 0),
+      }) ?? startsAt.toISOString(),
+    repeat_visit_reminder_requested:
+      parsed.data.wantsRepeatVisitReminder &&
+      Number(serviceRow.repeat_interval_days ?? 0) > 0,
+    acquisition_source: parsed.data.acquisitionSource,
+  };
+  let bookingInsert = await admin
     .from("bookings")
-    .insert({
-      profile_id: profileRow.id,
-      client_id: clientRow.id,
-      service_id: serviceRow.id,
-      status: prepaymentRequired ? "pending_payment" : "confirmed",
-      starts_at: startsAt.toISOString(),
-      ends_at: endsAt.toISOString(),
-      busy_until:
-        getBusyUntilIso({
-          endsAtIso: endsAt.toISOString(),
-          bufferMinutes,
-        }) ?? slotBusyEnd.toISOString(),
-      source: "public_page",
-      client_note: parsed.data.note,
-      prepayment_required: prepaymentRequired,
-      cancellation_token_expires_at:
-        getCancellationDeadlineIso({
-          startsAtIso: startsAt.toISOString(),
-          cancellationNoticeHours: Number(profileRow.cancellation_notice_hours ?? 0),
-        }) ?? startsAt.toISOString(),
-      repeat_visit_reminder_requested:
-        parsed.data.wantsRepeatVisitReminder &&
-        Number(serviceRow.repeat_interval_days ?? 0) > 0,
-    })
+    .insert(bookingInsertPayload)
     .select("*")
     .single();
+  // До миграции источника запись важнее метки: сохраняем без неё.
+  if (isMissingAcquisitionSourceColumn(bookingInsert.error)) {
+    const { acquisition_source: _source, ...withoutSource } = bookingInsertPayload;
+    void _source;
+    bookingInsert = await admin
+      .from("bookings")
+      .insert(withoutSource)
+      .select("*")
+      .single();
+  }
+  const { data: bookingRow, error: bookingError } = bookingInsert;
 
   if (bookingError || !bookingRow) {
     if (certificateRow && claimedRemainingAmount !== null) {

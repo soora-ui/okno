@@ -346,7 +346,7 @@ export function PublicProfileView({
                       // форма записи сама откатится на ближайшее свободное.
                       <Link
                         key={`${slot.serviceId}-${slot.date}-${slot.time}`}
-                        href={`${bookingHref}?${new URLSearchParams({
+                        href={`${bookingHref}${bookingHref.includes("?") ? "&" : "?"}${new URLSearchParams({
                           service: slot.serviceId,
                           date: slot.date,
                           time: slot.time,

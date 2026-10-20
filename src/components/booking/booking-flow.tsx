@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import type { BookingSlot, Service } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/mock-data";
 import { computePrepaymentAmount } from "@/lib/prepayment";
+import type { AcquisitionSource } from "@/lib/acquisition-sources";
 
 type BookingFlowProps = {
   username: string;
@@ -48,6 +49,8 @@ type BookingFlowProps = {
   initialDate?: string;
   initialTime?: string;
   phoneVerificationRequired?: boolean;
+  /** Откуда клиент пришёл (документы/источники-записей.md), уходит с записью. */
+  acquisitionSource?: AcquisitionSource | null;
 };
 
 const steps = ["Услуга", "Дата и время", "Контакты"];
@@ -78,6 +81,7 @@ export function BookingFlow({
   initialDate,
   initialTime,
   phoneVerificationRequired = false,
+  acquisitionSource = null,
 }: BookingFlowProps) {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -459,6 +463,7 @@ export function BookingFlow({
           wantsRepeatVisitReminder,
           ...(needsPhoneVerification ? { phoneVerificationToken: verifiedToken } : {}),
           ...(certificateCode.trim() ? { certificateCode: certificateCode.trim() } : {}),
+          ...(acquisitionSource ? { acquisitionSource } : {}),
         }),
       });
 
@@ -491,6 +496,7 @@ export function BookingFlow({
       setPending(false);
     }
   }, [
+    acquisitionSource,
     certificateCode,
     commentFieldMode,
     dateValue,

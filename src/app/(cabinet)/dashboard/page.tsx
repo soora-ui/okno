@@ -14,6 +14,7 @@ import {
 import { BookingCard } from "@/components/dashboard/booking-card";
 import { CertificateScannerModal } from "@/components/dashboard/certificate-scanner-modal";
 import { FreeWindowsCard } from "@/components/dashboard/free-windows-card";
+import { AcquisitionSourcesCard } from "@/components/dashboard/acquisition-sources-card";
 import { ManualBookingForm } from "@/components/forms/booking-operations";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -24,6 +25,11 @@ import { getDashboardData } from "@/lib/data";
 import { pickFeedbackPrompt } from "@/lib/feedback/service";
 import { isDemoCabinetHeaders } from "@/lib/demo-cabinet";
 import { getOwnerFreeWindows } from "@/lib/free-windows-data";
+import {
+  acquisitionStatsDays,
+  getOwnerAcquisitionStats,
+} from "@/lib/acquisition-sources-data";
+import { env } from "@/lib/env";
 import { canManageWorkspace, isTeamWorkspaceKind } from "@/lib/workspace";
 import { pluralizeRu } from "@/lib/utils";
 import { formatSubscriptionUntil, resolveSubscription } from "@/lib/subscription";
@@ -60,7 +66,13 @@ export default async function DashboardPage() {
   const freeWindowsStoryHref = isDemoCabinetHeaders(await headers())
     ? "/demo/cabinet/free-windows-story"
     : "/api/free-windows/story";
-  const freeWindows = await getOwnerFreeWindows({ profile, source: data.source });
+  const [freeWindows, acquisitionStats] = await Promise.all([
+    getOwnerFreeWindows({ profile, source: data.source }),
+    getOwnerAcquisitionStats({ profileId: profile.id, source: data.source }),
+  ]);
+  // Источники — только у соло-мастера: у студии свой путь к форме записи.
+  const showAcquisitionSources =
+    Boolean(profile.username) && !isTeamWorkspaceKind(profile.workspaceKind);
   const subscriptionPlan = subscription.planId ? getPlan(subscription.planId) : null;
   const accessUntilLabel = formatSubscriptionUntil(subscription.activeUntil);
   const daysLeft = subscription.activeUntil
@@ -398,6 +410,14 @@ export default async function DashboardPage() {
               days={freeWindows.days}
               bookingUrl={freeWindows.bookingUrl}
               storyHref={freeWindowsStoryHref}
+            />
+          ) : null}
+
+          {showAcquisitionSources ? (
+            <AcquisitionSourcesCard
+              bookingUrl={`${env.appUrl}/${profile.username}`}
+              stats={acquisitionStats}
+              statsDays={acquisitionStatsDays}
             />
           ) : null}
 

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { GiftCertificateWidget } from "@/components/public/gift-certificate-widget";
 import { PublicProfileView } from "@/components/public/public-profile-view";
 import { TeamPublicProfileView } from "@/components/public/team-public-profile-view";
 import { JsonLd } from "@/components/seo/json-ld";
+import { resolveAcquisitionSource, withAcquisitionSource } from "@/lib/acquisition-sources";
 import { getCurrentAuthProfile, getPublicPageData } from "@/lib/data";
 import { buildPublicProfileJsonLd, buildPublicProfileMetadata } from "@/lib/seo/public-profile";
 import { getConsultantServiceIds } from "@/lib/service-consultant/availability";
@@ -13,7 +15,7 @@ const USERNAME_PATTERN = /^[a-z0-9-]+$/;
 
 type Props = {
   params: Promise<{ username: string }>;
-  searchParams: Promise<{ certificate?: string; ct?: string }>;
+  searchParams: Promise<{ certificate?: string; ct?: string; from?: string }>;
 };
 
 // getPublicPageData обёрнут в cache(): страница переиспользует тот же
@@ -28,11 +30,19 @@ export default async function PublicProfilePage({ params, searchParams }: Props)
   const { username } = await params;
   if (!USERNAME_PATTERN.test(username)) notFound();
 
-  const [data, authProfile, query] = await Promise.all([
+  const [data, authProfile, query, requestHeaders] = await Promise.all([
     getPublicPageData(username),
     getCurrentAuthProfile(),
     searchParams,
+    headers(),
   ]);
+  // Откуда клиент пришёл: метка ?from= или Referer. Дальше едет в ссылках на
+  // форму записи и сохраняется вместе с записью (документы/источники-записей.md).
+  const acquisitionSource = resolveAcquisitionSource({
+    param: query.from,
+    referrer: requestHeaders.get("referer"),
+    ownHost: requestHeaders.get("host")?.split(":")[0],
+  });
   const homeHref = authProfile
     ? getDefaultAccountRoute({
         accountRole: authProfile.profile.accountRole,
@@ -65,7 +75,7 @@ export default async function PublicProfilePage({ params, searchParams }: Props)
         profile={data.profile}
         services={data.services}
         bookingSlotsByService={data.bookingSlotsByService}
-        bookingHref={`/${username}/book`}
+        bookingHref={withAcquisitionSource(`/${username}/book`, acquisitionSource)}
         homeHref={homeHref}
         eyebrowLabel={`Онлайн-запись @${username}`}
         showDemoSections={false}

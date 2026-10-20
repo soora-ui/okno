@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SiteShell } from "@/components/layout/site-shell";
 import { BookingFlow } from "@/components/booking/booking-flow";
 import { getPublicPageData } from "@/lib/data";
 import { isPhoneVerificationRequired } from "@/lib/phone-verification";
+import { resolveAcquisitionSource } from "@/lib/acquisition-sources";
 
 // Служебная страница: в выдаче не нужна.
 export const metadata: Metadata = {
@@ -12,7 +14,7 @@ export const metadata: Metadata = {
 
 type Props = {
   params: Promise<{ username: string }>;
-  searchParams: Promise<{ service?: string; date?: string; time?: string }>;
+  searchParams: Promise<{ service?: string; date?: string; time?: string; from?: string }>;
 };
 
 export default async function BookingPage({ params, searchParams }: Props) {
@@ -21,7 +23,16 @@ export default async function BookingPage({ params, searchParams }: Props) {
     service: initialServiceId,
     date: initialDate,
     time: initialTime,
+    from,
   } = await searchParams;
+  // Метка приходит со страницы мастера; если клиент открыл форму сразу по
+  // внешней ссылке — догадываемся по Referer (документы/источники-записей.md).
+  const requestHeaders = await headers();
+  const acquisitionSource = resolveAcquisitionSource({
+    param: from,
+    referrer: requestHeaders.get("referer"),
+    ownHost: requestHeaders.get("host")?.split(":")[0],
+  });
   const data = await getPublicPageData(username, false);
 
   if (data.kind === "team") {
@@ -41,6 +52,7 @@ export default async function BookingPage({ params, searchParams }: Props) {
           initialDate={initialDate}
           initialTime={initialTime}
           phoneVerificationRequired={isPhoneVerificationRequired}
+          acquisitionSource={acquisitionSource}
         />
       </div>
     </SiteShell>
