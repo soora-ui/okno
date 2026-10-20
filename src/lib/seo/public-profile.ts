@@ -4,6 +4,7 @@ import type { PublicPageData } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/env";
 import type { Profile, Service } from "@/lib/mock-data";
 import { hasActiveSubscription } from "@/lib/subscription";
+import { isDemoUsername } from "@/lib/reserved-usernames";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   canManageWorkspace,
@@ -128,7 +129,8 @@ export function buildPublicProfileMetadata(
     alternates: { canonical: path },
     // Страница без услуг — пустая визитка: в выдаче она только навредит и
     // мастеру, и сайту. Как появятся услуги, страница откроется сама.
-    robots: { index: summary.services.length > 0, follow: true },
+    // Демо-аккаунты с выдуманными записями и отзывами в выдачу не пускаем.
+    robots: { index: summary.services.length > 0 && !isDemoUsername(username), follow: true },
     openGraph: {
       title,
       description,
@@ -242,6 +244,7 @@ export async function getIndexablePublicProfilePaths(): Promise<string[]> {
   return profiles
     .filter((row) => {
       if (!row.username || !USERNAME_PATTERN.test(row.username)) return false;
+      if (isDemoUsername(row.username)) return false;
       if (!isAccountActive(normalizeAccountStatus(row.account_status))) return false;
 
       const payer = workspaceAdmins.get(workspaceOf(row)) ?? row;

@@ -40,8 +40,17 @@ const RESERVED_USERNAMES = new Set([
   "www",
 ]);
 
+// Демо-аккаунты (scripts/seed-demo-analytics.mjs) — витрина и проверка
+// аналитики на боевой базе. Их страницы закрыты от поиска, а префикс нельзя
+// занять при регистрации: иначе настоящий мастер пропал бы из выдачи из-за имени.
+const DEMO_USERNAME_PREFIX = "demo-";
+
+export function isDemoUsername(username: string) {
+  return username.trim().toLowerCase().startsWith(DEMO_USERNAME_PREFIX);
+}
+
 export function isReservedUsername(username: string) {
-  return RESERVED_USERNAMES.has(username.trim().toLowerCase());
+  return RESERVED_USERNAMES.has(username.trim().toLowerCase()) || isDemoUsername(username);
 }
 
 export const RESERVED_USERNAME_MESSAGE =
