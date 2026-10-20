@@ -8,6 +8,7 @@
 const RESERVED_USERNAMES = new Set([
   // Кабинет и админка
   "admin",
+  "analytics",
   "archive",
   "clients",
   "dashboard",

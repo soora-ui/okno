@@ -10,6 +10,7 @@ export type PlanCapability =
   | "prepayment" // приём предоплаты за услугу через ЮKassa мастера
   | "clientReliability" // рейтинг надёжности клиента по истории визитов
   | "aiConsultation" // мануалы услуг и ответы AI-консультанта клиентам
+  | "analytics" // доход в час по услугам, клиенты и потери в аналитике
   | "team"; // общий кабинет команды и сотрудники
 
 export type PricingPlan = {
@@ -18,6 +19,13 @@ export type PricingPlan = {
   priceRub: number;
   period: string;
   description: string;
+  // Короткая метка над названием в витрине: для кого тариф.
+  tag: string;
+  // Строка под ценой: с чем сравнить сумму. Сравниваем с деньгами мастера
+  // (процедура, неявка, базовый тариф), а не с кофе — мастер считает в
+  // клиентах. Привязана к месячной цене, поэтому при оплате вперёд не
+  // показывается.
+  valueNote: string;
   features: string[];
   capabilities: readonly PlanCapability[];
   // Сколько активных сотрудников входит в тариф без доплаты.
@@ -44,19 +52,32 @@ export const trialOffer = {
     "30 дней с момента регистрации сервис работает без ограничений. Карта на этом шаге не нужна.",
 };
 
+const soloBasicPriceRub = 690;
+const studioPriceRub = 1990;
+const studioIncludedSeats = 3;
+
+// Строка студии обещает, что 3 мастера дешевле трёх базовых тарифов
+// (1990 < 3 × 690). Меняешь цены — проверь, что это ещё правда.
+// Округляем до десятка вниз: «≈ 660 ₽» читается, «663,33 ₽» — нет.
+const studioPerSeatRub =
+  Math.floor(studioPriceRub / studioIncludedSeats / 10) * 10;
+
 export const pricingPlans: PricingPlan[] = [
   {
     id: "solo-basic",
     title: "Соло. Базовый",
-    priceRub: 690,
+    priceRub: soloBasicPriceRub,
     period: "в месяц",
     description: "Одному мастеру, который ведёт запись сам.",
+    tag: "Одному мастеру",
+    valueNote: "Дешевле одной процедуры, а работает весь месяц.",
     capabilities: [],
     includedSeats: 0,
     features: [
       "Страница записи: клиент выбирает время без регистрации",
       "Расписание, блокировки и защита от двойной записи",
       "База клиентов и история визитов",
+      "Выручка и загрузка расписания",
       "Напоминание клиенту в календарь, уведомления мастеру в Telegram",
       "Подарочные сертификаты с QR-кодом",
       "Чаевые через CloudTips",
@@ -68,24 +89,29 @@ export const pricingPlans: PricingPlan[] = [
     priceRub: 1290,
     period: "в месяц",
     description: "Когда клиентов стало больше и неявки начали стоить денег.",
+    tag: "Защита от неявок",
+    valueNote: "Окупается, если предоплата спасёт хотя бы одну запись от неявки.",
     highlighted: true,
-    capabilities: ["prepayment", "clientReliability", "aiConsultation"],
+    capabilities: ["prepayment", "clientReliability", "aiConsultation", "analytics"],
     includedSeats: 0,
     features: [
       "Всё из базового тарифа",
       "Предоплата за услугу через вашу ЮKassa",
       "Рейтинг надёжности клиента по истории визитов",
       "AI-консультант отвечает клиентам по вашим мануалам",
+      "Аналитика: доход в час по услугам, постоянные клиенты, потери от неявок",
     ],
   },
   {
     id: "studio",
     title: "Студия и барбершоп",
-    priceRub: 1990,
+    priceRub: studioPriceRub,
     period: "в месяц",
     description: "Общий кабинет на команду, три сотрудника уже включены.",
-    capabilities: ["prepayment", "clientReliability", "aiConsultation", "team"],
-    includedSeats: 3,
+    tag: "Для команды",
+    valueNote: `≈ ${studioPerSeatRub} ₽ на мастера — дешевле, чем каждому платить за свой базовый.`,
+    capabilities: ["prepayment", "clientReliability", "aiConsultation", "analytics", "team"],
+    includedSeats: studioIncludedSeats,
     features: [
       "Всё из расширенного тарифа",
       "У каждого мастера свой кабинет, у администратора — общая картина",
@@ -206,6 +232,12 @@ export const planComparisonGroups: PlanComparisonGroup[] = [
     rows: [
       everyPlanRow("Подарочные сертификаты с QR-кодом"),
       everyPlanRow("Чаевые через CloudTips"),
+      everyPlanRow("Выручка, средний чек и загрузка расписания"),
+      capabilityRow(
+        "Расширенная аналитика",
+        "analytics",
+        "Доход в час по каждой услуге, новые и постоянные клиенты, потери от неявок",
+      ),
       capabilityRow(
         "Предоплата за услугу",
         "prepayment",

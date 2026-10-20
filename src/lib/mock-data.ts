@@ -135,6 +135,9 @@ export type Booking = {
   visitStatus: VisitStatus;
   visitStatusSetAt: string | null;
   prepaymentRequired: boolean;
+  // Цена услуги на момент записи (снимок, bookings.price). Нет — у записи из
+  // моков или из запроса без этой колонки; тогда берётся текущая цена услуги.
+  price?: number | null;
 };
 
 export type AvailabilityRule = {

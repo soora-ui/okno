@@ -18,6 +18,7 @@ const protectedMatchers = [
   "/admin",
   "/reviews",
   "/feedback",
+  "/analytics",
 ];
 
 // Точное совпадение с разделом или его подпутём: простой startsWith("/team")

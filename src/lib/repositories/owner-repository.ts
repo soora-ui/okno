@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { getMasterYooKassaAccount } from "@/lib/payments/yookassa-oauth";
 import { getAutopayState } from "@/lib/payments/subscription-autopay";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   isNonFatalSupabaseSessionError,
@@ -96,6 +97,7 @@ const BOOKING_COLUMNS = [
   "visit_status",
   "visit_status_set_at",
   "prepayment_required",
+  "price",
 ].join(",");
 
 const CLIENT_COLUMNS = [
@@ -395,6 +397,116 @@ export async function getOwnerClientsRows(input: { profileId: string }) {
     services: asRows(serviceResult.data),
     bookings: asRows(bookingResult.data),
     clients: asRows(clientResult.data),
+  };
+}
+
+// Аналитика: вся история записей (для «новый или постоянный клиент»),
+// график и блокировки (для загрузки).
+export async function getOwnerAnalyticsRows(input: { profileId: string }) {
+  const supabase = await createSupabaseServerClient();
+
+  const [serviceResult, bookingResult, clientResult, availabilityResult, blockedResult] =
+    await Promise.all([
+      supabase
+        .from("services")
+        .select(SERVICE_COLUMNS)
+        .eq("profile_id", input.profileId)
+        .order("sort_order"),
+      supabase
+        .from("bookings")
+        .select(BOOKING_COLUMNS)
+        .eq("profile_id", input.profileId)
+        .eq("status", "confirmed")
+        .order("starts_at"),
+      supabase
+        .from("clients")
+        .select(CLIENT_COLUMNS)
+        .eq("profile_id", input.profileId),
+      supabase
+        .from("availability_rules")
+        .select(AVAILABILITY_RULE_COLUMNS)
+        .eq("profile_id", input.profileId),
+      supabase
+        .from("blocked_slots")
+        .select(BLOCKED_SLOT_COLUMNS)
+        .eq("profile_id", input.profileId),
+    ]);
+
+  const errors = [
+    serviceResult.error,
+    bookingResult.error,
+    clientResult.error,
+    availabilityResult.error,
+    blockedResult.error,
+  ];
+
+  if (errors.some(Boolean)) {
+    if (errors.some((error) => isRetryableSupabaseNetworkError(error))) {
+      throw new Error(
+        "Нет связи с кабинетом. Проверь подключение к Supabase и попробуй еще раз.",
+      );
+    }
+
+    throw new Error("Не получилось загрузить аналитику кабинета.");
+  }
+
+  return {
+    services: asRows(serviceResult.data),
+    bookings: asRows(bookingResult.data),
+    clients: asRows(clientResult.data),
+    availabilityRules: asRows(availabilityResult.data),
+    blockedSlots: asRows(blockedResult.data),
+  };
+}
+
+// Аналитика студии для администратора: те же строки, что getOwnerAnalyticsRows,
+// по всем активным мастерам. Сервисный клиент — потому что RLS пускает мастера
+// только к своим записям; workspaceId берётся из профиля вошедшего
+// администратора, а не из запроса.
+export async function getWorkspaceAnalyticsRows(input: { workspaceId: string }) {
+  const admin = createSupabaseAdminClient();
+  const { data: memberData, error: memberError } = await admin
+    .from("profiles")
+    .select("id, full_name")
+    .eq("workspace_id", input.workspaceId)
+    .eq("account_status", "active")
+    .order("created_at");
+
+  if (memberError) {
+    throw new Error("Не получилось загрузить мастеров студии.");
+  }
+
+  const members = asRows(memberData);
+  const ids = members.map((row) => String(row.id));
+  const [serviceResult, bookingResult, clientResult, availabilityResult, blockedResult] =
+    await Promise.all([
+      admin.from("services").select(SERVICE_COLUMNS).in("profile_id", ids).order("sort_order"),
+      admin
+        .from("bookings")
+        .select(BOOKING_COLUMNS)
+        .in("profile_id", ids)
+        .eq("status", "confirmed")
+        .order("starts_at"),
+      admin.from("clients").select(CLIENT_COLUMNS).in("profile_id", ids),
+      admin.from("availability_rules").select(AVAILABILITY_RULE_COLUMNS).in("profile_id", ids),
+      admin.from("blocked_slots").select(BLOCKED_SLOT_COLUMNS).in("profile_id", ids),
+    ]);
+
+  if (
+    [serviceResult, bookingResult, clientResult, availabilityResult, blockedResult].some(
+      (result) => result.error,
+    )
+  ) {
+    throw new Error("Не получилось загрузить аналитику студии.");
+  }
+
+  return {
+    members,
+    services: asRows(serviceResult.data),
+    bookings: asRows(bookingResult.data),
+    clients: asRows(clientResult.data),
+    availabilityRules: asRows(availabilityResult.data),
+    blockedSlots: asRows(blockedResult.data),
   };
 }
 

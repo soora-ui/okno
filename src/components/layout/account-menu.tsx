@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, BookOpen, CalendarDays, Globe, LayoutDashboard, Lightbulb, LogOut, Menu, Settings, Users, X } from "lucide-react";
+import { Archive, BarChart3, BookOpen, CalendarDays, Globe, LayoutDashboard, Lightbulb, LogOut, Menu, Settings, Users, X } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
 import { ClientPortal } from "@/components/ui/client-portal";
 import { usePresence } from "@/components/ui/use-presence";
@@ -40,6 +40,7 @@ export function AccountMenu({
     { href: "/archive", label: "Архив", icon: Archive },
     { href: "/schedule", label: "Расписание", icon: CalendarDays },
     { href: "/clients", label: "Клиенты", icon: Users },
+    { href: "/analytics", label: "Аналитика", icon: BarChart3 },
     { href: "/settings", label: "Настройки", icon: Settings },
     { href: "/knowledge", label: "База знаний", icon: BookOpen },
     { href: "/feedback", label: "Идеи и проблемы", icon: Lightbulb },

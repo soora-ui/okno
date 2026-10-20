@@ -41,6 +41,8 @@ import {
 import type { ServiceManualSummary } from "@/lib/service-manuals";
 import {
   getOwnerCertificateTemplateRow,
+  getOwnerAnalyticsRows,
+  getWorkspaceAnalyticsRows,
   getOwnerClientsRows,
   getOwnerDashboardRows,
   getOwnerNotificationRows,
@@ -754,6 +756,84 @@ export async function getClientsData() {
     services: clientsData.services.map((row) => mapService(row)),
     bookings: clientsData.bookings.map((row) => mapBooking(row)),
     clients: clientsData.clients.map((row) => mapClient(row)),
+    source: "supabase" as const,
+  };
+}
+
+export async function getAnalyticsData() {
+  const authProfile = await getCurrentAuthProfile();
+
+  if (!authProfile) {
+    if (!isSupabaseConfigured && isDemoMode) {
+      return {
+        profile: mockProfile,
+        services: mockServices,
+        bookings,
+        clients,
+        availabilityRules,
+        blockedSlots,
+        source: "mock" as const,
+      };
+    }
+
+    return null;
+  }
+
+  if (authProfile.source === "mock") {
+    const mock = getMockOwnerData(authProfile.profile);
+    return {
+      profile: authProfile.profile,
+      services: mock.services,
+      bookings: mock.bookings,
+      clients: mock.clients,
+      availabilityRules: mock.availabilityRules,
+      blockedSlots: mock.blockedSlots,
+      source: "mock" as const,
+    };
+  }
+
+  const profile = authProfile.profile;
+
+  // Администратор студии видит общую картину и каждого мастера отдельно.
+  if (canManageWorkspace(profile.accountRole) && isTeamWorkspaceKind(profile.workspaceKind)) {
+    const teamRows = await getWorkspaceAnalyticsRows({ workspaceId: profile.workspaceId });
+    const ofMember = (list: Record<string, unknown>[], id: string) =>
+      list.filter((row) => String(row.profile_id) === id);
+    const team = teamRows.members.map((member) => {
+      const id = String(member.id);
+      return {
+        id,
+        name: String(member.full_name ?? ""),
+        services: ofMember(teamRows.services, id).map((row) => mapService(row)),
+        bookings: ofMember(teamRows.bookings, id).map((row) => mapBooking(row)),
+        clients: ofMember(teamRows.clients, id).map((row) => mapClient(row)),
+        availabilityRules: ofMember(teamRows.availabilityRules, id).map((row) => mapAvailabilityRule(row)),
+        blockedSlots: ofMember(teamRows.blockedSlots, id).map((row) => mapBlockedSlot(row)),
+      };
+    });
+    const own = team.find((member) => member.id === profile.id);
+
+    return {
+      profile,
+      services: own?.services ?? [],
+      bookings: own?.bookings ?? [],
+      clients: own?.clients ?? [],
+      availabilityRules: own?.availabilityRules ?? [],
+      blockedSlots: own?.blockedSlots ?? [],
+      team,
+      source: "supabase" as const,
+    };
+  }
+
+  const rows = await getOwnerAnalyticsRows({ profileId: profile.id });
+
+  return {
+    profile: authProfile.profile,
+    services: rows.services.map((row) => mapService(row)),
+    bookings: rows.bookings.map((row) => mapBooking(row)),
+    clients: rows.clients.map((row) => mapClient(row)),
+    availabilityRules: rows.availabilityRules.map((row) => mapAvailabilityRule(row)),
+    blockedSlots: rows.blockedSlots.map((row) => mapBlockedSlot(row)),
     source: "supabase" as const,
   };
 }

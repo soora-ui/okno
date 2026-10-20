@@ -198,6 +198,7 @@ export function mapBooking(row: Record<string, unknown>) {
     visitStatus,
     visitStatusSetAt: row.visit_status_set_at ? String(row.visit_status_set_at) : null,
     prepaymentRequired: Boolean(row.prepayment_required),
+    price: typeof row.price === "number" ? row.price : null,
   };
 }
 

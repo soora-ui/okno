@@ -46,6 +46,7 @@ const ALL_CAPABILITIES: readonly PlanCapability[] = [
   "prepayment",
   "clientReliability",
   "aiConsultation",
+  "analytics",
   "team",
 ];
 
