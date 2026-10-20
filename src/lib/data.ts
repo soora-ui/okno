@@ -71,6 +71,7 @@ import {
 } from "@/lib/repositories/team-repository";
 import { buildBookingSlotsForService } from "@/lib/slots";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { resolveSubscriptionRow } from "@/lib/workspace-payer";
 import {
   isRetryableSupabaseNetworkError,
   isSupabaseMissingColumnError,
@@ -549,10 +550,12 @@ export const getCurrentAuthProfile = cache(async function getCurrentAuthProfile(
     return null;
   }
 
-  const profileRow = await getOwnerProfileRow();
+  const ownRow = await getOwnerProfileRow();
 
-  if (!profileRow) return null;
+  if (!ownRow) return null;
 
+  // Сотрудник студии работает по тарифу администратора (src/lib/workspace-payer.ts).
+  const profileRow = await resolveSubscriptionRow(createSupabaseAdminClient(), ownRow);
   const mappedProfile = mapProfile(profileRow);
   if (!isAccountActive(mappedProfile.accountStatus)) {
     return null;

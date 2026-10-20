@@ -27,6 +27,9 @@ import { loadSeatBalance } from "@/lib/subscription-seats";
 import { isSupabaseMissingTableError } from "@/lib/supabase/auth-errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+
+const STAFF_BILLING_MESSAGE =
+  "Тариф студии оплачивает администратор — попроси его продлить или докупить места.";
 export type SubscriptionActionState = {
   success: boolean;
   message: string;
@@ -76,6 +79,11 @@ export async function startProSubscriptionAction(
   const profile = authProfile?.profile ?? null;
   if (!profile) {
     return { success: false, message: "Сессия истекла. Войди заново." };
+  }
+
+  // Тариф студии оплачивает и продлевает администратор (src/lib/workspace-payer.ts).
+  if (profile.accountRole === "staff") {
+    return { success: false, message: STAFF_BILLING_MESSAGE };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -217,6 +225,11 @@ export async function startSeatTopUpAction(
     return { success: false, message: "Сессия истекла. Войди заново." };
   }
 
+  // Тариф студии оплачивает и продлевает администратор (src/lib/workspace-payer.ts).
+  if (profile.accountRole === "staff") {
+    return { success: false, message: STAFF_BILLING_MESSAGE };
+  }
+
   const access = resolveSubscription(profile);
   const supabase = await createSupabaseServerClient();
   const balance = await loadSeatBalance(supabase, {
@@ -355,6 +368,11 @@ export async function disableSubscriptionAutopayAction(
   const profile = authProfile?.profile ?? null;
   if (!profile || authProfile?.source !== "supabase") {
     return { success: false, message: "Сессия истекла. Войди заново." };
+  }
+
+  // Тариф студии оплачивает и продлевает администратор (src/lib/workspace-payer.ts).
+  if (profile.accountRole === "staff") {
+    return { success: false, message: STAFF_BILLING_MESSAGE };
   }
 
   const supabase = await createSupabaseServerClient();

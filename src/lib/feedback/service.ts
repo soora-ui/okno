@@ -299,6 +299,9 @@ async function candidatePrompt(
   profile: Profile,
   rows: PromptRow[],
 ): Promise<FeedbackPrompt | null> {
+  // Про оплату спрашиваем того, кто платит: тариф студии ведёт администратор.
+  if (profile.accountRole === "staff") return null;
+
   const access = resolveSubscription(profile);
   const now = DateTime.now();
 

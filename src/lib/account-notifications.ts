@@ -114,7 +114,10 @@ export function buildAccountNotificationItems(input: {
     });
   }
 
-  if (subscription.pausedUntil) {
+  // Напоминания об оплате — тому, кто платит: тариф студии сотрудник не продлевает.
+  const remindsAboutBilling = profile.accountRole !== "staff";
+
+  if (remindsAboutBilling && subscription.pausedUntil) {
     systemItems.push({
       id: "system-subscription",
       title: "Подписка на паузе",
@@ -125,7 +128,7 @@ export function buildAccountNotificationItems(input: {
       createdAt: stableSystemIso,
       createdAtLabel: "Сегодня",
     });
-  } else if (!subscription.isActive) {
+  } else if (remindsAboutBilling && !subscription.isActive) {
     systemItems.push({
       id: "system-subscription",
       title: subscription.isTrial ? "Пробный период закончился" : "Тариф не подключён",
@@ -136,7 +139,7 @@ export function buildAccountNotificationItems(input: {
       createdAt: stableSystemIso,
       createdAtLabel: "Сегодня",
     });
-  } else if (accessDaysLeft !== null && accessDaysLeft <= 5) {
+  } else if (remindsAboutBilling && accessDaysLeft !== null && accessDaysLeft <= 5) {
     systemItems.push({
       id: "system-subscription",
       title: subscription.isTrial

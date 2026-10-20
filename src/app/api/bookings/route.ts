@@ -54,6 +54,7 @@ import {
 } from "@/lib/supabase/auth-errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { resolveSubscription } from "@/lib/subscription";
+import { resolveSubscriptionRow } from "@/lib/workspace-payer";
 import { profile as mockProfile, services as mockServices } from "@/lib/mock-data";
 import { parseAcquisitionSource } from "@/lib/acquisition-sources";
 
@@ -342,12 +343,19 @@ export async function POST(request: Request) {
   // непросроченный пробный период (30 дней от регистрации). Лимита на число
   // записей внутри периода нет — раньше здесь стояла тестовая отсечка «одна
   // запись на free-тарифе», она снята вместе с бесплатным тарифом.
+  // Мастер студии принимает записи, пока оплачен тариф студии.
+  let subscriptionRow: Record<string, unknown>;
+  try {
+    subscriptionRow = await resolveSubscriptionRow(admin, profileRow);
+  } catch {
+    return respondWithError(500, "Не получилось проверить тариф мастера.");
+  }
   const masterSubscription = resolveSubscription({
-    subscriptionTier: String(profileRow.subscription_tier ?? "free"),
-    subscriptionUntil: (profileRow.subscription_until as string | null) ?? null,
-    joinedAt: (profileRow.created_at as string | null) ?? null,
+    subscriptionTier: String(subscriptionRow.subscription_tier ?? "free"),
+    subscriptionUntil: (subscriptionRow.subscription_until as string | null) ?? null,
+    joinedAt: (subscriptionRow.created_at as string | null) ?? null,
     subscriptionPausedUntil:
-      (profileRow.subscription_paused_until as string | null) ?? null,
+      (subscriptionRow.subscription_paused_until as string | null) ?? null,
   });
 
   if (!masterSubscription.isActive) {

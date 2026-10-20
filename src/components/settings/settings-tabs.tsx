@@ -23,7 +23,8 @@ import type { AutopayState } from "@/lib/payments/subscription-autopay";
 import type { SeatBalance } from "@/lib/subscription-seats";
 import type { ReferralInviteSummary } from "@/lib/referral";
 import type { ServiceManualSummary } from "@/lib/service-manuals";
-import { hasCapability } from "@/lib/subscription";
+import { getPlan } from "@/config/plans";
+import { formatSubscriptionUntil, hasCapability, resolveSubscription } from "@/lib/subscription";
 import { formatPublicProfileLink, publicLinkHost } from "@/lib/site";
 import { Card } from "@/components/ui/card";
 import {
@@ -329,12 +330,16 @@ export function SettingsTabs({
               <Sparkles size={18} className="text-accent-deep" />
               <h2 className="text-xl font-semibold text-ink">Подписка</h2>
             </div>
-            <SubscriptionSettingsForm
-              profile={profile}
-              activeSeats={activeSeats}
-              autopay={autopay}
-              seatBalance={seatBalance}
-            />
+            {profile.accountRole === "staff" ? (
+              <StaffSubscriptionNote profile={profile} />
+            ) : (
+              <SubscriptionSettingsForm
+                profile={profile}
+                activeSeats={activeSeats}
+                autopay={autopay}
+                seatBalance={seatBalance}
+              />
+            )}
           </Card>
 
           <Card className="space-y-4">
@@ -381,6 +386,30 @@ export function SettingsTabs({
           </Card>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+// Тариф студии оплачивает администратор: сотруднику — только статус доступа.
+function StaffSubscriptionNote({ profile }: { profile: Profile }) {
+  const access = resolveSubscription(profile);
+  const plan = access.planId ? getPlan(access.planId) : null;
+  const until = formatSubscriptionUntil(access.activeUntil);
+  const title = access.pausedUntil
+    ? "Студия на паузе"
+    : !access.isActive
+      ? "Тариф студии не оплачен"
+      : access.isTrial
+        ? "Пробный период студии"
+        : `Тариф студии «${plan?.title ?? "Студия"}»`;
+
+  return (
+    <div className="space-y-2 text-sm leading-6 text-ink-soft">
+      <p className="text-base font-medium text-ink">{title}</p>
+      <p>
+        {access.isActive && until ? `Доступ действует до ${until}. ` : ""}
+        Тариф оплачивает и продлевает администратор «{profile.workspaceName}».
+      </p>
     </div>
   );
 }
