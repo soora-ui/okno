@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildFreeWindows,
   buildFreeWindowsShareText,
+  buildFreeWindowsTimelineAxis,
+  freeWindowTimelineSegment,
+  type FreeWindowDay,
 } from "@/lib/free-windows";
 import type { BookingSlot, Service } from "@/lib/mock-data";
 
@@ -46,6 +49,8 @@ describe("buildFreeWindows", () => {
       {
         date: "2026-10-19",
         label: "Сегодня, 19 октября",
+        dayName: "Сегодня",
+        dateLabel: "19 октября",
         windows: [
           { start: "14:00", end: "16:00", serviceId: "a" },
           { start: "17:00", end: "18:00", serviceId: "a" },
@@ -86,7 +91,7 @@ describe("buildFreeWindows", () => {
       now,
     });
 
-    expect(days.map((day) => day.label)).toEqual(["Среда, 21 октября"]);
+    expect(days.map((day) => day.label)).toEqual(["Послезавтра, 21 октября"]);
   });
 });
 
@@ -97,6 +102,8 @@ describe("buildFreeWindowsShareText", () => {
         {
           date: "2026-10-19",
           label: "Сегодня, 19 октября",
+          dayName: "Сегодня",
+          dateLabel: "19 октября",
           windows: [
             { start: "14:00", end: "16:00", serviceId: "a" },
             { start: "17:00", end: "18:00", serviceId: "a" },
@@ -115,5 +122,33 @@ describe("buildFreeWindowsShareText", () => {
         "Записаться онлайн: https://okno.business/alina",
       ].join("\n"),
     );
+  });
+});
+
+describe("buildFreeWindowsTimelineAxis", () => {
+  const day = (windows: Array<[string, string]>): FreeWindowDay => ({
+    date: "2026-10-20",
+    label: "",
+    dayName: "",
+    dateLabel: "",
+    windows: windows.map(([start, end]) => ({ start, end, serviceId: "a" })),
+  });
+
+  it("по умолчанию 09–21 с шагом три часа", () => {
+    const axis = buildFreeWindowsTimelineAxis([day([["17:00", "19:30"]])]);
+    expect(axis.ticks).toEqual(["09", "12", "15", "18", "21"]);
+    expect(freeWindowTimelineSegment({ start: "17:00", end: "19:30", serviceId: "a" }, axis)).toEqual({
+      leftPct: (8 / 12) * 100,
+      widthPct: (2.5 / 12) * 100,
+    });
+  });
+
+  it("раздвигается под ранние и поздние окошки, не выходя за сутки", () => {
+    expect(buildFreeWindowsTimelineAxis([day([["07:30", "10:00"]])]).ticks).toEqual([
+      "07", "11", "15", "19", "23",
+    ]);
+    expect(buildFreeWindowsTimelineAxis([day([["20:00", "23:30"]])]).ticks).toEqual([
+      "08", "12", "16", "20", "24",
+    ]);
   });
 });

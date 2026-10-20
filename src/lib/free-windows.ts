@@ -22,6 +22,9 @@ export type FreeWindow = {
 export type FreeWindowDay = {
   date: string; // ISO, 2026-10-19
   label: string; // «Сегодня, 19 октября»
+  // То же по частям — карточке в кабинете они нужны разными шрифтами.
+  dayName: string; // «Сегодня»
+  dateLabel: string; // «19 октября»
   windows: FreeWindow[];
 };
 
@@ -35,13 +38,13 @@ function fromMinutes(minutes: number) {
   return `${String(hours).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }
 
-export function formatFreeWindowDayLabel(date: DateTime, today: DateTime) {
+export function formatFreeWindowDayParts(date: DateTime, today: DateTime) {
   const dayDiff = Math.round(date.startOf("day").diff(today.startOf("day"), "days").days);
-  const dayMonth = date.setLocale("ru").toFormat("d MMMM");
-  if (dayDiff === 0) return `Сегодня, ${dayMonth}`;
-  if (dayDiff === 1) return `Завтра, ${dayMonth}`;
+  const dateLabel = date.setLocale("ru").toFormat("d MMMM");
+  const relative = ["Сегодня", "Завтра", "Послезавтра"][dayDiff];
   const weekday = date.setLocale("ru").toFormat("cccc");
-  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${dayMonth}`;
+  const dayName = relative ?? `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}`;
+  return { dayName, dateLabel, label: `${dayName}, ${dateLabel}` };
 }
 
 export function buildFreeWindows(input: {
@@ -90,7 +93,7 @@ export function buildFreeWindows(input: {
 
     result.push({
       date: dayKey,
-      label: formatFreeWindowDayLabel(day, today),
+      ...formatFreeWindowDayParts(day, today),
       windows: windows.map((window) => ({
         start: fromMinutes(window.start),
         end: fromMinutes(window.end),
@@ -102,8 +105,45 @@ export function buildFreeWindows(input: {
   return result;
 }
 
-export function formatFreeWindowRanges(windows: FreeWindow[]) {
-  return windows.map((window) => `${window.start}–${window.end}`).join(", ");
+export function formatFreeWindowRanges(windows: FreeWindow[], separator = ", ") {
+  return windows.map((window) => `${window.start}–${window.end}`).join(separator);
+}
+
+export type FreeWindowsTimelineAxis = {
+  startMinutes: number;
+  endMinutes: number;
+  ticks: string[]; // «09», «12», … — пять меток через равный шаг
+};
+
+// Шкала для таймлайна в кабинете: по умолчанию 09–21, раздвигается, если
+// окошки выходят за неё. Шаг меток — целые часы, поэтому длину шкалы
+// округляем вверх до кратной четырём (пять меток — четыре промежутка).
+export function buildFreeWindowsTimelineAxis(days: FreeWindowDay[]): FreeWindowsTimelineAxis {
+  const windows = days.flatMap((day) => day.windows);
+  const earliest = Math.min(9 * 60, ...windows.map((window) => toMinutes(window.start)));
+  const latest = Math.max(21 * 60, ...windows.map((window) => toMinutes(window.end)));
+  let startHour = Math.floor(earliest / 60);
+  const step = Math.ceil((Math.ceil(latest / 60) - startHour) / 4);
+  if (startHour + step * 4 > 24) startHour = Math.max(0, 24 - step * 4);
+
+  return {
+    startMinutes: startHour * 60,
+    endMinutes: (startHour + step * 4) * 60,
+    ticks: [0, 1, 2, 3, 4].map((index) =>
+      String(Math.min(24, startHour + step * index)).padStart(2, "0"),
+    ),
+  };
+}
+
+// Положение окошка на шкале в процентах — для left/width полоски.
+export function freeWindowTimelineSegment(window: FreeWindow, axis: FreeWindowsTimelineAxis) {
+  const span = axis.endMinutes - axis.startMinutes;
+  const start = Math.max(axis.startMinutes, toMinutes(window.start));
+  const end = Math.min(axis.endMinutes, toMinutes(window.end));
+  return {
+    leftPct: ((start - axis.startMinutes) / span) * 100,
+    widthPct: (Math.max(0, end - start) / span) * 100,
+  };
 }
 
 // Пост для Telegram / VK / WhatsApp. Пишем от лица мастера и без эмодзи:
