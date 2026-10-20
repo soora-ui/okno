@@ -1538,9 +1538,9 @@ export async function getPrepaymentData(bookingId: string, prepaymentId: string)
 
   const { data: prepaymentRow, error: prepaymentError } = await admin
     .from("prepayments")
-    .select("id, appointment_id, profile_id, amount, status, expires_at")
+    .select("id, booking_id, profile_id, amount, status, expires_at")
     .eq("id", prepaymentId)
-    .eq("appointment_id", bookingId)
+    .eq("booking_id", bookingId)
     .maybeSingle();
 
   if (prepaymentError || !prepaymentRow) {
