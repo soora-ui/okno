@@ -90,4 +90,22 @@ describe("свободные окна и перерыв услуги", () => {
     // Та же услуга без перерыва в 11:00 помещается.
     expect(timesFor(service(60, 0), existing)).toContain("11:00");
   });
+
+  it("тысячи прошлых записей не тормозят расчёт и не занимают будущие окна", () => {
+    const past = Array.from({ length: 3000 }, (_, index) => {
+      const start = tomorrow.minus({ days: 2 + (index % 90), hours: index % 8 });
+      return {
+        ...booking("10:00", "11:00", "11:00"),
+        id: `past-${index}`,
+        startsAt: start.toUTC().toISO() ?? "",
+        endsAt: start.plus({ hours: 1 }).toUTC().toISO() ?? "",
+        busyUntil: start.plus({ hours: 1 }).toUTC().toISO() ?? "",
+      };
+    });
+    const startedAt = performance.now();
+    const times = timesFor(service(60, 0), past);
+    expect(performance.now() - startedAt).toBeLessThan(1000);
+    expect(times).toContain("10:00");
+    expect(times).toContain("17:00");
+  });
 });

@@ -8,13 +8,10 @@ import type {
   Service,
 } from "@/lib/mock-data";
 
-function overlaps(
-  startA: DateTime,
-  endA: DateTime,
-  startB: DateTime,
-  endB: DateTime,
-) {
-  return startA < endB && endA > startB;
+type Interval = { start: number; end: number };
+
+function toMillis(iso: string) {
+  return DateTime.fromISO(iso, { zone: "utc" }).toMillis();
 }
 
 export function buildBookingSlotsForService(input: {
@@ -63,9 +60,22 @@ export function buildBookingSlotsForService(input: {
   // okno-tz-rating-prepayment.md, ТЗ 2.3): пока клиент не оплатил или не
   // истекли 15 минут резервации, слот не должен казаться свободным другим
   // клиентам, иначе получаем двойную запись на один и тот же слот.
-  const futureBookings = bookings.filter(
-    (booking) => booking.status === "confirmed" || booking.status === "pending_payment",
-  );
+  //
+  // Интервалы занятости разбираем один раз и сравниваем числами: раньше на
+  // каждый слот заново разбирались даты всех записей мастера, и страница
+  // мастера с парой сотен записей считалась десятки секунд, а сервер всё это
+  // время не отвечал никому. Закончившиеся записи будущий слот не задевают.
+  const nowMs = now.toMillis();
+  const busyIntervals: Interval[] = bookings
+    .filter((booking) => booking.status === "confirmed" || booking.status === "pending_payment")
+    .map((booking) => ({
+      start: toMillis(booking.startsAt),
+      end: toMillis(booking.busyUntil || booking.endsAt),
+    }))
+    .filter((interval) => interval.end > nowMs);
+  const blockedIntervals: Interval[] = blockedSlots
+    .map((slot) => ({ start: toMillis(slot.startsAt), end: toMillis(slot.endsAt) }))
+    .filter((interval) => interval.end > nowMs);
   const visibleDays: BookingSlot[] = [];
 
   for (
@@ -107,32 +117,12 @@ export function buildBookingSlotsForService(input: {
       // своего перерыва, а уже сделанная — до своего busy_until (там перерыв
       // её услуги, зафиксированный на момент записи).
       const slotBusyEnd = slotEnd.plus({ minutes: Math.max(0, service.bufferMinutes) });
+      const slotStartMs = slotStart.toMillis();
+      const slotBusyEndMs = slotBusyEnd.toMillis();
+      const intersects = (interval: Interval) =>
+        slotStartMs < interval.end && slotBusyEndMs > interval.start;
 
-      const intersectsBooking = futureBookings.some((booking) => {
-        const bookingStart = DateTime.fromISO(booking.startsAt, { zone: "utc" }).setZone(
-          profile.timezone,
-        );
-        const bookingBusyEnd = DateTime.fromISO(booking.busyUntil || booking.endsAt, {
-          zone: "utc",
-        }).setZone(profile.timezone);
-
-        return overlaps(slotStart, slotBusyEnd, bookingStart, bookingBusyEnd);
-      });
-
-      if (intersectsBooking) continue;
-
-      const intersectsBlockedSlot = blockedSlots.some((blockedSlot) => {
-        const blockedStart = DateTime.fromISO(blockedSlot.startsAt, {
-          zone: "utc",
-        }).setZone(profile.timezone);
-        const blockedEnd = DateTime.fromISO(blockedSlot.endsAt, { zone: "utc" }).setZone(
-          profile.timezone,
-        );
-
-        return overlaps(slotStart, slotBusyEnd, blockedStart, blockedEnd);
-      });
-
-      if (intersectsBlockedSlot) continue;
+      if (busyIntervals.some(intersects) || blockedIntervals.some(intersects)) continue;
 
       times.push(slotStart.toFormat("HH:mm"));
     }
