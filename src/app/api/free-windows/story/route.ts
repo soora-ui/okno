@@ -13,7 +13,8 @@ import { formatPublicProfileLink } from "@/lib/site";
 // Картинка «Горящие окошки» для сторис мастера (документы/горящие-окошки.md).
 // Только для вошедшего мастера и только его окошки. Стиль и цвет — из
 // окна выбора в кабинете (?style=light|arch|ink&palette=sage|…), по
-// умолчанию — цвет страницы записи мастера.
+// умолчанию — цвет страницы записи мастера. ?format=data — те же окошки
+// JSON-ом для превью.
 export async function GET(request: Request) {
   const authProfile = await getCurrentAuthProfile();
   if (!authProfile) {
@@ -31,11 +32,22 @@ export async function GET(request: Request) {
     );
   }
 
+  const publicLink = formatPublicProfileLink(profile.username);
+
+  // Данные для превью в окне выбора: шаблон собирается в браузере, и
+  // переключение стиля и цвета не ждёт рендера PNG на сервере.
+  if (searchParams.get("format") === "data") {
+    return NextResponse.json(
+      { days: freeWindows.days, masterName: profile.fullName, publicLink },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+
   try {
     const png = await renderFreeWindowsStoryPng({
       days: freeWindows.days,
       masterName: profile.fullName,
-      publicLink: formatPublicProfileLink(profile.username),
+      publicLink,
       style: parseStoryStyle(searchParams.get("style")),
       palette:
         parseStoryPalette(searchParams.get("palette")) ??

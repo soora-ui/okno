@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, Download, LoaderCircle, Share, X } from "lucide-react";
 import { useDemoMode } from "@/components/tour/demo-mode";
 import { Button } from "@/components/ui/button";
+import type { FreeWindowDay } from "@/lib/free-windows";
+import { buildFreeWindowsStoryHtml } from "@/lib/free-windows-story-template";
 import {
   storyPaletteMeta,
   storyPalettes,
@@ -15,8 +17,14 @@ import {
 
 // Окно выбора картинки для сторис (макеты «Выбор сторис · компьютер» и
 // «· телефон»): стиль × цвет, живое превью и скачивание или «Поделиться».
-// Превью — та же PNG, что уйдёт в сторис: сервер рисует её по параметрам,
-// а минутный кэш ответа избавляет от второго рендера при скачивании.
+// Превью собирается в браузере из того же шаблона, по которому сервер рисует
+// PNG, — переключение мгновенное. Саму PNG подгружаем в фоне, когда выбор
+// замер, чтобы «Поделиться» не ждало рендера.
+
+type StoryData = { days: FreeWindowDay[]; masterName: string; publicLink: string };
+
+// Холст шаблона — 540×960; превью — 194×346 на телефоне и 238×422 на компьютере.
+const previewScale = "[--story-scale:0.3593] md:[--story-scale:0.4407]";
 
 const storageKey = "okno:free-windows-story";
 
@@ -72,7 +80,10 @@ export function FreeWindowsStoryDialog({
   const [palette, setPalette] = useState<StoryPalette>(
     () => (demo ? undefined : readSavedChoice().palette) ?? defaultPalette,
   );
-  const [previewState, setPreviewState] = useState<"loading" | "ready" | "error">("loading");
+  const [storyData, setStoryData] = useState<StoryData | null>(null);
+  const [dataState, setDataState] = useState<"loading" | "ready" | "error">("loading");
+  // Готовая PNG для текущего выбора — чтобы «Поделиться» сработало сразу.
+  const prefetched = useRef<{ url: string; blob: Blob } | null>(null);
   const [actionState, setActionState] = useState<"idle" | "working" | "error">("idle");
   const [shareSupported] = useState(canShareFiles);
 
@@ -84,7 +95,6 @@ export function FreeWindowsStoryDialog({
       if (choice.style === style && choice.palette === palette) return;
       setStyle(choice.style);
       setPalette(choice.palette);
-      setPreviewState("loading");
       if (!demo) saveChoice(choice);
     },
     [demo, palette, style],
@@ -106,12 +116,70 @@ export function FreeWindowsStoryDialog({
     };
   }, [onClose]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${storyHref}?format=data`, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`story data ${response.status}`);
+        return response.json() as Promise<StoryData>;
+      })
+      .then((data) => {
+        setStoryData(data);
+        setDataState("ready");
+      })
+      .catch((error: Error) => {
+        if (error.name !== "AbortError") setDataState("error");
+      });
+    return () => controller.abort();
+  }, [storyHref]);
+
+  // PNG рисуем, только когда выбор постоял полсекунды: пролистывание цветов
+  // не должно ставить в очередь рендеры, которые никто не увидит.
+  useEffect(() => {
+    if (prefetched.current?.url === imageUrl) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(imageUrl, { signal: controller.signal })
+        .then((response) => (response.ok ? response.blob() : null))
+        .then((blob) => {
+          if (blob) prefetched.current = { url: imageUrl, blob };
+        })
+        .catch(() => {
+          // Не успели заранее — догрузим по нажатию.
+        });
+    }, 500);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [imageUrl]);
+
+  const previewHtml = useMemo(
+    () =>
+      storyData
+        ? buildFreeWindowsStoryHtml({
+            ...storyData,
+            style,
+            palette,
+            fontFamily: "var(--font-manrope-loaded), Manrope, sans-serif",
+          })
+        : null,
+    [storyData, style, palette],
+  );
+
+  async function loadImage() {
+    if (prefetched.current?.url === imageUrl) return prefetched.current.blob;
+    const response = await fetch(imageUrl);
+    if (!response.ok) throw new Error(`story ${response.status}`);
+    const blob = await response.blob();
+    prefetched.current = { url: imageUrl, blob };
+    return blob;
+  }
+
   async function handleAction() {
     setActionState("working");
     try {
-      const response = await fetch(imageUrl);
-      if (!response.ok) throw new Error(`story ${response.status}`);
-      const blob = await response.blob();
+      const blob = await loadImage();
       const file = new File([blob], "okoshki.png", { type: "image/png" });
 
       // На телефоне сразу системное «Поделиться» — оттуда картинка уходит в
@@ -153,25 +221,31 @@ export function FreeWindowsStoryDialog({
   const actionLabel = shareSupported ? "Поделиться" : "Скачать картинку";
 
   const preview = (
-    <div className="relative h-[346px] w-[194px] overflow-hidden rounded-[18px] bg-panel shadow-[0_20px_60px_rgba(35,36,31,0.2)] md:h-[422px] md:w-[238px] md:rounded-[20px] md:shadow-[0_24px_80px_rgba(35,36,31,0.18)]">
-      {/* eslint-disable-next-line @next/next/no-img-element -- PNG собирается на лету по параметрам, оптимизатор next/image тут лишний */}
-      <img
-        key={imageUrl}
-        src={imageUrl}
-        alt={`Превью сторис: ${storyStyleLabels[style]}, ${storyPaletteMeta[palette].name}`}
-        className="h-full w-full object-cover"
-        onLoad={() => setPreviewState("ready")}
-        onError={() => setPreviewState("error")}
-      />
-      {previewState !== "ready" ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-panel)]/70 px-4 text-center text-sm text-ink-soft">
-          {previewState === "loading" ? (
-            <LoaderCircle size={22} className="animate-spin text-muted" aria-label="Рисуем превью" />
-          ) : (
+    <div
+      data-story-preview
+      data-ready={previewHtml ? "" : undefined}
+      role="img"
+      aria-label={`Превью сторис: ${storyStyleLabels[style]}, ${storyPaletteMeta[palette].name}`}
+      className="relative h-[346px] w-[194px] overflow-hidden rounded-[18px] bg-panel shadow-[0_20px_60px_rgba(35,36,31,0.2)] md:h-[422px] md:w-[238px] md:rounded-[20px] md:shadow-[0_24px_80px_rgba(35,36,31,0.18)]"
+    >
+      {previewHtml ? (
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute left-0 top-0 origin-top-left [&_*]:box-border ${previewScale}`}
+          style={{ transform: "scale(var(--story-scale))" }}
+          // Шаблон экранирует имя мастера и ссылку (escapeHtml), остальное —
+          // наши же цвета и время окошек.
+          dangerouslySetInnerHTML={{ __html: previewHtml }}
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-ink-soft">
+          {dataState === "error" ? (
             "Не получилось показать превью"
+          ) : (
+            <LoaderCircle size={22} className="animate-spin text-muted" aria-label="Готовим превью" />
           )}
         </div>
-      ) : null}
+      )}
     </div>
   );
 

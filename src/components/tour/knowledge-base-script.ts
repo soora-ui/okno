@@ -115,15 +115,11 @@ const SOURCES = "Откуда клиенты";
 const STORY_DIALOG = '[role="dialog"][aria-modal="true"]';
 const STORY_CLOSE = `${STORY_DIALOG} button[aria-label="Закрыть"]`;
 
-/**
- * Превью сторис рисует сервер. Следующий стиль выбираем, когда картинка
- * готова: иначе запросы встают в очередь и нужное превью приходит последним.
- */
+/** Превью сторис собирается из данных окошек — ждём, пока они придут. */
 async function storyPreviewReady(c: SceneCtx) {
-  for (let i = 0; i < 60; i++) {
-    await c.wait(200);
-    const img = c.doc.querySelector<HTMLImageElement>(`${STORY_DIALOG} img`);
-    if (img?.complete && img.naturalWidth > 0) return;
+  for (let i = 0; i < 40; i++) {
+    if (c.doc.querySelector(`${STORY_DIALOG} [data-story-preview][data-ready]`)) return;
+    await c.wait(150);
   }
 }
 
@@ -683,7 +679,7 @@ const scenes: Scene[] = [
     frame: "dashboard",
     title: "Картинка для сторис",
     text: "Одна кнопка — и готова вертикальная картинка с окошками и ссылкой на запись. Три стиля и пять цветов; на телефоне она сразу уходит через «Поделиться» в сторис Instagram, Telegram или VK.",
-    ms: 19000,
+    ms: 16000,
     exit: STORY_CLOSE,
     run: async (c) => {
       if (!c.doc.querySelector(STORY_DIALOG)) {
@@ -694,13 +690,12 @@ const scenes: Scene[] = [
       }
       await c.focus(STORY_DIALOG);
       await storyPreviewReady(c);
-      await c.wait(1000);
+      await c.wait(1400);
       await c.tap(button("Арка", STORY_DIALOG), { click: true });
-      await storyPreviewReady(c);
-      await c.wait(1000);
+      await c.wait(1600);
       await c.tap(visible(`${STORY_DIALOG} button[aria-label="Бордо"]`), { click: true });
-      await storyPreviewReady(c);
-      await c.focus(`${STORY_DIALOG} img`);
+      await c.wait(600);
+      await c.focus(`${STORY_DIALOG} [data-story-preview]`);
     },
   },
   {
