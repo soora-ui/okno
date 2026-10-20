@@ -8,9 +8,11 @@ import {
   CalendarDays,
   CheckCircle2,
   CreditCard,
+  Flame,
   Gift,
   MessageSquareText,
   ShieldCheck,
+  Route,
   Sparkles,
   Users2,
 } from "lucide-react";
@@ -38,7 +40,13 @@ import {
   trialDays,
 } from "@/config/plans";
 import { legalEntity } from "@/config/legal";
-import { siteDescription, siteName, siteTitle, siteUrl } from "@/config/site";
+import {
+  siteDescription,
+  siteFeatureList,
+  siteName,
+  siteTitle,
+  siteUrl,
+} from "@/config/site";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -75,6 +83,7 @@ const structuredData = {
       description: siteDescription,
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
+      featureList: siteFeatureList,
       inLanguage: "ru",
       publisher: { "@id": `${siteUrl}/#organization` },
       offers: {
@@ -133,6 +142,33 @@ const features = [
     icon: Users2,
     title: "Приглашения мастеров",
     text: "Позвали мастера по своей ссылке, он оплатил первый месяц — вам +30 дней подписки.",
+  },
+];
+
+// Инструменты привлечения клиентов (документы/горящие-окошки.md,
+// документы/источники-записей.md). Тексты — самодостаточные ответы на
+// «как заполнить свободные окошки» и «как понять, откуда клиенты»: такие
+// блоки поиск и AI-ассистенты цитируют охотнее, чем список преимуществ.
+const growthTools = [
+  {
+    icon: Flame,
+    title: "Горящие окошки для сторис и чатов",
+    text: "okno собирает свободное время на сегодня, завтра и послезавтра из вашего расписания — ровно то, что клиент увидит на странице записи. Одной кнопкой получаете вертикальную картинку 1080×1920 для сторис в Instagram, Telegram или VK: три стиля, пять цветов, ваше имя и ссылка на запись. Или готовый текст со свободными окошками, чтобы вставить в чат с клиентами.",
+    points: [
+      "Окошки пересчитываются с каждой новой записью",
+      "На телефоне картинка сразу открывается в меню «Поделиться»",
+      "Свободное окно на странице записи ведёт клиента сразу на это время",
+    ],
+  },
+  {
+    icon: Route,
+    title: "Источники записей: откуда приходят клиенты",
+    text: "Для каждой площадки — своя ссылка на запись: Instagram, Telegram, ВКонтакте, WhatsApp, Авито, Яндекс Карты, 2ГИС. В кабинете видно, сколько онлайн-записей дал каждый канал за последние 30 дней. Если клиент пришёл без метки, okno определяет источник по сайту, с которого он перешёл, например из поиска.",
+    points: [
+      "Видно, какую соцсеть стоит вести, а какую можно отложить",
+      "Без сторонних счётчиков и cookie: метка хранится только в записи",
+      "Ссылка с меткой выглядит для клиента как обычный адрес страницы",
+    ],
   },
 ];
 
@@ -402,6 +438,41 @@ export default function HomePage() {
               </Reveal>
             ))}
           </div>
+        </section>
+
+        <section className="space-y-8">
+          <Reveal variant="fade-up">
+            <SectionTitle
+              eyebrow="Привлечение клиентов"
+              title="Как заполнить свободные окошки и понять, откуда приходят клиенты."
+              description="Сервис сам находит свободное время для сторис и показывает, какие площадки приводят записи."
+            />
+          </Reveal>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {growthTools.map((tool, index) => (
+              <Reveal key={tool.title} variant="fade-up" delay={index * 0.1}>
+                <Card className="h-full">
+                  <tool.icon size={24} className="text-accent-deep" />
+                  <h3 className="mt-5 text-xl font-semibold text-ink">{tool.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-ink-soft">{tool.text}</p>
+                  <div className="mt-5 space-y-3">
+                    {tool.points.map((point) => (
+                      <div key={point} className="flex gap-3">
+                        <CheckCircle2 size={18} className="mt-1 shrink-0 text-accent-deep" />
+                        <p className="text-sm leading-6 text-ink-soft">{point}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </Reveal>
+            ))}
+          </div>
+          <Reveal variant="fade-up">
+            <p className="text-sm leading-6 text-muted">
+              Оба инструмента входят во все тарифы для частного мастера. В кабинете студии
+              их пока нет.
+            </p>
+          </Reveal>
         </section>
 
         <section className="space-y-8">

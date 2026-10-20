@@ -144,6 +144,14 @@ const everyPlanRow = (label: string, hint?: string): PlanComparisonRow => ({
   values: byPlan(() => true),
 });
 
+// Есть у частного мастера, но пока не в кабинете студии (горящие окошки и
+// источники записей в v1 — только для соло).
+const soloOnlyRow = (label: string, hint?: string): PlanComparisonRow => ({
+  label,
+  hint,
+  values: byPlan((plan) => !plan.capabilities.includes("team")),
+});
+
 export const planComparisonGroups: PlanComparisonGroup[] = [
   {
     title: "Запись и расписание",
@@ -177,6 +185,19 @@ export const planComparisonGroups: PlanComparisonGroup[] = [
         "AI-консультант для клиентов",
         "aiConsultation",
         "Отвечает строго по вашему мануалу услуги",
+      ),
+    ],
+  },
+  {
+    title: "Привлечение клиентов",
+    rows: [
+      soloOnlyRow(
+        "Горящие окошки для сторис и чатов",
+        "Свободное время на три дня: картинка 1080×1920 или готовый текст со ссылкой",
+      ),
+      soloOnlyRow(
+        "Источники записей",
+        "Ссылки с меткой для соцсетей и сколько записей дал каждый канал за 30 дней",
       ),
     ],
   },
