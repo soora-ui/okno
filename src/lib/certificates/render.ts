@@ -47,7 +47,7 @@ const fontsDir = path.join(process.cwd(), "src/lib/certificates/fonts");
 
 let cachedFonts: { name: string; data: Buffer; weight: 400 | 700; style: "normal" }[] | null = null;
 
-export function loadFonts() {
+function loadFonts() {
   if (!cachedFonts) {
     cachedFonts = [
       {

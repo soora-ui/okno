@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Check, CircleCheck, Copy, LoaderCircle, Smartphone } from "lucide-react";
+import { useCallback, useState } from "react";
+import { Check, CircleCheck, Copy, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { FreeWindowsStoryDialog } from "@/components/dashboard/free-windows-story-dialog";
 import {
   buildFreeWindowsShareText,
   buildFreeWindowsTimelineAxis,
@@ -11,21 +12,27 @@ import {
   freeWindowTimelineSegment,
   type FreeWindowDay,
 } from "@/lib/free-windows";
+import type { StoryPalette } from "@/lib/free-windows-story-options";
 
 // Горящие окошки (документы/горящие-окошки.md): свободное время на ближайшие
 // три дня таймлайном по часам и две кнопки, чтобы поделиться им в сторис и
-// мессенджерах. Вёрстка — по макету «C · Таймлайн (кабинет)».
+// мессенджерах. Вёрстка — по макету «C · Таймлайн (кабинет)»; кнопка сторис
+// открывает окно выбора стиля и цвета картинки.
 export function FreeWindowsCard({
   days,
   bookingUrl,
   storyHref,
+  storyDefaultPalette,
 }: {
   days: FreeWindowDay[];
   bookingUrl: string;
   storyHref: string;
+  // Цвет сторис по умолчанию — в тон странице записи мастера.
+  storyDefaultPalette: StoryPalette;
 }) {
   const [copied, setCopied] = useState(false);
-  const [imageState, setImageState] = useState<"idle" | "loading" | "error">("idle");
+  const [storyDialogOpen, setStoryDialogOpen] = useState(false);
+  const closeStoryDialog = useCallback(() => setStoryDialogOpen(false), []);
 
   async function handleCopy() {
     try {
@@ -35,37 +42,6 @@ export function FreeWindowsCard({
     } catch {
       // Буфер обмена недоступен (без HTTPS или запрещён браузером) — текст
       // всё равно виден в карточке, его можно выделить вручную.
-    }
-  }
-
-  async function handleImage() {
-    setImageState("loading");
-    try {
-      const response = await fetch(storyHref, { cache: "no-store" });
-      if (!response.ok) throw new Error(`story ${response.status}`);
-      const blob = await response.blob();
-      const file = new File([blob], "okoshki.png", { type: "image/png" });
-
-      // На телефоне сразу открываем системное «Поделиться» — оттуда картинка
-      // уходит в сторис Instagram, Telegram или VK без лишнего сохранения.
-      if (navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file] });
-        } catch (error) {
-          // Закрыть меню «Поделиться» — не ошибка.
-          if ((error as Error).name !== "AbortError") throw error;
-        }
-      } else {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = file.name;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }
-      setImageState("idle");
-    } catch {
-      setImageState("error");
     }
   }
 
@@ -154,15 +130,11 @@ export function FreeWindowsCard({
 
       <div className="flex flex-wrap gap-3">
         <Button
-          onClick={handleImage}
-          disabled={imageState === "loading"}
+          onClick={() => setStoryDialogOpen(true)}
+          aria-haspopup="dialog"
           className="gap-2.5 text-[15px]"
         >
-          {imageState === "loading" ? (
-            <LoaderCircle size={18} className="animate-spin" />
-          ) : (
-            <Smartphone size={18} strokeWidth={1.8} />
-          )}
+          <Smartphone size={18} strokeWidth={1.8} />
           Картинка для сторис
         </Button>
         <Button variant="secondary" onClick={handleCopy} className="gap-2.5 text-[15px]">
@@ -174,10 +146,12 @@ export function FreeWindowsCard({
           {copied ? "Скопировано" : "Скопировать текст"}
         </Button>
       </div>
-      {imageState === "error" ? (
-        <p role="alert" className="text-sm text-[#c96b5c]">
-          Не получилось подготовить картинку. Обнови страницу и попробуй ещё раз.
-        </p>
+      {storyDialogOpen ? (
+        <FreeWindowsStoryDialog
+          storyHref={storyHref}
+          defaultPalette={storyDefaultPalette}
+          onClose={closeStoryDialog}
+        />
       ) : null}
     </Card>
   );

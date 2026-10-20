@@ -25,6 +25,7 @@ import { getDashboardData } from "@/lib/data";
 import { pickFeedbackPrompt } from "@/lib/feedback/service";
 import { isDemoCabinetHeaders } from "@/lib/demo-cabinet";
 import { getOwnerFreeWindows } from "@/lib/free-windows-data";
+import { defaultStoryPalette } from "@/lib/free-windows-story-options";
 import {
   acquisitionStatsDays,
   getOwnerAcquisitionStats,
@@ -410,6 +411,7 @@ export default async function DashboardPage() {
               days={freeWindows.days}
               bookingUrl={freeWindows.bookingUrl}
               storyHref={freeWindowsStoryHref}
+              storyDefaultPalette={defaultStoryPalette(profile.bookingThemePresetId)}
             />
           ) : null}
 
