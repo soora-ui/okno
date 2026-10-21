@@ -5,6 +5,7 @@ import {
   type ClientDirectoryHistoryItem,
   type ClientDirectoryItem,
 } from "@/components/clients/client-directory";
+import { ClientImportButton } from "@/components/clients/client-import";
 import { Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -320,10 +321,13 @@ export default async function ClientsPage() {
           <Badge tone="accent">Клиенты</Badge>
           <h1 className="text-4xl font-semibold text-ink">Клиенты и история визитов</h1>
         </div>
-        <ButtonLink href="/reviews" variant="secondary" className="gap-2">
-          <Star size={16} />
-          {summary.count > 0 ? `Отзывы · ${summary.average}` : "Отзывы"}
-        </ButtonLink>
+        <div className="flex flex-wrap gap-2">
+          {isLive ? <ClientImportButton /> : null}
+          <ButtonLink href="/reviews" variant="secondary" className="gap-2">
+            <Star size={16} />
+            {summary.count > 0 ? `Отзывы · ${summary.average}` : "Отзывы"}
+          </ButtonLink>
+        </div>
       </div>
 
       <Card className="space-y-5">
@@ -336,7 +340,7 @@ export default async function ClientsPage() {
       {clients.length === 0 ? (
         <EmptyState
           title="Новых клиентов пока нет"
-          description="После первой реальной записи клиент появится здесь автоматически вместе с историей и заметками."
+          description="После первой реальной записи клиент появится здесь автоматически вместе с историей и заметками. Если база уже есть в YCLIENTS, DIKIDI или таблице — перенесите её кнопкой «Перенести клиентов» выше."
           ctaLabel="Открыть свою ссылку"
           ctaHref={`/${profile.username}`}
         />
