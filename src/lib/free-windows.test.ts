@@ -8,6 +8,7 @@ import {
   type FreeWindowDay,
 } from "@/lib/free-windows";
 import type { BookingSlot, Service } from "@/lib/mock-data";
+import { noServiceDiscounts } from "@/lib/service-discounts";
 
 const zone = "Europe/Moscow";
 // Понедельник, 19 октября 2026.
@@ -27,6 +28,7 @@ function service(id: string, durationMinutes: number, isActive = true): Service 
     bufferMinutes: 0,
     prepaymentType: "none",
     prepaymentValue: 0,
+    ...noServiceDiscounts,
   };
 }
 

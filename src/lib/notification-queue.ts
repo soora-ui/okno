@@ -159,6 +159,7 @@ async function processNotificationJob(job: NotificationEventJob) {
     clientName: String(job.payload.clientName ?? ""),
     serviceTitle: String(job.payload.serviceTitle ?? ""),
     startsAtLabel: String(job.payload.startsAtLabel ?? ""),
+    discountLabel: job.payload.discountLabel ? String(job.payload.discountLabel) : null,
     bookingId: job.payload.bookingId ? String(job.payload.bookingId) : null,
   });
 

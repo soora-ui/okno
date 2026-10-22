@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import type { BookingSlot, Profile, Service } from "@/lib/mock-data";
 import { defaultBookingThemePresetId } from "@/lib/booking-theme-presets";
 import { defaultBookingPageSettings } from "@/lib/booking-page-settings";
+import { noServiceDiscounts } from "@/lib/service-discounts";
 
 const landingDemoTimezone = "Europe/Simferopol";
 
@@ -89,6 +90,7 @@ export const landingDemoServices: Service[] = [
     bufferMinutes: 15,
     prepaymentType: "none",
     prepaymentValue: 0,
+    ...noServiceDiscounts,
   },
   {
     id: "landing-svc-2",
@@ -103,6 +105,7 @@ export const landingDemoServices: Service[] = [
     bufferMinutes: 10,
     prepaymentType: "none",
     prepaymentValue: 0,
+    ...noServiceDiscounts,
   },
   {
     id: "landing-svc-3",
@@ -117,6 +120,7 @@ export const landingDemoServices: Service[] = [
     bufferMinutes: 0,
     prepaymentType: "none",
     prepaymentValue: 0,
+    ...noServiceDiscounts,
   },
 ];
 

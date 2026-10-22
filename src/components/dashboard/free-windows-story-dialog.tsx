@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Check, Download, LoaderCircle, Share, X } from "lucide-react";
+import { DateTime } from "luxon";
+import { Check, Download, LoaderCircle, Share, Tag, X } from "lucide-react";
+import { setHotWindowsDiscountAction } from "@/app/actions/free-windows";
 import { useDemoMode } from "@/components/tour/demo-mode";
 import { Button } from "@/components/ui/button";
 import type { FreeWindowDay } from "@/lib/free-windows";
@@ -14,6 +16,7 @@ import {
   type StoryPalette,
   type StoryStyle,
 } from "@/lib/free-windows-story-options";
+import type { HotWindowsDiscount } from "@/lib/service-discounts";
 
 // Окно выбора картинки для сторис (макеты «Выбор сторис · компьютер» и
 // «· телефон»): стиль × цвет, живое превью и скачивание или «Поделиться».
@@ -21,7 +24,16 @@ import {
 // PNG, — переключение мгновенное. Саму PNG подгружаем в фоне, когда выбор
 // замер, чтобы «Поделиться» не ждало рендера.
 
-type StoryData = { days: FreeWindowDay[]; masterName: string; publicLink: string };
+type StoryData = {
+  days: FreeWindowDay[];
+  masterName: string;
+  publicLink: string;
+  hotWindowsDiscount?: HotWindowsDiscount | null;
+};
+
+// Скидка на окошки: 0 — без скидки. Больше 30% мастера в горящих окошках
+// почти не дают, а длинный ряд не помещается на телефоне.
+const discountOptions = [0, 10, 15, 20, 30] as const;
 
 // Холст шаблона — 540×960; превью — 194×346 на телефоне и 238×422 на компьютере.
 const previewScale = "[--story-scale:0.3593] md:[--story-scale:0.4407]";
@@ -51,6 +63,24 @@ function saveChoice(choice: { style: StoryStyle; palette: StoryPalette }) {
   } catch {
     // Не запомнили выбор — не беда, в следующий раз будет умолчание.
   }
+}
+
+// Подпись под выбором скидки: что именно произойдёт по «Поделиться».
+function discountHint(
+  discount: number,
+  active: HotWindowsDiscount | null,
+  lastDayLabel: string | undefined,
+) {
+  const untilLabel = lastDayLabel ? ` по ${lastDayLabel}` : " на эти три дня";
+  if (discount === 0) {
+    return active
+      ? `Сейчас действует −${active.percent}% до ${DateTime.fromISO(active.untilIso).setLocale("ru").toFormat("d MMMM")}. Без скидки — выключим её.`
+      : "Скидка не нужна — на картинке будут только окошки.";
+  }
+  if (active?.percent === discount) {
+    return `Скидка −${discount}% уже включена: клиенты видят её на странице записи.`;
+  }
+  return `Включим −${discount}% на любые визиты${untilLabel}. Скидка появится и на вашей странице записи.`;
 }
 
 function canShareFiles() {
@@ -86,8 +116,16 @@ export function FreeWindowsStoryDialog({
   const prefetched = useRef<{ url: string; blob: Blob } | null>(null);
   const [actionState, setActionState] = useState<"idle" | "working" | "error">("idle");
   const [shareSupported] = useState(canShareFiles);
+  // Скидка на окошки. Включается вместе с «Поделиться»: на картинке не может
+  // быть скидки, которой нет на странице записи.
+  const [discount, setDiscount] = useState(0);
+  const activeDiscount = storyData?.hotWindowsDiscount ?? null;
 
-  const imageUrl = `${storyHref}?${new URLSearchParams({ style, palette })}`;
+  const imageUrl = `${storyHref}?${new URLSearchParams({
+    style,
+    palette,
+    ...(discount > 0 ? { discount: String(discount) } : {}),
+  })}`;
 
   const pick = useCallback(
     (next: { style?: StoryStyle; palette?: StoryPalette }) => {
@@ -125,6 +163,7 @@ export function FreeWindowsStoryDialog({
       })
       .then((data) => {
         setStoryData(data);
+        setDiscount(data.hotWindowsDiscount?.percent ?? 0);
         setDataState("ready");
       })
       .catch((error: Error) => {
@@ -158,13 +197,16 @@ export function FreeWindowsStoryDialog({
     () =>
       storyData
         ? buildFreeWindowsStoryHtml({
-            ...storyData,
+            days: storyData.days,
+            masterName: storyData.masterName,
+            publicLink: storyData.publicLink,
             style,
             palette,
+            discountPercent: discount || null,
             fontFamily: "var(--font-manrope-loaded), Manrope, sans-serif",
           })
         : null,
-    [storyData, style, palette],
+    [storyData, style, palette, discount],
   );
 
   async function loadImage() {
@@ -179,6 +221,16 @@ export function FreeWindowsStoryDialog({
   async function handleAction() {
     setActionState("working");
     try {
+      // Сначала скидка, потом картинка: если сохранить не вышло, сторис со
+      // скидкой, которой нет, не уйдёт. В демо базу мастера не трогаем.
+      if (!demo && discount !== (activeDiscount?.percent ?? 0)) {
+        const result = await setHotWindowsDiscountAction(discount);
+        if (!result.success) throw new Error(result.message);
+        setStoryData((current) =>
+          current ? { ...current, hotWindowsDiscount: result.discount } : current,
+        );
+      }
+
       const blob = await loadImage();
       const file = new File([blob], "okoshki.png", { type: "image/png" });
 
@@ -366,6 +418,29 @@ export function FreeWindowsStoryDialog({
               </div>
             </div>
 
+            <div className="flex flex-col gap-2.5 md:gap-3">
+              <p className="flex items-center gap-1.5 text-[13px] text-ink-soft md:text-[11px] md:font-medium md:uppercase md:tracking-[0.2em] md:text-muted">
+                <Tag size={13} aria-hidden className="md:hidden" />
+                Скидка на окошки
+              </p>
+              <div className="flex gap-2">
+                {discountOptions.map((item) => (
+                  <Button
+                    key={item}
+                    variant={item === discount ? "primary" : "secondary"}
+                    aria-pressed={item === discount}
+                    onClick={() => setDiscount(item)}
+                    className="h-11 flex-1 px-1 text-[15px] md:flex-none md:px-4"
+                  >
+                    {item === 0 ? "Нет" : `−${item}%`}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-[12px] leading-[1.5] text-ink-soft md:max-w-[380px] md:text-[13px]">
+                {discountHint(discount, activeDiscount, storyData?.days.at(-1)?.dateLabel)}
+              </p>
+            </div>
+
             <p className="hidden max-w-[380px] text-[13px] leading-[1.5] text-ink-soft md:block">
               Вертикальная картинка 1080×1920 с окошками на три дня и ссылкой на вашу страницу.
             </p>
@@ -374,7 +449,9 @@ export function FreeWindowsStoryDialog({
 
         {actionState === "error" ? (
           <p role="alert" className="text-sm text-[#c96b5c]">
-            Не получилось подготовить картинку. Попробуй ещё раз.
+            {discount !== (activeDiscount?.percent ?? 0)
+              ? "Не получилось включить скидку или подготовить картинку. Попробуй ещё раз."
+              : "Не получилось подготовить картинку. Попробуй ещё раз."}
           </p>
         ) : null}
 

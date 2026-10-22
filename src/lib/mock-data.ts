@@ -9,6 +9,11 @@ import {
 } from "@/lib/booking-theme-presets";
 import type { AccountRole, AccountStatus, WorkspaceKind } from "@/lib/workspace";
 import type { PlanId } from "@/config/plans";
+import {
+  noServiceDiscounts,
+  type HotWindowsDiscount,
+  type ServiceDiscountSettings,
+} from "@/lib/service-discounts";
 
 // В базе subscription_tier хранит либо идентификатор тарифа, либо "free" —
 // «оплаченного тарифа нет» (мастер в пробном периоде или после его окончания).
@@ -52,6 +57,8 @@ export type Profile = {
   createdByProfileId: string | null;
   referralCode: string | null;
   referredBy: string | null;
+  // Скидка на горящие окошки, включённая из окна сторис; null — нет.
+  hotWindowsDiscount?: HotWindowsDiscount | null;
 };
 
 export type PrepaymentType = "none" | "fixed" | "percent";
@@ -77,7 +84,7 @@ export type Service = {
   bufferMinutes: number;
   prepaymentType: PrepaymentType;
   prepaymentValue: number;
-};
+} & ServiceDiscountSettings;
 
 export type ServiceManual = {
   id: string;
@@ -251,6 +258,7 @@ export const services: Service[] = [
     bufferMinutes: 15,
     prepaymentType: "none",
     prepaymentValue: 0,
+    ...noServiceDiscounts,
   },
   {
     id: "svc-2",
@@ -265,6 +273,7 @@ export const services: Service[] = [
     bufferMinutes: 10,
     prepaymentType: "none",
     prepaymentValue: 0,
+    ...noServiceDiscounts,
   },
 ];
 

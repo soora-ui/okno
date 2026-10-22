@@ -41,6 +41,7 @@ import { getOwnerProfileMediaRow } from "@/lib/repositories/owner-repository";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseMissingColumnError } from "@/lib/supabase/auth-errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { validateServiceDiscountSettings } from "@/lib/service-discounts";
 
 export type SettingsActionState = {
   success: boolean;
@@ -934,6 +935,16 @@ export async function updateAccessAction(
   return { success: true, message: "Данные входа обновлены." };
 }
 
+const optionalWholeNumber = z.preprocess(
+  (value) => (value === "" || value === undefined || value === null ? null : value),
+  z.coerce.number().int().nullable(),
+);
+
+const optionalIsoDate = z.preprocess(
+  (value) => (value === "" || value === undefined ? null : value),
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+);
+
 const serviceSchema = z.object({
   title: z.string().min(2),
   description: z.string().default(""),
@@ -947,7 +958,22 @@ const serviceSchema = z.object({
   bufferMinutes: z.coerce.number().min(0).max(180).default(0),
   prepaymentType: z.enum(["none", "fixed", "percent"]).default("none"),
   prepaymentValue: z.coerce.number().min(0).default(0),
+  // Скидки (src/lib/service-discounts.ts). Пустое поле — скидки нет.
+  discountPercent: optionalWholeNumber,
+  discountStartsOn: optionalIsoDate,
+  discountEndsOn: optionalIsoDate,
+  firstVisitDiscountPercent: optionalWholeNumber,
 });
+
+function serviceDiscountColumns(data: z.infer<typeof serviceSchema>) {
+  const hasPeriodDiscount = data.discountPercent !== null;
+  return {
+    discount_percent: data.discountPercent,
+    discount_starts_on: hasPeriodDiscount ? data.discountStartsOn : null,
+    discount_ends_on: hasPeriodDiscount ? data.discountEndsOn : null,
+    first_visit_discount_percent: data.firstVisitDiscountPercent,
+  };
+}
 
 export async function createServiceAction(
   _prevState: SettingsActionState,
@@ -977,6 +1003,11 @@ export async function createServiceAction(
   });
   if (!prepaymentCheck.ok) {
     return { success: false, message: prepaymentCheck.message };
+  }
+
+  const discountCheck = validateServiceDiscountSettings(parsed.data);
+  if (!discountCheck.ok) {
+    return { success: false, message: discountCheck.message };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -1015,9 +1046,18 @@ export async function createServiceAction(
     buffer_minutes: parsed.data.bufferMinutes,
     prepayment_type: parsed.data.prepaymentType,
     prepayment_value: parsed.data.prepaymentValue,
+    ...serviceDiscountColumns(parsed.data),
   });
 
   if (error) {
+    if (isSupabaseMissingColumnError(error, "discount_percent")) {
+      return {
+        success: false,
+        message:
+          "В базе еще нет полей скидок. Прогони миграцию 202610210001_service_discounts.sql и попробуй еще раз.",
+      };
+    }
+
     if (isSupabaseMissingColumnError(error, "prepayment_type")) {
       return {
         success: false,
@@ -1078,6 +1118,11 @@ export async function updateServiceAction(
     return { success: false, message: prepaymentCheck.message };
   }
 
+  const discountCheck = validateServiceDiscountSettings(parsed.data);
+  if (!discountCheck.ok) {
+    return { success: false, message: discountCheck.message };
+  }
+
   const visibilityAction = String(formData.get("visibilityAction") ?? "");
   const nextActive =
     visibilityAction === "hide"
@@ -1123,11 +1168,20 @@ export async function updateServiceAction(
       buffer_minutes: parsed.data.bufferMinutes,
       prepayment_type: parsed.data.prepaymentType,
       prepayment_value: parsed.data.prepaymentValue,
+      ...serviceDiscountColumns(parsed.data),
     })
     .eq("id", serviceId)
     .eq("profile_id", profile.id);
 
   if (error) {
+    if (isSupabaseMissingColumnError(error, "discount_percent")) {
+      return {
+        success: false,
+        message:
+          "В базе еще нет полей скидок. Прогони миграцию 202610210001_service_discounts.sql и попробуй еще раз.",
+      };
+    }
+
     if (isSupabaseMissingColumnError(error, "prepayment_type")) {
       return {
         success: false,

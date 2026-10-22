@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 import { buildAnalyticsReport, mergeAnalyticsReports } from "@/lib/analytics";
 import type { AvailabilityRule, Booking, Client, Service, VisitStatus } from "@/lib/mock-data";
+import { noServiceDiscounts } from "@/lib/service-discounts";
 
 const zone = "Europe/Moscow";
 // Среда, 15 октября 2025, 12:00 — середина месяца.
@@ -21,6 +22,7 @@ function service(id: string, price: number, durationMinutes: number, bufferMinut
     bufferMinutes,
     prepaymentType: "none",
     prepaymentValue: 0,
+    ...noServiceDiscounts,
   };
 }
 

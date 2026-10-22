@@ -25,6 +25,7 @@ import { FeedbackPromptCard } from "@/components/feedback/feedback-prompt-card";
 import { getDashboardData } from "@/lib/data";
 import { isDemoCabinetHeaders } from "@/lib/demo-cabinet";
 import { getOwnerFreeWindows } from "@/lib/free-windows-data";
+import { isHotWindowsDiscountActive } from "@/lib/service-discounts";
 import { defaultStoryPalette } from "@/lib/free-windows-story-options";
 import {
   acquisitionStatsDays,
@@ -419,6 +420,12 @@ export default async function DashboardPage() {
               bookingUrl={freeWindows.bookingUrl}
               storyHref={freeWindowsStoryHref}
               storyDefaultPalette={defaultStoryPalette(profile.bookingThemePresetId)}
+              hotWindowsDiscount={
+                isHotWindowsDiscountActive(profile.hotWindowsDiscount)
+                  ? profile.hotWindowsDiscount
+                  : null
+              }
+              timezone={profile.timezone}
             />
           ) : null}
 

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useActionState, useState } from "react";
-import { Bot, EyeOff, Pencil, ShieldCheck, Sparkles } from "lucide-react";
+import { Bot, EyeOff, Pencil, ShieldCheck, Sparkles, Tag } from "lucide-react";
 import {
   createServiceAction,
   updateAvailabilityAction,
@@ -72,6 +72,11 @@ import {
   type ServiceManualSummary,
 } from "@/lib/service-manuals";
 import { prepaymentTypeLabels } from "@/lib/prepayment";
+import {
+  currentPeriodDiscount,
+  maxDiscountPercent,
+  type ServiceDiscountSettings,
+} from "@/lib/service-discounts";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { Input } from "@/components/ui/input";
 import { CityPicker } from "@/components/ui/city-picker";
@@ -898,6 +903,7 @@ export function ServicesSettingsForm({
           hint="Через сколько дней услугу можно повторить. Клиент сможет отметить напоминание при записи, а консультант — предложить ближайшее время после этого срока."
           required={false}
         />
+        <DiscountFields />
         <PrepaymentFields isYooKassaConnected={isYooKassaConnected} />
         <input type="hidden" name="sortOrder" value={String(services.length + 1)} />
         <FormMessage message={createState.message} success={createState.success} />
@@ -929,9 +935,10 @@ function ServiceEditor({
       <div className="flex items-center justify-between gap-4">
         <div>
           <h3 className="text-sm font-semibold text-ink">{service.title}</h3>
-          <div className="mt-2 flex gap-4 text-sm text-ink-soft">
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-soft">
             <span>{service.durationMinutes} мин</span>
             <span>{service.price} ₽</span>
+            <ServiceDiscountSummary service={service} />
           </div>
         </div>
         <span
@@ -1010,6 +1017,7 @@ function ServiceEditor({
             hint="Через сколько дней услугу можно повторить. Клиент сможет отметить напоминание при записи, а консультант — предложить ближайшее время после этого срока."
             required={false}
           />
+          <DiscountFields defaults={service} />
           <PrepaymentFields
             defaultType={service.prepaymentType}
             defaultValue={service.prepaymentValue}
@@ -1141,6 +1149,141 @@ function ServiceManualEditorForm({
   );
 }
 
+function todayIsoDate() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+// Скидки услуги в заголовке карточки: мастер видит их, не раскрывая формы.
+function ServiceDiscountSummary({ service }: { service: Service }) {
+  const period = currentPeriodDiscount(service, todayIsoDate());
+  return (
+    <>
+      {period ? (
+        <span className="inline-flex items-center gap-1 text-accent-deep">
+          <Tag size={13} aria-hidden />−{period.percent}% {period.label}
+        </span>
+      ) : null}
+      {service.firstVisitDiscountPercent ? (
+        <span className="inline-flex items-center gap-1 text-accent-deep">
+          <Tag size={13} aria-hidden />−{service.firstVisitDiscountPercent}% новым клиентам
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+// Скидки услуги (src/lib/service-discounts.ts): акция на даты визита и скидка
+// на первый визит. Выключенная скидка уходит пустым полем — сервер стирает её.
+// Проверка диапазонов — на сервере, validateServiceDiscountSettings.
+function DiscountFields({ defaults }: { defaults?: ServiceDiscountSettings }) {
+  const [periodOn, setPeriodOn] = useState(Boolean(defaults?.discountPercent));
+  const [firstVisitOn, setFirstVisitOn] = useState(
+    Boolean(defaults?.firstVisitDiscountPercent),
+  );
+  const today = todayIsoDate();
+
+  return (
+    <div className="space-y-3 rounded-panel border border-dashed border-line p-3">
+      <div className="flex items-center gap-2">
+        <Tag size={15} className="text-accent-deep" aria-hidden />
+        <p className="text-sm font-medium text-ink">Скидки</p>
+      </div>
+
+      <DiscountToggle
+        checked={periodOn}
+        onChange={setPeriodOn}
+        title="Акция на период"
+        description="На странице записи — зачёркнутая цена и новая. Действует на визиты в эти даты."
+      />
+      {periodOn ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <UnitInput
+            label="Скидка"
+            unit="%"
+            name="discountPercent"
+            defaultValue={defaults?.discountPercent ? String(defaults.discountPercent) : ""}
+            placeholder="20"
+            min={1}
+            max={maxDiscountPercent}
+          />
+          <Input
+            label="С"
+            name="discountStartsOn"
+            type="date"
+            defaultValue={defaults?.discountStartsOn ?? today}
+          />
+          <Input
+            label="По"
+            name="discountEndsOn"
+            type="date"
+            min={today}
+            defaultValue={defaults?.discountEndsOn ?? ""}
+            required
+          />
+        </div>
+      ) : (
+        <input type="hidden" name="discountPercent" value="" />
+      )}
+
+      <DiscountToggle
+        checked={firstVisitOn}
+        onChange={setFirstVisitOn}
+        title="Скидка на первый визит"
+        description="Для тех, кто записывается к вам впервые. Клиентов из вашей базы и перенесённых из другой системы не касается."
+      />
+      {firstVisitOn ? (
+        <UnitInput
+          label="Скидка новым клиентам"
+          unit="%"
+          name="firstVisitDiscountPercent"
+          defaultValue={
+            defaults?.firstVisitDiscountPercent ? String(defaults.firstVisitDiscountPercent) : ""
+          }
+          placeholder="10"
+          min={1}
+          max={maxDiscountPercent}
+        />
+      ) : (
+        <input type="hidden" name="firstVisitDiscountPercent" value="" />
+      )}
+
+      {periodOn && firstVisitOn ? (
+        <p className="text-xs leading-5 text-muted">
+          Скидки не складываются: клиенту достанется та, что больше.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function DiscountToggle({
+  checked,
+  onChange,
+  title,
+  description,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  title: string;
+  description: string;
+}) {
+  return (
+    <label className="flex items-start gap-3 rounded-field border border-line bg-surface px-4 py-3">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-1 size-4 shrink-0 accent-[var(--color-ink)]"
+      />
+      <span className="space-y-0.5">
+        <span className="block text-sm font-medium text-ink">{title}</span>
+        <span className="block text-xs leading-5 text-ink-soft">{description}</span>
+      </span>
+    </label>
+  );
+}
+
 const prepaymentTypeOptions = (
   ["none", "fixed", "percent"] as const
 ).map((value) => ({ value, label: prepaymentTypeLabels[value] }));
@@ -1212,6 +1355,8 @@ function UnitInput({
   placeholder,
   hint,
   required = true,
+  min,
+  max,
 }: {
   label: string;
   unit: string;
@@ -1220,6 +1365,8 @@ function UnitInput({
   placeholder?: string;
   hint?: string;
   required?: boolean;
+  min?: number;
+  max?: number;
 }) {
   return (
     <label className="flex flex-col gap-2 text-sm">
@@ -1231,6 +1378,8 @@ function UnitInput({
           defaultValue={defaultValue}
           placeholder={placeholder}
           inputMode="numeric"
+          min={min}
+          max={max}
           className="w-full bg-transparent text-sm text-ink outline-none"
           required={required}
         />

@@ -53,6 +53,8 @@ export default async function BookingPage({ params, searchParams }: Props) {
           initialTime={initialTime}
           phoneVerificationRequired={isPhoneVerificationRequired}
           acquisitionSource={acquisitionSource}
+          timezone={data.profile.timezone}
+          hotWindowsDiscount={data.profile.hotWindowsDiscount}
         />
       </div>
     </SiteShell>

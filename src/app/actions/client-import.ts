@@ -101,6 +101,9 @@ export async function importClientsAction(
     }
   }
 
+  // Отметка переноса: эти клиенты у мастера уже бывали, скидка на первый
+  // визит им не положена (src/lib/service-discounts.ts).
+  const importedAt = new Date().toISOString();
   const rowsToInsert = Array.from(byHash.entries())
     .filter(([hash]) => !existingHashes.has(hash))
     .map(([hash, client]) => ({
@@ -110,6 +113,7 @@ export async function importClientsAction(
       phone_last4: phoneLast4(client.phone),
       phone_hash: hash,
       notes: client.notes,
+      imported_at: importedAt,
     }));
 
   let added = 0;

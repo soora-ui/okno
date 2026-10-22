@@ -28,6 +28,14 @@ import { cn } from "@/lib/utils";
 import type { BookingSlot, Service } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/mock-data";
 import { computePrepaymentAmount } from "@/lib/prepayment";
+import {
+  applyDiscount,
+  currentPeriodDiscount,
+  discountKindLabels,
+  resolveBookingDiscount,
+  type HotWindowsDiscount,
+} from "@/lib/service-discounts";
+import { DiscountBadge, masterTodayIso, ServicePrice } from "@/components/public/service-price";
 import type { AcquisitionSource } from "@/lib/acquisition-sources";
 
 type BookingFlowProps = {
@@ -51,6 +59,9 @@ type BookingFlowProps = {
   phoneVerificationRequired?: boolean;
   /** Откуда клиент пришёл (документы/источники-записей.md), уходит с записью. */
   acquisitionSource?: AcquisitionSource | null;
+  /** Пояс мастера: даты акций и горящих окошек — в его календаре. */
+  timezone?: string;
+  hotWindowsDiscount?: HotWindowsDiscount | null;
 };
 
 const steps = ["Услуга", "Дата и время", "Контакты"];
@@ -82,6 +93,8 @@ export function BookingFlow({
   initialTime,
   phoneVerificationRequired = false,
   acquisitionSource = null,
+  timezone = "Europe/Simferopol",
+  hotWindowsDiscount = null,
 }: BookingFlowProps) {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -354,17 +367,45 @@ export function BookingFlow({
   // Предоплата (Модуль 2, okno-tz-rating-prepayment.md): показываем сумму и
   // явное предупреждение о невозвратности при неявке ДО того, как клиент
   // нажмёт кнопку и уйдёт на оплату ЮKassa (ТЗ 2.7, второй пункт).
+  // Скидка на выбранное время (src/lib/service-discounts.ts). Новый ли
+  // клиент, станет ясно только на сервере по телефону, поэтому скидку на
+  // первый визит здесь не считаем, а только обещаем строкой в сводке.
+  const discountFor = useCallback(
+    (date: string, slotTime: string | undefined) => {
+      if (!selectedService || !date || !slotTime) return null;
+      return resolveBookingDiscount({
+        service: selectedService,
+        visitDate: date,
+        visitStartIso:
+          DateTime.fromISO(`${date}T${slotTime}`, { zone: timezone }).toUTC().toISO() ?? "",
+        isFirstVisit: null,
+        hotWindows: hotWindowsDiscount,
+      });
+    },
+    [hotWindowsDiscount, selectedService, timezone],
+  );
+  const visitDiscount = useMemo(() => discountFor(dateValue, time), [dateValue, discountFor, time]);
+  const visitPrice = selectedService
+    ? visitDiscount
+      ? applyDiscount(selectedService.price, visitDiscount.percent)
+      : selectedService.price
+    : 0;
+  const firstVisitPercent = selectedService?.firstVisitDiscountPercent ?? 0;
   const prepaymentAmount = useMemo(() => {
     if (!selectedService || selectedService.prepaymentType === "none") {
       return 0;
     }
 
-    return computePrepaymentAmount({
-      prepaymentType: selectedService.prepaymentType,
-      prepaymentValue: selectedService.prepaymentValue,
-      servicePrice: selectedService.price,
-    });
-  }, [selectedService]);
+    return Math.min(
+      visitPrice,
+      computePrepaymentAmount({
+        prepaymentType: selectedService.prepaymentType,
+        prepaymentValue: selectedService.prepaymentValue,
+        servicePrice: visitPrice,
+      }),
+    );
+  }, [selectedService, visitPrice]);
+  const masterToday = masterTodayIso(timezone);
   const bookingSlots = useMemo(
     () => bookingSlotsByService[serviceId] ?? [],
     [bookingSlotsByService, serviceId],
@@ -572,7 +613,12 @@ export function BookingFlow({
                       строк, а карточки получались разной высоты. */}
                   <div className="shrink-0 whitespace-nowrap text-right text-sm text-ink-soft">
                     <p>{service.durationMinutes} мин</p>
-                    <p>{formatCurrency(service.price)}</p>
+                    <ServiceListPrice service={service} today={masterToday} />
+                    {service.firstVisitDiscountPercent ? (
+                      <p className="mt-1 text-xs text-accent-deep">
+                        −{service.firstVisitDiscountPercent}% впервые
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </button>
@@ -595,14 +641,21 @@ export function BookingFlow({
                       }).setLocale("ru");
                       const weekdayLabel = slotDate.toFormat("ccc");
                       const dayNumber = slotDate.toFormat("d");
+                      const dayDiscount = discountFor(slot.value, slot.times[0]);
 
                       return (
                         <button
                           key={slot.value}
                           type="button"
                           onClick={() => setDateValue(slot.value)}
-                          className="touch-manipulation snap-start shrink-0 active:scale-[0.99]"
+                          className="relative touch-manipulation snap-start shrink-0 pt-2 active:scale-[0.99]"
                         >
+                          {dayDiscount ? (
+                            <DiscountBadge
+                              percent={dayDiscount.percent}
+                              className="absolute right-0 top-0 z-10 px-1.5 text-[10px] leading-3"
+                            />
+                          ) : null}
                           <div
                             className={cn(
                               "flex min-w-[78px] flex-col items-center rounded-panel border px-4 py-3 text-center transition",
@@ -639,14 +692,21 @@ export function BookingFlow({
                       }).setLocale("ru");
                       const weekdayLabel = slotDate.toFormat("ccc");
                       const dayNumber = slotDate.toFormat("d");
+                      const dayDiscount = discountFor(slot.value, slot.times[0]);
 
                       return (
                         <button
                           key={slot.value}
                           type="button"
                           onClick={() => setDateValue(slot.value)}
-                          className="touch-manipulation space-y-3 text-center active:scale-[0.99]"
+                          className="relative touch-manipulation space-y-3 text-center active:scale-[0.99]"
                         >
+                          {dayDiscount ? (
+                            <DiscountBadge
+                              percent={dayDiscount.percent}
+                              className="absolute -right-1 top-7 z-10 px-1.5 text-[10px] leading-3"
+                            />
+                          ) : null}
                           <p className="text-sm font-medium uppercase text-ink-soft">
                             {weekdayLabel}
                           </p>
@@ -951,6 +1011,29 @@ export function BookingFlow({
             <p className="mt-2">
               {selectedService?.title} • {selectedDateLabel} • {time}
             </p>
+            {selectedService ? (
+              <div className="mt-3 flex items-end justify-between gap-4 border-t border-line pt-3">
+                <span>
+                  Стоимость
+                  {visitDiscount ? (
+                    <span className="block text-xs text-accent-deep">
+                      Скидка: {discountKindLabels[visitDiscount.kind]}
+                    </span>
+                  ) : null}
+                </span>
+                <ServicePrice
+                  price={selectedService.price}
+                  discountPercent={visitDiscount?.percent}
+                  size="md"
+                />
+              </div>
+            ) : null}
+            {firstVisitPercent > (visitDiscount?.percent ?? 0) ? (
+              <p className="mt-2 text-xs leading-5 text-accent-deep">
+                Если записываетесь к мастеру впервые, цена будет на {firstVisitPercent}% ниже —
+                проверим по номеру телефона.
+              </p>
+            ) : null}
             {mode === "demo" ? (
               <p className="mt-3 text-xs leading-6 text-muted">
                 Это демонстрационная запись. На финальном шаге откроется demo-подтверждение без сохранения в базу.
@@ -1022,5 +1105,19 @@ export function BookingFlow({
         </div>
       </Card>
     </div>
+  );
+}
+
+// Цена в списке услуг: акция, что идёт сегодня, — со старой ценой и процентом.
+function ServiceListPrice({ service, today }: { service: Service; today: string }) {
+  const period = currentPeriodDiscount(service, today);
+  if (!period || period.startsLater) return <p>{formatCurrency(service.price)}</p>;
+  return (
+    <ServicePrice
+      price={service.price}
+      discountPercent={period.percent}
+      size="sm"
+      className="mt-1"
+    />
   );
 }

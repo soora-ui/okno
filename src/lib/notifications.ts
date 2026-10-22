@@ -89,6 +89,8 @@ export async function sendMasterTelegramNotification(input: {
   clientName: string;
   serviceTitle: string;
   startsAtLabel: string;
+  // Цена со скидкой, если клиенту досталась скидка: «2 400 ₽ · −20%, первый визит».
+  discountLabel?: string | null;
   bookingId?: string | null;
 }) {
   return sendMasterTelegram(
@@ -98,6 +100,7 @@ export async function sendMasterTelegramNotification(input: {
       "",
       `${escapeTelegramHtml(input.clientName)} · ${escapeTelegramHtml(input.serviceTitle)}`,
       escapeTelegramHtml(input.startsAtLabel),
+      ...(input.discountLabel ? [escapeTelegramHtml(input.discountLabel)] : []),
     ].join("\n"),
     bookingKeyboard(input.bookingId ?? null),
   );

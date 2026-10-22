@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { Check, CircleCheck, Copy, Smartphone } from "lucide-react";
+import { useCallback, useState, useTransition } from "react";
+import { DateTime } from "luxon";
+import { Check, CircleCheck, Copy, Smartphone, Tag } from "lucide-react";
+import { setHotWindowsDiscountAction } from "@/app/actions/free-windows";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FreeWindowsStoryDialog } from "@/components/dashboard/free-windows-story-dialog";
@@ -14,6 +16,7 @@ import {
   type FreeWindowDay,
 } from "@/lib/free-windows";
 import type { StoryPalette } from "@/lib/free-windows-story-options";
+import type { HotWindowsDiscount } from "@/lib/service-discounts";
 
 // Горящие окошки (документы/горящие-окошки.md): свободное время на ближайшие
 // три дня таймлайном по часам и две кнопки, чтобы поделиться им в сторис и
@@ -24,24 +27,41 @@ export function FreeWindowsCard({
   bookingUrl,
   storyHref,
   storyDefaultPalette,
+  hotWindowsDiscount = null,
+  timezone,
 }: {
   days: FreeWindowDay[];
   bookingUrl: string;
   storyHref: string;
   // Цвет сторис по умолчанию — в тон странице записи мастера.
   storyDefaultPalette: StoryPalette;
+  // Действующая скидка на окошки; включают её в окне сторис.
+  hotWindowsDiscount?: HotWindowsDiscount | null;
+  timezone: string;
 }) {
   const demo = useDemoMode();
   const [copied, setCopied] = useState(false);
   const [storyDialogOpen, setStoryDialogOpen] = useState(false);
   const closeStoryDialog = useCallback(() => setStoryDialogOpen(false), []);
+  const [disabling, startDisabling] = useTransition();
+  const [disableError, setDisableError] = useState(false);
+
+  function disableDiscount() {
+    setDisableError(false);
+    startDisabling(async () => {
+      const result = await setHotWindowsDiscountAction(0);
+      if (!result.success) setDisableError(true);
+    });
+  }
 
   async function handleCopy() {
     try {
       // В демо (база знаний в кабинете) буфер мастера не трогаем — только
       // показываем, что текст скопировался бы.
       if (!demo) {
-        await navigator.clipboard.writeText(buildFreeWindowsShareText(days, bookingUrl));
+        await navigator.clipboard.writeText(
+          buildFreeWindowsShareText(days, bookingUrl, hotWindowsDiscount?.percent),
+        );
       }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -133,6 +153,33 @@ export function FreeWindowsCard({
           занято
         </div>
       </div>
+
+      {hotWindowsDiscount ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-[var(--color-accent-deep)] bg-accent-soft px-4 py-3">
+          <span className="flex items-center gap-2.5 text-sm text-ink">
+            <Tag size={16} className="shrink-0 text-accent-deep" aria-hidden />
+            <span>
+              <span className="font-semibold">−{hotWindowsDiscount.percent}% на окошки</span>{" "}
+              до{" "}
+              {DateTime.fromISO(hotWindowsDiscount.untilIso)
+                .setZone(timezone)
+                .setLocale("ru")
+                .toFormat("d MMMM")}{" "}
+              включительно
+            </span>
+          </span>
+          {demo ? null : (
+            <button
+              type="button"
+              onClick={disableDiscount}
+              disabled={disabling}
+              className="text-sm font-medium text-ink-soft underline-offset-4 transition hover:text-ink hover:underline disabled:opacity-50"
+            >
+              {disabling ? "Выключаю…" : disableError ? "Не вышло, ещё раз" : "Выключить"}
+            </button>
+          )}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-3">
         <Button

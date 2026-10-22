@@ -120,6 +120,9 @@ export type StoryInput = {
   // satori знает шрифт по имени Manrope; в браузере он подключён через
   // next/font под своим именем — превью передаёт его.
   fontFamily?: string;
+  // Скидка на горящие окошки (src/lib/service-discounts.ts): на картинке —
+  // крупный стикер, чтобы её замечали, пока листают сторис.
+  discountPercent?: number | null;
 };
 
 function dayRanges(day: FreeWindowDay, dayCount: number) {
@@ -145,6 +148,24 @@ function cta(input: StoryInput, colors: { bg: string; text: string; arrowBg: str
     <span>${escapeHtml(input.publicLink)}</span>
     <div style="display:flex;width:36px;height:36px;border-radius:9999px;background:${colors.arrowBg};align-items:center;justify-content:center">${arrow(colors.arrowFg)}</div>
   </div>`;
+}
+
+// Круглый стикер «−20% на окошки», чуть повёрнутый — как ценник на витрине.
+function discountSticker(
+  percent: number,
+  colors: { bg: string; text: string; ring: string },
+  position: string,
+) {
+  return `<div style="position:absolute;display:flex;${position};width:136px;height:136px;border-radius:9999px;background:${colors.bg};border:4px solid ${colors.ring};flex-direction:column;align-items:center;justify-content:center;transform:rotate(-12deg);box-shadow:0 18px 50px rgba(35,36,31,0.28)">
+    <span style="font-size:42px;font-weight:600;line-height:1;letter-spacing:-0.03em;color:${colors.text}">−${percent}%</span>
+    <span style="margin-top:5px;font-size:13px;font-weight:600;letter-spacing:0.04em;color:${colors.text}">на окошки</span>
+  </div>`;
+}
+
+// Стикер скидки висит на правом углу окошек: длинное имя мастера над ним
+// переносим на вторую строку, а не прячем под стикер.
+function nameWidth(input: StoryInput) {
+  return input.discountPercent ? "max-width:280px;" : "";
 }
 
 function pill(text: string, t: PaletteTokens, padding: string) {
@@ -187,13 +208,13 @@ function renderLight(input: StoryInput, t: PaletteTokens) {
         <div style="display:flex;font-size:54px;font-weight:600;line-height:1.04;letter-spacing:-0.025em">Есть свободные окошки</div>
         <div style="display:flex;align-items:center;gap:12px">
           <div style="display:flex;width:44px;height:44px;border-radius:9999px;background:${t.avatarBg};color:${t.avatarText};align-items:center;justify-content:center;font-size:16px;font-weight:600">${escapeHtml(masterInitials(input.masterName))}</div>
-          <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="display:flex;flex-direction:column;gap:2px;${nameWidth(input)}">
             <span style="font-size:19px;font-weight:600">${escapeHtml(input.masterName)}</span>
-            <span style="font-size:14px;color:${t.soft}">Запишитесь на удобное время</span>
+            <span style="font-size:14px;${input.discountPercent ? `font-weight:600;color:${t.deep}` : `color:${t.soft}`}">${input.discountPercent ? `Скидка ${input.discountPercent}% на эти окошки` : "Запишитесь на удобное время"}</span>
           </div>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;padding:8px 24px;border-radius:28px;background:${t.surface};border:1px solid ${t.line};box-shadow:0 24px 80px rgba(35,36,31,0.08)">${days}</div>
+      <div style="position:relative;display:flex;flex-direction:column;padding:8px 24px;border-radius:28px;background:${t.surface};border:1px solid ${t.line};box-shadow:0 24px 80px rgba(35,36,31,0.08)">${days}${input.discountPercent ? discountSticker(input.discountPercent, { bg: t.cta, text: t.ctaText, ring: t.bg }, "right:-22px;top:-74px") : ""}</div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:12px">
         <span style="font-size:13px;font-weight:500;color:${t.soft}">Запись онлайн, без звонков и переписки</span>
         ${cta(input, { bg: t.cta, text: t.ctaText, arrowBg: t.arrowBg, arrowFg: t.arrowFg, shadow: true })}
@@ -218,6 +239,7 @@ function renderArch(input: StoryInput, t: PaletteTokens) {
     ${ring("right:-70px;bottom:40px;width:200px;height:200px;border:28px solid rgba(250,247,241,0.4)")}
     ${ring("left:-60px;bottom:150px;width:140px;height:140px;border:1.5px solid rgba(35,36,31,0.2)")}
     <div style="position:relative;display:flex;flex-direction:column;justify-content:space-between;align-items:center;width:100%;height:100%;padding:112px 40px">
+      ${input.discountPercent ? discountSticker(input.discountPercent, { bg: t.cta, text: t.ctaText, ring: "#faf7f1" }, "right:6px;top:70px") : ""}
       <div style="display:flex;flex-direction:column;align-items:center;gap:22px;width:100%;padding:56px 30px 24px;border-radius:230px 230px 32px 32px;background-color:#faf7f1;background-image:radial-gradient(circle at 50% 0%, rgba(247,226,211,0.95), rgba(247,226,211,0) 60%);box-shadow:0 32px 120px rgba(35,36,31,0.14)">
         <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
           ${logo("#23241f", "#faf7f1", 34)}
@@ -227,6 +249,7 @@ function renderArch(input: StoryInput, t: PaletteTokens) {
             <div style="display:flex;width:32px;height:32px;border-radius:9999px;background:${t.avatarBg};color:${t.avatarText};align-items:center;justify-content:center;font-size:12px;font-weight:600">${escapeHtml(masterInitials(input.masterName))}</div>
             <span style="font-size:18px;font-weight:600;color:${t.soft}">${escapeHtml(input.masterName)}</span>
           </div>
+          ${input.discountPercent ? `<div style="display:flex;margin-top:4px;padding:6px 16px;border-radius:9999px;background:${t.cta};color:${t.ctaText};font-size:16px;font-weight:600">Скидка ${input.discountPercent}% на эти окошки</div>` : ""}
         </div>
         <div style="display:flex;flex-direction:column;width:100%">${days}</div>
       </div>
@@ -270,10 +293,13 @@ function renderInk(input: StoryInput, t: PaletteTokens) {
         <div style="display:flex;font-size:54px;font-weight:600;line-height:1.04;letter-spacing:-0.025em">Есть свободные окошки</div>
         <div style="display:flex;align-items:center;gap:12px">
           <div style="display:flex;width:44px;height:44px;border-radius:9999px;background:${t.inkAccent};color:${t.inkBg1};align-items:center;justify-content:center;font-size:16px;font-weight:600">${escapeHtml(masterInitials(input.masterName))}</div>
-          <span style="font-size:19px;font-weight:600">${escapeHtml(input.masterName)}</span>
+          <div style="display:flex;flex-direction:column;gap:2px;${nameWidth(input)}">
+            <span style="font-size:19px;font-weight:600">${escapeHtml(input.masterName)}</span>
+            ${input.discountPercent ? `<span style="font-size:14px;font-weight:600;color:${t.inkAccent}">Скидка ${input.discountPercent}% на эти окошки</span>` : ""}
+          </div>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:22px">${days}</div>
+      <div style="position:relative;display:flex;flex-direction:column;gap:22px">${days}${input.discountPercent ? discountSticker(input.discountPercent, { bg: t.inkAccent, text: t.inkBg1, ring: t.inkBg2 }, "right:-18px;top:-84px") : ""}</div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:12px">
         <span style="font-size:13px;font-weight:500;color:#cdc6b8">Запись онлайн, без звонков и переписки</span>
         ${cta(input, { bg: "#faf7f1", text: "#23241f", arrowBg: t.inkBg1, arrowFg: "#faf7f1" })}

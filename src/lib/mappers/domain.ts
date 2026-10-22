@@ -15,6 +15,7 @@ import {
 } from "@/lib/workspace";
 import { isPlanId } from "@/config/plans";
 import type { SubscriptionTier } from "@/lib/mock-data";
+import type { HotWindowsDiscount } from "@/lib/service-discounts";
 
 // Раньше всё, кроме "pro", схлопывалось в "free" — с тарифной сеткой это
 // стирало бы solo-plus и studio. Пропускаем известные идентификаторы тарифов,
@@ -75,7 +76,22 @@ export function mapProfile(row: Record<string, unknown>): Profile {
       : null,
     referralCode: row.referral_code ? String(row.referral_code) : null,
     referredBy: row.referred_by ? String(row.referred_by) : null,
+    hotWindowsDiscount: mapHotWindowsDiscount(row),
   };
+}
+
+function mapHotWindowsDiscount(row: Record<string, unknown>): HotWindowsDiscount | null {
+  const percent = Number(row.hot_windows_discount_percent ?? 0);
+  const untilIso = row.hot_windows_discount_until ? String(row.hot_windows_discount_until) : "";
+  return percent > 0 && untilIso ? { percent, untilIso } : null;
+}
+
+function nullableNumber(value: unknown) {
+  return value === null || value === undefined ? null : Number(value);
+}
+
+function nullableDate(value: unknown) {
+  return value ? String(value).slice(0, 10) : null;
 }
 
 export function mapProfileMedia(row: Record<string, unknown>) {
@@ -123,6 +139,10 @@ export function mapService(row: Record<string, unknown>) {
     bufferMinutes: Math.max(0, Number(row.buffer_minutes ?? 15)),
     prepaymentType: prepaymentType as "none" | "fixed" | "percent",
     prepaymentValue: Number(row.prepayment_value ?? 0),
+    discountPercent: nullableNumber(row.discount_percent),
+    discountStartsOn: nullableDate(row.discount_starts_on),
+    discountEndsOn: nullableDate(row.discount_ends_on),
+    firstVisitDiscountPercent: nullableNumber(row.first_visit_discount_percent),
   };
 }
 

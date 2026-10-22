@@ -45,6 +45,8 @@ const PROFILE_COLUMNS = [
   "created_by_profile_id",
   "referral_code",
   "referred_by",
+  "hot_windows_discount_percent",
+  "hot_windows_discount_until",
 ].join(",");
 
 const PROFILE_MEDIA_COLUMNS = [
@@ -65,6 +67,10 @@ const SERVICE_COLUMNS = [
   "buffer_minutes",
   "prepayment_type",
   "prepayment_value",
+  "discount_percent",
+  "discount_starts_on",
+  "discount_ends_on",
+  "first_visit_discount_percent",
 ].join(",");
 
 const SERVICE_MANUAL_COLUMNS = [

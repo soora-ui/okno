@@ -9,12 +9,23 @@ import {
 } from "@/lib/free-windows-story-options";
 import { logError } from "@/lib/observability/logger";
 import { formatPublicProfileLink } from "@/lib/site";
+import { isHotWindowsDiscountActive, maxDiscountPercent } from "@/lib/service-discounts";
+
+// Процент скидки для стикера на картинке: из окна выбора, где мастер её и
+// включает (setHotWindowsDiscountAction). Чужое значение — без стикера.
+function parseDiscountPercent(value: string | null) {
+  const percent = Number(value);
+  return Number.isInteger(percent) && percent >= 1 && percent <= maxDiscountPercent
+    ? percent
+    : null;
+}
 
 // Картинка «Горящие окошки» для сторис мастера (документы/горящие-окошки.md).
 // Только для вошедшего мастера и только его окошки. Стиль и цвет — из
 // окна выбора в кабинете (?style=light|arch|ink&palette=sage|…), по
-// умолчанию — цвет страницы записи мастера. ?format=data — те же окошки
-// JSON-ом для превью.
+// умолчанию — цвет страницы записи мастера. ?discount=20 — стикер скидки на
+// окошки. ?format=data — те же окошки JSON-ом для превью, вместе с уже
+// включённой скидкой.
 export async function GET(request: Request) {
   const authProfile = await getCurrentAuthProfile();
   if (!authProfile) {
@@ -38,7 +49,14 @@ export async function GET(request: Request) {
   // переключение стиля и цвета не ждёт рендера PNG на сервере.
   if (searchParams.get("format") === "data") {
     return NextResponse.json(
-      { days: freeWindows.days, masterName: profile.fullName, publicLink },
+      {
+        days: freeWindows.days,
+        masterName: profile.fullName,
+        publicLink,
+        hotWindowsDiscount: isHotWindowsDiscountActive(profile.hotWindowsDiscount)
+          ? profile.hotWindowsDiscount
+          : null,
+      },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   }
@@ -52,6 +70,7 @@ export async function GET(request: Request) {
       palette:
         parseStoryPalette(searchParams.get("palette")) ??
         defaultStoryPalette(profile.bookingThemePresetId),
+      discountPercent: parseDiscountPercent(searchParams.get("discount")),
     });
 
     return new NextResponse(new Uint8Array(png), {

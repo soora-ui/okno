@@ -40,6 +40,14 @@ import { Reveal } from "@/components/ui/reveal";
 import { bookingThemeAttr } from "@/lib/booking-theme-presets";
 import { socialNetworkMeta, socialNetworks } from "@/lib/booking-page-settings";
 import { formatCurrency } from "@/lib/mock-data";
+import { isHotWindowsDiscountActive } from "@/lib/service-discounts";
+import {
+  HotWindowsDiscountBanner,
+  masterTodayIso,
+  ServiceCardPrice,
+  ServiceDiscountNotes,
+  todayPriceOf,
+} from "@/components/public/service-price";
 
 export function PublicProfileView({
   profile,
@@ -57,10 +65,18 @@ export function PublicProfileView({
   consultantDemoReplies,
 }: PublicProfileViewProps) {
   const [isPortfolioOpen, setIsPortfolioOpen] = useState(false);
+  // Скидки показываем в датах мастера: акция привязана к его календарю.
+  const masterToday = masterTodayIso(profile.timezone);
+  const hotWindows = isHotWindowsDiscountActive(profile.hotWindowsDiscount)
+    ? profile.hotWindowsDiscount
+    : null;
+
   const closestSlots = getClosestSlots(services, bookingSlotsByService);
   const hasPortfolioWorks = profile.portfolioWorks.length > 0;
   const startingPrice =
-    services.length > 0 ? Math.min(...services.map((service) => service.price)) : null;
+    services.length > 0
+      ? Math.min(...services.map((service) => todayPriceOf(service, masterToday)))
+      : null;
   const shortestDuration =
     services.length > 0 ? Math.min(...services.map((service) => service.durationMinutes)) : null;
   const { socialLinks, mapLocation } = profile.bookingPageSettings;
@@ -531,6 +547,14 @@ export function PublicProfileView({
             </div>
           </Reveal>
 
+          {hotWindows ? (
+            <HotWindowsDiscountBanner
+              discount={hotWindows}
+              timezone={profile.timezone}
+              bookingHref={bookingHref}
+            />
+          ) : null}
+
           <div className="grid gap-4 md:grid-cols-2">
             {services.map((service, index) => (
               <Reveal key={service.id} variant="fade-up" delay={(index % 2) * 0.1}>
@@ -553,13 +577,10 @@ export function PublicProfileView({
                           {service.title}
                         </h3>
                       </div>
-                      <div
-                        className="rounded-full px-4 py-2 text-sm font-medium text-ink shadow-sm"
-                        style={{ backgroundColor: "var(--public-surface-strong)" }}
-                      >
-                        {formatCurrency(service.price)}
-                      </div>
+                      <ServiceCardPrice service={service} today={masterToday} />
                     </div>
+
+                    <ServiceDiscountNotes service={service} today={masterToday} />
 
                     <p className="text-sm leading-7 text-ink-soft sm:text-base">
                       {service.description}
@@ -569,7 +590,7 @@ export function PublicProfileView({
                       <span className="text-sm text-muted">
                         {showDemoSections
                           ? "Запись без регистрации и звонка"
-                          : `${service.durationMinutes} мин • ${formatCurrency(service.price)}`}
+                          : `${service.durationMinutes} мин • ${formatCurrency(todayPriceOf(service, masterToday))}`}
                       </span>
                       <div className="flex flex-wrap items-center gap-2">
                         {consultantServiceIds?.includes(service.id) ? (

@@ -223,6 +223,8 @@ const PUBLIC_PROFILE_BASE_COLUMNS = [
   "account_role",
   "account_status",
   "created_by_profile_id",
+  "hot_windows_discount_percent",
+  "hot_windows_discount_until",
 ].join(",");
 
 const PUBLIC_PROFILE_WITH_MEDIA_COLUMNS = [
@@ -244,6 +246,10 @@ const PUBLIC_SERVICE_COLUMNS = [
   "buffer_minutes",
   "prepayment_type",
   "prepayment_value",
+  "discount_percent",
+  "discount_starts_on",
+  "discount_ends_on",
+  "first_visit_discount_percent",
 ].join(",");
 
 const PUBLIC_AVAILABILITY_RULE_COLUMNS = [

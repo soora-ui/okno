@@ -54,6 +54,10 @@ const TEAM_SERVICE_COLUMNS = [
   "buffer_minutes",
   "prepayment_type",
   "prepayment_value",
+  "discount_percent",
+  "discount_starts_on",
+  "discount_ends_on",
+  "first_visit_discount_percent",
 ].join(",");
 
 const TEAM_BOOKING_COLUMNS = [

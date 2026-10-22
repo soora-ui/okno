@@ -13,6 +13,8 @@ import { getClosestSlots } from "@/components/public/public-profile-shared";
 import { bookingThemeAttr } from "@/lib/booking-theme-presets";
 import { formatCurrency, type Service } from "@/lib/mock-data";
 import type { PublicPageData } from "@/lib/data";
+import { currentPeriodDiscount } from "@/lib/service-discounts";
+import { masterTodayIso, ServicePrice } from "@/components/public/service-price";
 import { getWorkspaceKindLabel } from "@/lib/workspace";
 
 type TeamPublicProfileViewProps = {
@@ -301,7 +303,10 @@ export function TeamPublicProfileView({
                           </div>
                           <div className="shrink-0 whitespace-nowrap text-right text-sm text-ink-soft">
                             <p>{service.durationMinutes} мин</p>
-                            <p>{formatCurrency(service.price)}</p>
+                            <ServiceListPrice
+                              service={service}
+                              timezone={selectedMember?.profile.timezone}
+                            />
                           </div>
                         </div>
                       </button>
@@ -522,5 +527,14 @@ export function TeamPublicProfileView({
         </section>
       </div>
     </main>
+  );
+}
+
+// Акция мастера студии, что идёт сегодня, — со старой ценой и процентом.
+function ServiceListPrice({ service, timezone }: { service: Service; timezone?: string }) {
+  const period = currentPeriodDiscount(service, masterTodayIso(timezone ?? "Europe/Simferopol"));
+  if (!period || period.startsLater) return <p>{formatCurrency(service.price)}</p>;
+  return (
+    <ServicePrice price={service.price} discountPercent={period.percent} size="sm" className="mt-1" />
   );
 }

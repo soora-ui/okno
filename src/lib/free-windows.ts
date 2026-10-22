@@ -148,10 +148,16 @@ export function freeWindowTimelineSegment(window: FreeWindow, axis: FreeWindowsT
 
 // Пост для Telegram / VK / WhatsApp. Пишем от лица мастера и без эмодзи:
 // мастер вставит свои, если захочет, а лишние удалять неудобно.
-export function buildFreeWindowsShareText(days: FreeWindowDay[], bookingUrl: string) {
+export function buildFreeWindowsShareText(
+  days: FreeWindowDay[],
+  bookingUrl: string,
+  discountPercent?: number | null,
+) {
   const lines = days.map((day) => `${day.label}: ${formatFreeWindowRanges(day.windows)}`);
   return [
-    "Есть свободные окошки на ближайшие дни:",
+    discountPercent
+      ? `Есть свободные окошки на ближайшие дни, на них скидка ${discountPercent}%:`
+      : "Есть свободные окошки на ближайшие дни:",
     "",
     ...lines,
     "",

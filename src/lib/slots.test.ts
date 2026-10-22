@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { landingDemoProfile } from "@/lib/landing-demo";
 import type { AvailabilityRule, Booking, Service } from "@/lib/mock-data";
 import { buildBookingSlotsForService } from "@/lib/slots";
+import { noServiceDiscounts } from "@/lib/service-discounts";
 
 const zone = "Europe/Simferopol";
 const profile = { ...landingDemoProfile, timezone: zone, slotIntervalMinutes: 30, bookingWindowDays: 7 };
@@ -32,6 +33,7 @@ function service(durationMinutes: number, bufferMinutes: number): Service {
     bufferMinutes,
     prepaymentType: "none",
     prepaymentValue: 0,
+    ...noServiceDiscounts,
   };
 }
 

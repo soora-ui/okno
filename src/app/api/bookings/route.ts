@@ -39,6 +39,14 @@ import {
 } from "@/lib/payments/yookassa-oauth";
 import { notifyMasterYooKassaRevoked } from "@/lib/notifications";
 import { computePrepaymentAmount, prepaymentReservationMinutes } from "@/lib/prepayment";
+import { formatCurrency } from "@/lib/mock-data";
+import {
+  applyDiscount,
+  discountKindLabels,
+  resolveBookingDiscount,
+  type AppliedDiscount,
+} from "@/lib/service-discounts";
+import { mapProfile, mapService } from "@/lib/mappers/domain";
 import {
   acquireBookingIdempotency,
   assertDemoBookingRateLimit,
@@ -84,6 +92,38 @@ function isMissingAcquisitionSourceColumn(error: unknown) {
     typeof target.message === "string" &&
     target.message.includes("acquisition_source")
   );
+}
+
+// Первый визит — клиента нет среди перенесённых из другой системы и у него
+// нет ни одной действующей записи к мастеру: прошедшей, будущей или ждущей
+// оплаты. Отменённые не в счёт — на них клиент так и не пришёл. Записи, что
+// не создались до конца, тоже: клиент в базе уже есть, а визита не было.
+async function isClientFirstVisit(input: {
+  admin: ReturnType<typeof createSupabaseAdminClient>;
+  profileId: string;
+  clientId: string;
+}) {
+  const [clientResult, bookingsResult] = await Promise.all([
+    input.admin.from("clients").select("imported_at").eq("id", input.clientId).maybeSingle(),
+    input.admin
+      .from("bookings")
+      .select("id")
+      .eq("profile_id", input.profileId)
+      .eq("client_id", input.clientId)
+      .in("status", ["confirmed", "pending_payment"])
+      .limit(1),
+  ]);
+
+  // Не смогли проверить — скидку не даём: лишняя скидка мастеру дороже.
+  if (clientResult.error || bookingsResult.error) {
+    logError("Failed to check first visit", {
+      profileId: input.profileId,
+      error: clientResult.error ?? bookingsResult.error,
+    });
+    return false;
+  }
+
+  return !clientResult.data?.imported_at && (bookingsResult.data ?? []).length === 0;
 }
 
 export async function POST(request: Request) {
@@ -278,13 +318,14 @@ export async function POST(request: Request) {
     return respondWithError(404, "Услуга не найдена.");
   }
 
-  // Списание сертификата кодом при онлайн-записи — разово на полную цену
-  // услуги (без частичной оплаты долями, это отдельная задача вне текущего
-  // ТЗ про QR/сканирование). Баланс списывается через remaining_amount —
+  // Списание сертификата кодом при онлайн-записи — разово на цену визита со
+  // скидкой (без частичной оплаты долями, это отдельная задача вне текущего
+  // ТЗ про QR/сканирование). Сумму сверяем ниже, когда цена известна: скидка
+  // на первый визит зависит от того, есть ли клиент в базе. Баланс списывается через remaining_amount —
   // тот же остаток, что использует сканирование сертификата мастером
   // (/api/certificates/redeem), так что оба канала согласованно уменьшают
   // один и тот же остаток.
-  let certificateRow: { id: string; writeOffAmount: number } | null = null;
+  let certificateLookupRow: { id: string; remainingAmount: number } | null = null;
 
   if (parsed.data.certificateCode.trim()) {
     const normalizedCode = normalizeCertificateCodeInput(parsed.data.certificateCode);
@@ -328,14 +369,9 @@ export async function POST(request: Request) {
       return respondWithError(409, "Этот сертификат не подходит для выбранной услуги.");
     }
 
-    const writeOffAmount = Number(serviceRow.price);
-    if (Number(certificateLookup.remaining_amount) < writeOffAmount) {
-      return respondWithError(409, "Остатка на сертификате не хватает на эту услугу.");
-    }
-
-    certificateRow = {
+    certificateLookupRow = {
       id: String(certificateLookup.id),
-      writeOffAmount,
+      remainingAmount: Number(certificateLookup.remaining_amount),
     };
   }
 
@@ -507,6 +543,38 @@ export async function POST(request: Request) {
     clientRow = insertedClient;
   }
 
+  // Скидка (src/lib/service-discounts.ts): самая большая из подходящих —
+  // акции на дату визита, первого визита и горящих окошек мастера.
+  const serviceDiscounts = mapService(serviceRow);
+  const isFirstVisit = serviceDiscounts.firstVisitDiscountPercent
+    ? await isClientFirstVisit({
+        admin,
+        profileId: String(profileRow.id),
+        clientId: String(clientRow.id),
+      })
+    : false;
+  const appliedDiscount: AppliedDiscount | null = resolveBookingDiscount({
+    service: serviceDiscounts,
+    visitDate: parsed.data.date,
+    visitStartIso: startsAt.toISOString(),
+    isFirstVisit,
+    hotWindows: mapProfile(profileRow).hotWindowsDiscount,
+  });
+  const fullPrice = Number(serviceRow.price);
+  const visitPrice = appliedDiscount
+    ? applyDiscount(fullPrice, appliedDiscount.percent)
+    : fullPrice;
+
+  let certificateRow: { id: string; writeOffAmount: number } | null = null;
+
+  if (certificateLookupRow) {
+    if (certificateLookupRow.remainingAmount < visitPrice) {
+      return respondWithError(409, "Остатка на сертификате не хватает на эту услугу.");
+    }
+
+    certificateRow = { id: certificateLookupRow.id, writeOffAmount: visitPrice };
+  }
+
   // Атомарно "бронируем" сертификат перед вставкой записи — та же
   // RPC-функция redeem_gift_certificate, что использует сканирование
   // мастером (/api/certificates/redeem): один UPDATE с WHERE-условием на
@@ -555,12 +623,16 @@ export async function POST(request: Request) {
       ? (serviceRow.prepayment_type as "fixed" | "percent")
       : "none";
   const prepaymentRequired = servicePrepaymentType !== "none";
+  // Предоплата — от цены со скидкой, и фиксированная не больше этой цены.
   const prepaymentAmount = prepaymentRequired
-    ? computePrepaymentAmount({
-        prepaymentType: servicePrepaymentType,
-        prepaymentValue: Number(serviceRow.prepayment_value ?? 0),
-        servicePrice: Number(serviceRow.price),
-      })
+    ? Math.min(
+        visitPrice,
+        computePrepaymentAmount({
+          prepaymentType: servicePrepaymentType,
+          prepaymentValue: Number(serviceRow.prepayment_value ?? 0),
+          servicePrice: visitPrice,
+        }),
+      )
     : 0;
 
   // Предоплата идёт напрямую в магазин мастера через его OAuth-токен
@@ -595,6 +667,11 @@ export async function POST(request: Request) {
     source: "public_page",
     client_note: parsed.data.note,
     prepayment_required: prepaymentRequired,
+    // Цена визита со скидкой; без скидки триггер снимка цены подставил бы
+    // ту же полную цену сам.
+    price: visitPrice,
+    discount_percent: appliedDiscount?.percent ?? null,
+    discount_kind: appliedDiscount?.kind ?? null,
     cancellation_token_expires_at:
       getCancellationDeadlineIso({
         startsAtIso: startsAt.toISOString(),
@@ -815,6 +892,9 @@ export async function POST(request: Request) {
               clientName: parsed.data.name,
               serviceTitle: String(serviceRow.title),
               startsAtLabel,
+              discountLabel: appliedDiscount
+                ? `${formatCurrency(visitPrice)} вместо ${formatCurrency(fullPrice)} · −${appliedDiscount.percent}%, ${discountKindLabels[appliedDiscount.kind]}`
+                : null,
               // Бот прицепит к сообщению кнопку «Открыть запись» — из неё
               // мастер сразу видит телефон клиента и может отменить визит.
               bookingId: String(bookingRow.id),
@@ -909,6 +989,8 @@ export async function POST(request: Request) {
       serviceId: String(serviceRow.id),
       startsAtIso: startsAt.toISOString(),
       source: "public_page",
+      price: visitPrice,
+      discount: appliedDiscount,
     },
   });
 
