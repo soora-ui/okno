@@ -16,7 +16,11 @@
     "certificates:backfill": "node --env-file=.env.local scripts/backfill-certificate-owner.mjs",
     "email:webhook": "node --env-file=.env.local scripts/unisender-webhook-setup.mjs",
     "nalog:check": "node --env-file=.env.local scripts/nalog-check.mjs",
-    "brandbook": "node --no-warnings scripts/build-brandbook.mjs"
+    "brandbook": "node --no-warnings scripts/build-brandbook.mjs",
+    "db:start": "supabase start -x realtime,edge-runtime,logflare,vector,supavisor",
+    "db:stop": "supabase stop",
+    "db:sync": "bash scripts/db-sync-from-prod.sh",
+    "db:apply": "bash scripts/db-apply-local.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

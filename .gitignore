@@ -62,3 +62,6 @@ next-env.d.ts
 .impeccable/config.local.json
 .impeccable/hook.cache.json
 .impeccable/hook.pending.json
+
+# локальная копия боевой базы (scripts/db-sync-from-prod.sh)
+/.supabase-sync/
