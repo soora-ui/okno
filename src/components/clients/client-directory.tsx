@@ -341,7 +341,7 @@ export function ClientDirectory({
               aria-pressed={onlyDue}
               className={`touch-manipulation rounded-full border px-4 py-2 text-sm transition active:scale-[0.98] ${
                 onlyDue
-                  ? "border-ink bg-ink text-surface"
+                  ? "border-ink bg-ink text-ink-contrast"
                   : "border-line text-ink hover:-translate-y-0.5"
               }`}
             >
