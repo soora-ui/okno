@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/telegram";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { Card } from "@/components/ui/card";
+import { SettingsSectionHeading } from "@/components/settings/settings-section";
 import type { Profile } from "@/lib/mock-data";
 
 const initialState: TelegramActionState = { success: false, message: "" };
@@ -34,16 +35,23 @@ export function TelegramConnectSection({ profile }: { profile: Profile }) {
   const isConnected = Boolean(profile.telegramChatId);
 
   return (
-    <Card className="space-y-4">
-      <div className="flex items-center gap-3">
-        <BellRing size={18} className="text-success" />
-        <h2 className="text-xl font-semibold text-ink">Telegram-уведомления</h2>
-      </div>
-
-      <p className="text-sm leading-6 text-ink-soft">
-        Бот пишет о новых записях и напоминает о визитах. Из чата видно расписание
-        на сегодня и на неделю, а запись можно отменить, не заходя в кабинет.
-      </p>
+    <Card className="space-y-5 p-5 sm:p-6">
+      <SettingsSectionHeading
+        title="Telegram-уведомления"
+        description="Бот пишет о новых записях и напоминает о визитах. Из чата видно расписание на сегодня и на неделю, а запись можно отменить, не заходя в кабинет."
+        trailing={
+          <span
+            className={
+              isConnected
+                ? "inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 text-xs font-medium text-success"
+                : "inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-3 py-1 text-xs font-medium text-warning"
+            }
+          >
+            <BellRing size={12} aria-hidden="true" />
+            {isConnected ? "Подключено" : "Не подключено"}
+          </span>
+        }
+      />
 
       <div className="rounded-panel bg-panel p-4">
         <p className="text-sm font-medium text-ink">

@@ -27,21 +27,39 @@ import {
 type SettingsTab = "profile" | "schedule" | "services" | "booking" | "account";
 type RecordSection = "booking-params" | "booking-page" | "certificates" | "telegram" | "color-palette";
 
+/** Раздел настроек сейчас на экране (а не только выбран). */
+const tabShown = (c: SceneCtx, tab: SettingsTab) => {
+  const panel = c.doc.querySelector(`[data-tour-panel="${tab}"]`);
+  return Boolean(panel && isVisible(panel));
+};
+
 /**
- * Открыть вкладку настроек, если она ещё не открыта. По умолчанию — пальцем,
- * чтобы было видно, где она; quiet — мгновенно, когда вкладка лишь подготовка
+ * Вернуться к списку разделов. На телефоне раздел открыт отдельным экраном
+ * поверх списка; на широком экране список всегда слева — делать нечего.
+ */
+async function openSettingsHub(c: SceneCtx) {
+  const back = c.doc.querySelector('[data-tour="settings-back"]');
+  if (!back || !isVisible(back)) return;
+  c.click('[data-tour="settings-back"]');
+  await c.wait(300);
+}
+
+/**
+ * Открыть раздел настроек, если он ещё не открыт. По умолчанию — пальцем,
+ * чтобы было видно, где он; quiet — мгновенно, когда раздел лишь подготовка
  * к главному действию шага.
  */
 async function openTab(c: SceneCtx, tab: SettingsTab, quiet = false) {
   const selector = `[data-tour-tab="${tab}"]`;
-  if (c.doc.querySelector(selector)?.hasAttribute("data-active")) return;
+  if (tabShown(c, tab)) return;
+  await openSettingsHub(c);
   if (quiet) {
     // Страница могла ещё не ожить после загрузки, и клик пропадёт —
-    // повторяем, пока вкладка не станет активной.
+    // повторяем, пока раздел не появится.
     for (let i = 0; i < 20; i++) {
       c.click(selector);
       await c.wait(150);
-      if (c.doc.querySelector(selector)?.hasAttribute("data-active")) break;
+      if (tabShown(c, tab)) break;
     }
     await c.wait(200);
     return;
@@ -51,8 +69,9 @@ async function openTab(c: SceneCtx, tab: SettingsTab, quiet = false) {
 }
 
 /**
- * Открыть раздел вкладки «Запись». На широком экране это боковое меню, на
- * телефоне — аккордеон: там сначала закрываем чужие раскрытые разделы.
+ * Открыть подраздел «Записи». На широком экране это пункт в навигации слева
+ * (листает ленту), на телефоне — аккордеон: там сначала закрываем чужие
+ * раскрытые подразделы.
  */
 async function openSection(c: SceneCtx, section: RecordSection) {
   await openTab(c, "booking", true);
@@ -129,12 +148,6 @@ function closeStoryDialog(c: SceneCtx) {
 }
 
 const DESIGN_DIALOG = '[role="dialog"][aria-label="Дизайн сертификата"]';
-
-/** Форма номиналов и срока действия в разделе сертификатов. */
-const certificateSettingsForm: Target = (doc) =>
-  [...doc.querySelectorAll("form")].find(
-    (form) => isVisible(form) && form.querySelector('input[name="denominations"]'),
-  );
 
 /** Карточка услуги в настройках (форма редактирования). */
 const serviceEditor: Target = (doc) =>
@@ -256,8 +269,11 @@ const scenes: Scene[] = [
     text: "Её отправляешь клиентам в мессенджер или ставишь в шапку соцсетей. Записаться по ней можно без регистрации.",
     ms: 7000,
     run: async (c) => {
+      // Ссылка — в правой колонке на широком экране и в карточке над списком
+      // разделов на телефоне.
       await openTab(c, "profile");
-      await c.focus(card("Публичная ссылка"));
+      await openSettingsHub(c);
+      await c.focus('[data-tour="public-link"]');
     },
   },
 
@@ -288,7 +304,7 @@ const scenes: Scene[] = [
         { click: true },
       );
       await c.wait(900);
-      await c.tap(button("Сохранить расписание"), { click: true });
+      await c.tap('[data-tour="settings-save"]', { click: true });
       await showSaved(c);
     },
   },
@@ -555,7 +571,7 @@ const scenes: Scene[] = [
       await c.tap('input[name="denominations"]');
       await c.type('input[name="denominations"]', demoCertificateDenominations.join(", "));
       await c.wait(500);
-      await c.tap(button("Сохранить", certificateSettingsForm), { click: true });
+      await c.tap('[data-tour="settings-save"]', { click: true });
       await showSaved(c);
     },
   },

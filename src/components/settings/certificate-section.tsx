@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Gift } from "lucide-react";
 import { CertificateDesignModal } from "@/components/settings/certificate-design-modal";
 import { CertificateSalesToggle } from "@/components/settings/certificate-sales-toggle";
 import { GiftCertificateSettingsForm } from "@/components/forms/settings-forms";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { SettingsSectionHeading } from "@/components/settings/settings-section";
 import { maxCertificateTemplateRegenerations } from "@/lib/certificates/limits";
 import type { CertificateTemplateSummary } from "@/lib/data";
 import type { Profile } from "@/lib/mock-data";
@@ -70,15 +70,11 @@ export function CertificateSection({
   );
 
   return (
-    <Card className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Gift size={18} className="text-accent-deep" />
-        <h2 className="text-xl font-semibold text-ink">Подарочные сертификаты</h2>
-      </div>
-      <p className="text-sm leading-6 text-ink-soft">
-        Клиенты смогут купить сертификат прямо на публичной странице и оплатить его онлайн.
-        Сразу после оплаты покупателю становится доступно скачивание PDF-сертификата с QR-кодом.
-      </p>
+    <Card className="space-y-5 p-5 sm:p-6">
+      <SettingsSectionHeading
+        title="Подарочные сертификаты"
+        description="Клиенты смогут купить сертификат прямо на публичной странице и оплатить его онлайн. Сразу после оплаты покупателю становится доступно скачивание PDF-сертификата с QR-кодом."
+      />
 
       <GiftCertificateSettingsForm profile={profile} />
 

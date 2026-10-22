@@ -199,19 +199,18 @@ const scenes: Scene[] = [
     text: "Профиль, график, услуги, правила записи, уведомления в Telegram — всё в одном месте.",
     ms: 8500,
     run: async (c) => {
-      c.click('[data-tour-tab="profile"]');
-      // При повторе шага строка вкладок могла остаться докрученной.
-      c.doc.querySelector('[data-tour="settings-tabs"]')?.scrollTo({ left: 0 });
+      // При повторе шага на телефоне мог остаться открытым раздел — назад к
+      // списку разделов (на широком экране кнопки нет, список всегда слева).
+      const back = c.doc.querySelector('[data-tour="settings-back"]');
+      if (back && isVisible(back)) {
+        c.click('[data-tour="settings-back"]');
+        await c.wait(300);
+      }
       await c.focus('[data-tour="settings-tabs"]');
       await c.wait(600);
       await c.tap('[data-tour-tab="booking"]', { click: true });
       await c.wait(300);
-      // У вкладки две раскладки — для телефона и для широкого экрана; берём видимую.
-      await c.focus((doc) => {
-        let el = doc.querySelector('[data-tour="settings-tabs"]')?.nextElementSibling;
-        while (el && !isVisible(el)) el = el.nextElementSibling;
-        return el;
-      });
+      await c.focus('[data-tour-panel="booking"]');
     },
   },
 ];

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateAvatarAction, updatePortfolioWorksAction } from "@/app/actions/settings";
@@ -135,7 +136,7 @@ async function uploadFileToStorage(input: {
   return path;
 }
 
-function AvatarUploadCard({ profile }: { profile: Profile }) {
+export function AvatarUploadSection({ profile }: { profile: Profile }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState(initialState);
@@ -216,60 +217,51 @@ function AvatarUploadCard({ profile }: { profile: Profile }) {
     }
   };
 
+  // Строка «круглое фото + кнопка», как в шапке страницы записи. Обёртка
+  // скруглена, чтобы тур по базе знаний находил блок «Аватар» как карточку.
   return (
-    <section className="space-y-4 rounded-nested bg-panel p-4">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold text-ink">Аватар</p>
-        <p className="text-xs leading-5 text-muted">
-          Показывается в шапке публичной страницы и помогает сделать профиль
-          узнаваемым.
-        </p>
-      </div>
-
-      <div className="overflow-hidden rounded-card border border-line bg-surface shadow-sm">
+    <div className="space-y-3 rounded-nested">
+      <div className="flex flex-wrap items-center gap-5">
         <Image
           src={profile.avatarUrl}
           alt={profile.fullName}
-          width={560}
-          height={560}
-          sizes="(max-width: 1279px) 100vw, 280px"
-          className="h-64 w-full object-cover"
+          width={176}
+          height={176}
+          sizes="88px"
+          className="size-[88px] shrink-0 rounded-full border border-line bg-panel object-cover"
         />
+        <div className="flex min-w-0 flex-1 basis-56 flex-col gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept={imageAccept}
+            className="sr-only"
+            onChange={(event) => {
+              void handleAvatarChange(event.currentTarget.files?.[0] ?? null);
+            }}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => inputRef.current?.click()}
+            disabled={pending}
+            className="gap-2 self-start"
+          >
+            <Upload size={16} aria-hidden="true" />
+            {pending ? "Сжимаю и загружаю..." : "Загрузить фото"}
+          </Button>
+          <span className="text-xs leading-5 text-muted">
+            Аватар — лучше квадратное фото, лицо по центру. JPG, PNG, WebP или AVIF,
+            до {formatFileSize(maxAvatarFileSizeBytes)}.
+          </span>
+        </div>
       </div>
-
-      <div className="space-y-3">
-        <input
-          ref={inputRef}
-          type="file"
-          accept={imageAccept}
-          className="sr-only"
-          onChange={(event) => {
-            void handleAvatarChange(event.currentTarget.files?.[0] ?? null);
-          }}
-        />
-
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => inputRef.current?.click()}
-          disabled={pending}
-          className="w-full justify-center"
-        >
-          {pending ? "Сжимаю и загружаю..." : "Обновить аватар"}
-        </Button>
-
-        <p className="text-xs leading-5 text-muted">
-          После выбора файл сразу загрузится и заменит текущий аватар. JPG, PNG,
-          WebP или AVIF, до {formatFileSize(maxAvatarFileSizeBytes)}.
-        </p>
-
-        <FormMessage message={state.message} success={state.success} />
-      </div>
-    </section>
+      <FormMessage message={state.message} success={state.success} />
+    </div>
   );
 }
 
-function PortfolioUploadSection({ profile }: { profile: Profile }) {
+export function PortfolioWorksSection({ profile }: { profile: Profile }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState(initialState);
@@ -361,20 +353,7 @@ function PortfolioUploadSection({ profile }: { profile: Profile }) {
   };
 
   return (
-    <section className="space-y-4 rounded-nested border border-line bg-panel p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-ink">Готовые работы</h3>
-          <p className="text-sm leading-6 text-ink-soft">
-            На публичной странице они появятся отдельным блоком, а клиент сможет
-            открыть галерею в pop-up и пролистать все изображения.
-          </p>
-        </div>
-        <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-ink">
-          {profile.portfolioWorks.length} из {maxPortfolioWorks}
-        </span>
-      </div>
-
+    <div className="space-y-4">
       <div className="space-y-3">
         <input
           ref={inputRef}
@@ -436,15 +415,6 @@ function PortfolioUploadSection({ profile }: { profile: Profile }) {
           появится на публичной странице отдельной галереей.
         </div>
       )}
-    </section>
-  );
-}
-
-export function ProfileMediaUploadSection({ profile }: { profile: Profile }) {
-  return (
-    <div className="space-y-6">
-      <AvatarUploadCard profile={profile} />
-      <PortfolioUploadSection profile={profile} />
     </div>
   );
 }

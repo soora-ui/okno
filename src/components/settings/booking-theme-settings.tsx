@@ -39,6 +39,7 @@ export function BookingThemeSettings({
     <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
       <form
         action={action}
+        data-settings-form
         className="min-w-0 space-y-4 rounded-nested border border-line bg-surface p-5"
       >
         <input

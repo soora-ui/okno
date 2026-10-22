@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, ChevronDown, TriangleAlert, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -10,124 +9,99 @@ export type SectionStatus = "complete" | "warning" | "none";
 export type RecordSection = {
   id: string;
   label: string;
+  hint: string;
   icon: LucideIcon;
   status: SectionStatus;
   content: ReactNode;
 };
 
-function StatusBadge({ status, withLabel }: { status: SectionStatus; withLabel?: boolean }) {
+export function SectionStatusMark({ status }: { status: SectionStatus }) {
   if (status === "complete") {
-    return (
-      <span className="inline-flex items-center gap-1 text-success">
-        <Check size={14} />
-        {withLabel ? <span className="text-xs font-medium">Готово</span> : null}
-      </span>
-    );
+    return <Check size={14} className="text-success" aria-label="Готово" />;
   }
   if (status === "warning") {
     return (
-      <span className="inline-flex items-center gap-1 text-warning">
-        <TriangleAlert size={14} />
-        {withLabel ? <span className="text-xs font-medium">Требует внимания</span> : null}
-      </span>
+      <TriangleAlert size={14} className="text-warning" aria-label="Требует внимания" />
     );
   }
   return null;
 }
 
-export function RecordSectionNav({ sections }: { sections: RecordSection[] }) {
-  return (
-    <>
-      <DesktopSidebarLayout sections={sections} />
-      <MobileAccordion sections={sections} />
-    </>
-  );
-}
+/** DOM-id карточки подраздела — на него ведёт навигация слева. */
+export const recordSectionAnchor = (id: string) => `record-${id}`;
 
-function DesktopSidebarLayout({ sections }: { sections: RecordSection[] }) {
-  const [activeId, setActiveId] = useState(sections[0]?.id);
-  const active = sections.find((section) => section.id === activeId) ?? sections[0];
+// Каждый подраздел рендерится один раз. На широком экране все они идут
+// лентой, а навигация слева листает к нужному; на телефоне та же разметка
+// складывается в аккордеон — строка-заголовок сверху, содержимое по нажатию.
+// Раньше было две раскладки сразу, и формы монтировались дважды.
+export function RecordSectionList({ sections }: { sections: RecordSection[] }) {
+  const [openId, setOpenId] = useState<string | null>(sections[0]?.id ?? null);
 
   return (
-    <div className="hidden gap-6 md:flex">
-      <nav className="w-64 shrink-0 self-start space-y-1 rounded-nested border border-line bg-surface p-2">
-        {sections.map((section) => {
-          const Icon = section.icon;
-          const isActive = section.id === active?.id;
-          return (
-            <button
-              key={section.id}
-              type="button"
-              data-tour-section={section.id}
-              data-active={isActive || undefined}
-              onClick={() => setActiveId(section.id)}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-field border-l-[3px] px-3 py-3 text-left text-sm transition",
-                isActive
-                  ? "border-accent-deep bg-panel font-medium text-ink"
-                  : "border-transparent text-ink-soft hover:bg-panel/60 hover:text-ink",
-              )}
-            >
-              <Icon size={16} className={isActive ? "text-accent-deep" : "text-muted"} />
-              <span className="flex-1">{section.label}</span>
-              <StatusBadge status={section.status} />
-            </button>
-          );
-        })}
-      </nav>
-      <div className="min-w-0 flex-1 space-y-6">{active?.content}</div>
-    </div>
-  );
-}
-
-function MobileAccordion({ sections }: { sections: RecordSection[] }) {
-  const [openId, setOpenId] = useState<string | null>(null);
-  const shouldReduceMotion = useReducedMotion();
-
-  return (
-    <div className="space-y-3 md:hidden">
+    <div className="flex flex-col gap-3 lg:gap-6">
       {sections.map((section) => {
         const Icon = section.icon;
         const isOpen = section.id === openId;
+        const panelId = `${recordSectionAnchor(section.id)}-panel`;
+
         return (
           <div
             key={section.id}
-            className="overflow-hidden rounded-panel border border-line bg-surface"
+            id={recordSectionAnchor(section.id)}
+            className={cn(
+              "scroll-mt-28 max-lg:overflow-hidden max-lg:rounded-card max-lg:border max-lg:border-[var(--color-line)] max-lg:bg-[var(--color-surface)]",
+              isOpen && "max-lg:shadow-card",
+            )}
           >
-            <button
-              type="button"
-              data-tour-section={section.id}
-              onClick={() => setOpenId(isOpen ? null : section.id)}
-              aria-expanded={isOpen}
-              className="flex w-full items-center gap-3 px-4 py-4 text-left"
-            >
-              <Icon size={16} className="text-muted" />
-              <span className="flex-1 text-sm font-medium text-ink">{section.label}</span>
-              <StatusBadge status={section.status} />
-              <motion.span
-                animate={{ rotate: isOpen ? 180 : 0 }}
-                transition={{ duration: shouldReduceMotion ? 0 : 0.25 }}
+            <div className="relative flex min-h-[72px] items-center gap-3 px-4 lg:hidden">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex size-10 shrink-0 items-center justify-center rounded-full text-ink",
+                  isOpen ? "bg-accent" : "bg-panel",
+                )}
               >
-                <ChevronDown size={16} className="text-muted" />
-              </motion.span>
-            </button>
-            <AnimatePresence initial={false}>
-              {isOpen ? (
-                <motion.div
-                  key="content"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{
-                    duration: shouldReduceMotion ? 0 : 0.28,
-                    ease: "easeInOut",
-                  }}
-                  className="overflow-hidden"
-                >
-                  <div className="space-y-6 px-4 pb-4">{section.content}</div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
+                <Icon size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-[15px] font-semibold text-ink">
+                  <button
+                    type="button"
+                    data-tour-section={section.id}
+                    aria-expanded={isOpen}
+                    aria-controls={panelId}
+                    onClick={() => setOpenId(isOpen ? null : section.id)}
+                    className="text-left after:absolute after:inset-0 after:content-['']"
+                  >
+                    {section.label}
+                  </button>
+                </h3>
+                <p className="mt-0.5 truncate text-[13px] text-muted">{section.hint}</p>
+              </div>
+              <SectionStatusMark status={section.status} />
+              <ChevronDown
+                size={18}
+                aria-hidden="true"
+                className={cn(
+                  "shrink-0 text-muted transition-transform duration-300",
+                  isOpen && "rotate-180",
+                )}
+              />
+            </div>
+
+            {/* На телефоне карточка подраздела становится телом аккордеона:
+                снимаем с неё рамку, тень и фон, а заголовок уже есть в строке. */}
+            <div
+              id={panelId}
+              className={cn(
+                "max-lg:px-4 max-lg:pb-5",
+                "max-lg:[&>*]:border-0! max-lg:[&>*]:bg-transparent! max-lg:[&>*]:p-0! max-lg:[&>*]:shadow-none!",
+                "max-lg:[&_[data-settings-title]]:hidden",
+                !isOpen && "max-lg:hidden",
+              )}
+            >
+              {section.content}
+            </div>
           </div>
         );
       })}

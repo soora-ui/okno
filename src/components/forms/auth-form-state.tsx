@@ -18,6 +18,10 @@ export function SubmitButton({
   return (
     <button
       type="submit"
+      // Общая панель сохранения в настройках прячет эти кнопки и по
+      // data-pending понимает, что отправка формы ещё идёт.
+      data-submit
+      data-pending={pending || undefined}
       style={{
         backgroundColor: "var(--ui-primary-bg, var(--color-ink))",
         color: "var(--ui-primary-text)",
@@ -41,6 +45,8 @@ export function FormMessage({
 
   return (
     <p
+      data-form-message
+      data-success={success}
       style={
         success
           ? {

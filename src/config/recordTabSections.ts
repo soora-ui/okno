@@ -17,6 +17,8 @@ export type RecordTabSectionId =
 export type RecordTabSectionMeta = {
   id: RecordTabSectionId;
   label: string;
+  /** Короткая подпись под названием: в навигации и в мобильном аккордеоне. */
+  hint: string;
   icon: LucideIcon;
 };
 
@@ -26,9 +28,9 @@ export type RecordTabSectionMeta = {
 // Порядок — по частоте использования: операционные разделы наверх,
 // «настроил один раз и забыл» — вниз.
 export const RECORD_TAB_SECTIONS: RecordTabSectionMeta[] = [
-  { id: "booking-params", label: "Параметры записи", icon: SlidersHorizontal },
-  { id: "booking-page", label: "Витрина страницы записи", icon: LayoutTemplate },
-  { id: "certificates", label: "Подарочные сертификаты", icon: Gift },
-  { id: "telegram", label: "Telegram-уведомления", icon: BellRing },
-  { id: "color-palette", label: "Цвет клиентских страниц", icon: Palette },
+  { id: "booking-params", label: "Параметры записи", hint: "Окно, шаг, отмена, напоминания", icon: SlidersHorizontal },
+  { id: "booking-page", label: "Витрина страницы записи", hint: "Заголовок, подзаголовок, комментарий", icon: LayoutTemplate },
+  { id: "certificates", label: "Подарочные сертификаты", hint: "Продажа на странице записи", icon: Gift },
+  { id: "telegram", label: "Telegram-уведомления", hint: "Новые записи и напоминания тебе", icon: BellRing },
+  { id: "color-palette", label: "Цвет клиентских страниц", hint: "Тема профиля и записи", icon: Palette },
 ];

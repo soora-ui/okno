@@ -84,16 +84,16 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { AvailabilityRule, Profile, Service } from "@/lib/mock-data";
 
-const ProfileMediaUploadSection = dynamic(
+const AvatarUploadSection = dynamic(
   () =>
     import("@/components/settings/profile-media-upload-section").then(
-      (mod) => mod.ProfileMediaUploadSection,
+      (mod) => mod.AvatarUploadSection,
     ),
   {
     loading: () => (
-      <div className="space-y-6">
-        <div className="h-80 animate-pulse rounded-nested bg-panel" />
-        <div className="h-96 animate-pulse rounded-nested border border-line bg-panel" />
+      <div className="flex items-center gap-5">
+        <div className="size-[88px] animate-pulse rounded-full bg-panel" />
+        <div className="h-11 w-40 animate-pulse rounded-full bg-panel" />
       </div>
     ),
   },
@@ -109,10 +109,10 @@ export function ProfileSettingsForm({ profile }: { profile: Profile }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <ProfileMediaUploadSection profile={profile} />
+      <AvatarUploadSection profile={profile} />
 
-        <form action={action} className="space-y-4 rounded-nested border border-line bg-surface p-5">
+      <form action={action} data-settings-form className="space-y-4">
+        <div className="grid items-start gap-4 sm:grid-cols-2">
           <Input
             label="Имя мастера"
             name="fullName"
@@ -143,17 +143,17 @@ export function ProfileSettingsForm({ profile }: { profile: Profile }) {
             placeholder="ул. Пушкина, 12, кабинет 3"
             hint="Виден клиентам на странице записи. Город выбирается из списка выше."
           />
-          <Textarea
-            label="О себе"
-            name="bio"
-            defaultValue={profile.bio}
-            placeholder="Пара слов о мастере и атмосфере приема"
-            hint="Этот текст тоже читают поисковики. Напишите, с чем работаете и в каком районе принимаете."
-          />
-          <FormMessage message={state.message} success={state.success} />
-          <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
-        </form>
-      </div>
+        </div>
+        <Textarea
+          label="О себе"
+          name="bio"
+          defaultValue={profile.bio}
+          placeholder="Пара слов о мастере и атмосфере приема"
+          hint="Этот текст тоже читают поисковики. Напишите, с чем работаете и в каком районе принимаете."
+        />
+        <FormMessage message={state.message} success={state.success} />
+        <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
+      </form>
     </div>
   );
 }
@@ -163,7 +163,7 @@ export function SocialLinksSettingsForm({ profile }: { profile: Profile }) {
   const links = profile.bookingPageSettings.socialLinks;
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} data-settings-form className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         {socialNetworks.map((network) => {
           const meta = socialNetworkMeta[network];
@@ -200,7 +200,7 @@ export function AccessSettingsForm({ profile }: { profile: Profile }) {
   const [state, action] = useActionState(updateAccessAction, initialState);
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} data-settings-form className="space-y-4">
       <Input label="Email для входа" name="email" type="email" defaultValue={profile.email} required />
       <Input
         label="Текущий пароль"
@@ -236,7 +236,7 @@ export function BookingPreferencesForm({ profile }: { profile: Profile }) {
   );
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} data-settings-form className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <ParameterField
           label="Окно записи"
@@ -308,7 +308,7 @@ export function BookingPageSettingsForm({ profile }: { profile: Profile }) {
   const settings = profile.bookingPageSettings;
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} data-settings-form className="space-y-4">
       <Input
         label="Заголовок на первом экране"
         name="headline"
@@ -359,7 +359,7 @@ export function GiftCertificateSettingsForm({ profile }: { profile: Profile }) {
   const [expiryDate, setExpiryDate] = useState(settings.giftCertificateExpiryDate ?? "");
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} data-settings-form className="space-y-4">
       <Input
         label="Номиналы, руб."
         name="denominations"
@@ -431,7 +431,7 @@ export function AvailabilitySettingsForm({
   );
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} data-settings-form className="space-y-4">
       <div className="space-y-2">
         {weekdays.map((day) => {
           const rule = availabilityRules.find((item) => item.weekday === day.value);

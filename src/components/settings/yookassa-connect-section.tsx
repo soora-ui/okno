@@ -6,6 +6,7 @@ import { revokeYooKassaAccountAction } from "@/app/actions/yookassa-oauth";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { SettingsSectionHeading } from "@/components/settings/settings-section";
 import type { MasterYooKassaAccount } from "@/lib/payments/yookassa-oauth";
 
 const initialState = { success: false, message: "" };
@@ -25,16 +26,19 @@ export function YooKassaConnectSection({
   const isConnected = account?.status === "enabled";
 
   return (
-    <Card className="space-y-4">
-      <div className="flex items-center gap-3">
-        <ShieldCheck size={18} className="text-success" />
-        <h2 className="text-xl font-semibold text-ink">Приём предоплаты</h2>
-      </div>
-      <p className="text-sm leading-6 text-ink-soft">
-        Подключи свой аккаунт ЮKassa — предоплата клиентов будет приходить напрямую в твой
-        магазин, платформа деньги не удерживает. У тебя уже должен быть собственный магазин
-        (ИП или самозанятый) в ЮKassa.
-      </p>
+    <Card className="space-y-5 p-5 sm:p-6">
+      <SettingsSectionHeading
+        title="Приём предоплаты"
+        description="Подключи свой аккаунт ЮKassa — предоплата клиентов будет приходить напрямую в твой магазин, платформа деньги не удерживает. У тебя уже должен быть собственный магазин (ИП или самозанятый) в ЮKassa."
+        trailing={
+          isConnected ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 text-xs font-medium text-success">
+              <ShieldCheck size={12} aria-hidden="true" />
+              Подключено
+            </span>
+          ) : null
+        }
+      />
 
       {isConnected ? (
         <div className="space-y-3">
