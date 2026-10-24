@@ -5,7 +5,9 @@ import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { isSettingsTabId } from "@/config/settingsTabs";
 import { getSettingsData } from "@/lib/data";
 import { getOwnerRecentSubscriptionPayment } from "@/lib/repositories/owner-repository";
-import { resolveSubscription } from "@/lib/subscription";
+import { hasCapability, resolveSubscription } from "@/lib/subscription";
+import { isBrandThemeSettingsEnabled } from "@/lib/brand-theme/limits";
+import { getBrandThemeGenerationsLeft } from "@/lib/brand-theme/usage";
 import { canManageWorkspace, isTeamWorkspaceKind } from "@/lib/workspace";
 
 // Причины отказа из ЮKassa (cancellation_details.reason) человеческим языком.
@@ -73,6 +75,12 @@ export default async function SettingsPage({
     autopay,
     seatBalance,
   } = data;
+  // Счётчик нужен только карточке фирменного стиля в состояниях B и C —
+  // остальным мастерам лишний запрос ни к чему.
+  const brandThemeGenerationsLeft =
+    isBrandThemeSettingsEnabled && hasCapability(profile, "brandTheme")
+      ? await getBrandThemeGenerationsLeft(profile.id)
+      : undefined;
   const showWorkspaceAdminLink =
     canManageWorkspace(profile.accountRole) &&
     isTeamWorkspaceKind(profile.workspaceKind);
@@ -160,6 +168,7 @@ export default async function SettingsPage({
         serviceManuals={serviceManuals}
         referralInvites={referralInvites}
         certificateTemplate={certificateTemplate}
+        brandThemeGenerationsLeft={brandThemeGenerationsLeft}
         yookassaAccount={yookassaAccount}
         activeSeats={activeSeats}
         autopay={autopay}

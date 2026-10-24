@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { BrandThemeStyle } from "@/components/brand-theme/brand-theme-style";
 import {
   defaultBookingThemePresetId,
-  bookingThemeAttr,
   type BookingThemePresetId,
 } from "@/lib/booking-theme-presets";
+import { publicThemeAttr } from "@/lib/brand-theme/attr";
+import type { BrandTheme } from "@/lib/brand-theme/schema";
 import {
   buildFullPhone,
   defaultPhoneCountryCode,
@@ -43,6 +45,7 @@ type BookingFlowProps = {
   services: Service[];
   bookingSlotsByService: Record<string, BookingSlot[]>;
   themePresetId?: BookingThemePresetId;
+  brandTheme?: BrandTheme | null;
   commentFieldMode?: CommentFieldMode;
   mode?: "live" | "demo";
   initialServiceId?: string;
@@ -86,6 +89,7 @@ export function BookingFlow({
   services,
   bookingSlotsByService,
   themePresetId = defaultBookingThemePresetId,
+  brandTheme = null,
   commentFieldMode = defaultBookingPageSettings.commentFieldMode,
   mode = "live",
   initialServiceId,
@@ -558,7 +562,8 @@ export function BookingFlow({
   ]);
 
   return (
-    <div {...bookingThemeAttr(themePresetId)}>
+    <div {...publicThemeAttr(themePresetId, brandTheme)}>
+      <BrandThemeStyle theme={brandTheme} />
       <Card className="relative z-10 space-y-6">
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs text-muted">

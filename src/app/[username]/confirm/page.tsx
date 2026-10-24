@@ -7,7 +7,8 @@ import { SiteShell } from "@/components/layout/site-shell";
 import { TipForm } from "@/components/booking/tip-form";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { bookingThemeAttr } from "@/lib/booking-theme-presets";
+import { BrandThemeStyle } from "@/components/brand-theme/brand-theme-style";
+import { publicThemeAttr } from "@/lib/brand-theme/attr";
 import { getBookingConfirmationData } from "@/lib/data";
 import { isTelegramBotConfigured } from "@/lib/env";
 import { detectCalendarPlatformFromUserAgent } from "@/lib/ics";
@@ -78,9 +79,10 @@ export default async function ConfirmPage({
   return (
     <SiteShell compact hideGuestMenu resolveAuth={false} showSupportWidget={false}>
       <div
-        {...bookingThemeAttr(booking.themePresetId)}
+        {...publicThemeAttr(booking.themePresetId, booking.brandTheme)}
         className="mx-auto max-w-3xl py-10"
       >
+        <BrandThemeStyle theme={booking.brandTheme} />
         <div
           className="rounded-section p-4 sm:p-6"
           style={{

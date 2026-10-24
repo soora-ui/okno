@@ -41,6 +41,8 @@ export const landingDemoProfile: Profile = {
     },
   ],
   bookingThemePresetId: defaultBookingThemePresetId,
+  brandTheme: null,
+  brandThemeAppliedAt: null,
   bookingPageSettings: {
     ...defaultBookingPageSettings,
     headline: "Аккуратный маникюр и брови, которые держатся",

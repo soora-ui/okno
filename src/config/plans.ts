@@ -11,7 +11,8 @@ export type PlanCapability =
   | "clientReliability" // рейтинг надёжности клиента по истории визитов
   | "aiConsultation" // мануалы услуг и ответы AI-консультанта клиентам
   | "analytics" // доход в час по услугам, клиенты и потери в аналитике
-  | "team"; // общий кабинет команды и сотрудники
+  | "team" // общий кабинет команды и сотрудники
+  | "brandTheme"; // фирменный стиль публичной страницы (okno-tz-brand-theme-ui.md)
 
 export type PricingPlan = {
   id: PlanId;
@@ -92,7 +93,7 @@ export const pricingPlans: PricingPlan[] = [
     tag: "Защита от неявок",
     valueNote: "Окупается, если предоплата спасёт хотя бы одну запись от неявки.",
     highlighted: true,
-    capabilities: ["prepayment", "clientReliability", "aiConsultation", "analytics"],
+    capabilities: ["prepayment", "clientReliability", "aiConsultation", "analytics", "brandTheme"],
     includedSeats: 0,
     features: [
       "Всё из базового тарифа",
@@ -110,7 +111,7 @@ export const pricingPlans: PricingPlan[] = [
     description: "Общий кабинет на команду, три сотрудника уже включены.",
     tag: "Для команды",
     valueNote: `≈ ${studioPerSeatRub} ₽ на мастера — дешевле, чем каждому платить за свой базовый.`,
-    capabilities: ["prepayment", "clientReliability", "aiConsultation", "analytics", "team"],
+    capabilities: ["prepayment", "clientReliability", "aiConsultation", "analytics", "team", "brandTheme"],
     includedSeats: studioIncludedSeats,
     features: [
       "Всё из расширенного тарифа",

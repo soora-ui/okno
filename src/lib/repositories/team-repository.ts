@@ -20,6 +20,8 @@ const TEAM_PROFILE_COLUMNS = [
   "timezone",
   "telegram_chat_id",
   "booking_theme_preset",
+  "brand_theme",
+  "brand_theme_applied_at",
   "subscription_tier",
   "subscription_until",
   "subscription_paused_until",

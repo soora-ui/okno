@@ -36,6 +36,14 @@ import {
   resolveSubscription,
 } from "@/lib/subscription";
 import { formatPublicProfileLink, publicLinkHost } from "@/lib/site";
+import {
+  brandThemeFreeGenerationsPerMonth,
+  isBrandThemeSettingsEnabled,
+} from "@/lib/brand-theme/limits";
+import {
+  BrandThemeEntry,
+  resolveBrandThemeEntryState,
+} from "@/components/settings/brand-theme-entry";
 import { bookingThemePresets } from "@/lib/booking-theme-presets";
 import { Card } from "@/components/ui/card";
 import {
@@ -189,6 +197,7 @@ export function SettingsTabs({
   seatBalance,
   initialTab = null,
   notices,
+  brandThemeGenerationsLeft = brandThemeFreeGenerationsPerMonth,
 }: {
   profile: Profile;
   services: Service[];
@@ -196,6 +205,8 @@ export function SettingsTabs({
   serviceManuals?: Record<string, ServiceManualSummary>;
   referralInvites?: ReferralInviteSummary[];
   certificateTemplate?: CertificateTemplateSummary | null;
+  // Сколько бесплатных генераций фирменного стиля осталось в этом месяце.
+  brandThemeGenerationsLeft?: number;
   yookassaAccount?: MasterYooKassaAccount | null;
   // Активные сотрудники рабочего пространства — от них считается доплата
   // за места сверх включённых в тариф.
@@ -378,7 +389,25 @@ export function SettingsTabs({
           title="Цвет клиентских страниц"
           description="Профиль, запись и подтверждение. Светлую или тёмную пару выбирает телефон клиента."
         />
-        <BookingThemeSettings profile={profile} services={services} />
+        {isBrandThemeSettingsEnabled ? (
+          <BrandThemeEntry
+            state={resolveBrandThemeEntryState({
+              hasAccess: hasCapability(profile, "brandTheme"),
+              hasTheme: profile.brandTheme !== null,
+            })}
+            theme={profile.brandTheme}
+            appliedAt={profile.brandThemeAppliedAt}
+            subscriptionUntil={profile.subscriptionUntil}
+            presetId={profile.bookingThemePresetId}
+            masterName={profile.fullName}
+            generationsLeft={brandThemeGenerationsLeft}
+          />
+        ) : null}
+        <BookingThemeSettings
+          profile={profile}
+          services={services}
+          locked={isBrandThemeSettingsEnabled && profile.brandTheme !== null}
+        />
       </Card>
     ),
   };

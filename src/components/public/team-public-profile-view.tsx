@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
 import { getClosestSlots } from "@/components/public/public-profile-shared";
-import { bookingThemeAttr } from "@/lib/booking-theme-presets";
+import { BrandThemeStyle } from "@/components/brand-theme/brand-theme-style";
+import { publicThemeAttr } from "@/lib/brand-theme/attr";
 import { formatCurrency, type Service } from "@/lib/mock-data";
 import type { PublicPageData } from "@/lib/data";
 import { currentPeriodDiscount } from "@/lib/service-discounts";
@@ -119,9 +120,10 @@ export function TeamPublicProfileView({
 
   return (
     <main
-      {...bookingThemeAttr(profile.bookingThemePresetId)}
+      {...publicThemeAttr(profile.bookingThemePresetId, profile.brandTheme)}
       className="relative min-h-screen overflow-x-hidden bg-[var(--color-background)] pb-28"
     >
+      <BrandThemeStyle theme={profile.brandTheme} />
       <div
         className="pointer-events-none absolute inset-0"
         style={{

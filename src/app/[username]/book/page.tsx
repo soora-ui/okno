@@ -47,6 +47,7 @@ export default async function BookingPage({ params, searchParams }: Props) {
           services={data.services}
           bookingSlotsByService={data.bookingSlotsByService}
           themePresetId={data.profile.bookingThemePresetId}
+          brandTheme={data.profile.brandTheme}
           commentFieldMode={data.profile.bookingPageSettings.commentFieldMode}
           initialServiceId={initialServiceId}
           initialDate={initialDate}

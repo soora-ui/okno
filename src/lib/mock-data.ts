@@ -1,4 +1,5 @@
 import type { PortfolioWork } from "@/lib/profile-media";
+import type { BrandTheme } from "@/lib/brand-theme/schema";
 import {
   defaultBookingPageSettings,
   type BookingPageSettings,
@@ -36,6 +37,9 @@ export type Profile = {
   avatarPath: string | null;
   portfolioWorks: PortfolioWork[];
   bookingThemePresetId: BookingThemePresetId;
+  // Фирменный стиль: если задан, перекрывает пресет на публичной странице.
+  brandTheme: BrandTheme | null;
+  brandThemeAppliedAt: string | null;
   bookingPageSettings: BookingPageSettings;
   subscriptionTier: SubscriptionTier;
   subscriptionUntil: string | null;
@@ -221,6 +225,8 @@ export const profile: Profile = {
     },
   ],
   bookingThemePresetId: defaultBookingThemePresetId,
+  brandTheme: null,
+  brandThemeAppliedAt: null,
   bookingPageSettings: defaultBookingPageSettings,
   subscriptionTier: "free",
   subscriptionUntil: null,

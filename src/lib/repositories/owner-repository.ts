@@ -25,6 +25,8 @@ const PROFILE_COLUMNS = [
   "address",
   "telegram_chat_id",
   "booking_theme_preset",
+  "brand_theme",
+  "brand_theme_applied_at",
   "booking_page_settings",
   "subscription_tier",
   "subscription_until",

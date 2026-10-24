@@ -9,6 +9,7 @@ import { updateBookingThemePresetAction } from "@/app/actions/settings";
 import { BookingThemePreviewSplit } from "@/components/booking/booking-theme-preview";
 import { FormMessage, SubmitButton } from "@/components/forms/auth-form-state";
 import type { Profile, Service } from "@/lib/mock-data";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const initialState = {
@@ -19,9 +20,13 @@ const initialState = {
 export function BookingThemeSettings({
   profile,
   services,
+  locked = false,
 }: {
   profile: Profile;
   services: Service[];
+  // Действует фирменный стиль: пресеты видны, но выбрать их можно только
+  // после возврата к стандартному (макет 4.0-C).
+  locked?: boolean;
 }) {
   const [state, action] = useActionState(
     updateBookingThemePresetAction,
@@ -49,7 +54,16 @@ export function BookingThemeSettings({
         />
 
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-ink">Готовые пресеты</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-ink">Готовые пресеты</p>
+            {locked ? <Badge>Не используются</Badge> : null}
+          </div>
+          {locked ? (
+            <p className="text-sm leading-6 text-ink-soft">
+              Сейчас действует фирменный стиль. Выбрать пресет можно после
+              возврата к стандартному.
+            </p>
+          ) : null}
           <p className="text-sm leading-6 text-ink-soft">
             Один пресет применяется ко всему клиентскому пути мастера: профиль,
             запись и экран подтверждения. Кабинет и системные страницы остаются
@@ -57,7 +71,7 @@ export function BookingThemeSettings({
           </p>
         </div>
 
-        <div className="grid gap-3">
+        <fieldset disabled={locked} className={cn("grid gap-3", locked && "opacity-50")}>
           {bookingThemePresets.map((preset) => (
             <label
               key={preset.id}
@@ -113,10 +127,12 @@ export function BookingThemeSettings({
               </div>
             </label>
           ))}
-        </div>
+        </fieldset>
 
         <FormMessage message={state.message} success={state.success} />
-        <SubmitButton idleLabel="Сохранить пресет" pendingLabel="Сохраняю..." />
+        {locked ? null : (
+          <SubmitButton idleLabel="Сохранить пресет" pendingLabel="Сохраняю..." />
+        )}
       </form>
 
       <div className="min-w-0 space-y-3 rounded-nested border border-line bg-panel p-5">

@@ -21,6 +21,7 @@ import { buildAccountNotificationItems } from "@/lib/account-notifications";
 import { countUnseenReplies } from "@/lib/feedback/service";
 import { pricingPlans } from "@/config/plans";
 import { normalizeBookingThemePresetId } from "@/lib/booking-theme-presets";
+import { normalizeBrandTheme } from "@/lib/brand-theme/schema";
 import { renderCertificateThumbnailPng } from "@/lib/certificates/render";
 import { isDemoCabinetHeaders } from "@/lib/demo-cabinet";
 import { DEMO_CABINET_PROFILE_ID, getDemoCabinetData } from "@/lib/demo-cabinet-data";
@@ -205,6 +206,8 @@ const PUBLIC_PROFILE_BASE_COLUMNS = [
   "address",
   "telegram_chat_id",
   "booking_theme_preset",
+  "brand_theme",
+  "brand_theme_applied_at",
   "booking_page_settings",
   "subscription_tier",
   "subscription_until",
@@ -1227,6 +1230,7 @@ export async function getBookingConfirmationData(
       }),
       cancellationToken: booking.cancellationToken,
       themePresetId: mockProfile.bookingThemePresetId,
+      brandTheme: mockProfile.brandTheme,
       status: "confirmed" as const,
       prepaymentRequired: false,
     };
@@ -1235,7 +1239,7 @@ export async function getBookingConfirmationData(
   const admin = createSupabaseAdminClient();
   const { data: profileRow, error: profileError } = await admin
     .from("profiles")
-    .select("id, timezone, booking_theme_preset")
+    .select("id, timezone, booking_theme_preset, brand_theme")
     .eq("username", username)
     .maybeSingle();
 
@@ -1335,6 +1339,7 @@ export async function getBookingConfirmationData(
     }),
     cancellationToken: String(resolvedBookingRow.cancellation_token ?? ""),
     themePresetId: normalizeBookingThemePresetId(profileRow.booking_theme_preset),
+    brandTheme: normalizeBrandTheme(profileRow.brand_theme),
     status: String(resolvedBookingRow.status ?? "confirmed") as
       | "confirmed"
       | "pending_payment"

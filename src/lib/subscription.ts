@@ -48,6 +48,7 @@ const ALL_CAPABILITIES: readonly PlanCapability[] = [
   "aiConsultation",
   "analytics",
   "team",
+  "brandTheme",
 ];
 
 const NO_ACCESS: SubscriptionAccess = {

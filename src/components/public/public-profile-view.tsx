@@ -37,7 +37,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
-import { bookingThemeAttr } from "@/lib/booking-theme-presets";
+import {
+  BrandAvatarRing,
+  BrandCardCorner,
+  BrandCtaUnderlay,
+  BrandDivider,
+  BrandHeroDecor,
+} from "@/components/brand-theme/brand-decor";
+import { BrandThemeStyle } from "@/components/brand-theme/brand-theme-style";
+import { publicThemeAttr } from "@/lib/brand-theme/attr";
 import { socialNetworkMeta, socialNetworks } from "@/lib/booking-page-settings";
 import { formatCurrency } from "@/lib/mock-data";
 import { isHotWindowsDiscountActive } from "@/lib/service-discounts";
@@ -85,7 +93,10 @@ export function PublicProfileView({
   // В демо-туре пресет можно переключать прямо на странице, поэтому он
   // живёт в состоянии; на реальной странице мастера это просто его пресет.
   const [presetId, setPresetId] = useState(profile.bookingThemePresetId);
-  const publicThemeAttr = bookingThemeAttr(presetId);
+  // Фирменный стиль перекрывает пресет. В демо-туре его нет: там мастер
+  // переключает пресеты, и фирменная тема помешала бы это увидеть.
+  const brandTheme = guidedDemo || tourThemeBridge ? null : profile.brandTheme;
+  const decor = brandTheme?.decor ?? null;
 
   // pb-28 на main нужен только под мобильную плавающую кнопку записи
   // (она lg:hidden). На десктопе это было 112px пустоты после подвала,
@@ -97,9 +108,10 @@ export function PublicProfileView({
   // невидимым. С isolate он ложится выше фона, но ниже всего содержимого.
   return (
     <main
-      {...publicThemeAttr}
+      {...publicThemeAttr(presetId, brandTheme)}
       className="relative isolate min-h-screen overflow-x-hidden bg-[var(--color-background)] pb-28 lg:pb-0"
     >
+      <BrandThemeStyle theme={brandTheme} />
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -148,12 +160,13 @@ export function PublicProfileView({
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div
             data-demo-id="hero"
-            className="h-full space-y-5 rounded-section border p-5 shadow-section backdrop-blur sm:p-6 lg:p-8"
+            className="relative isolate h-full space-y-5 overflow-hidden rounded-section border p-5 shadow-section backdrop-blur sm:p-6 lg:p-8"
             style={{
               backgroundColor: "var(--public-surface)",
               borderColor: "var(--public-edge)",
             }}
           >
+            <BrandHeroDecor decor={decor} />
             <div className="space-y-3">
               <Badge tone="accent">{eyebrowLabel}</Badge>
               <div data-tour="identity" className="space-y-3">
@@ -161,16 +174,19 @@ export function PublicProfileView({
                   <h1 className="min-w-0 flex-1 text-4xl font-semibold tracking-[-0.04em] text-ink sm:text-5xl">
                     {profile.fullName}
                   </h1>
-                  <div className="shrink-0 overflow-hidden rounded-full border border-white/90 bg-panel shadow-subtle">
-                    <Image
-                      src={profile.avatarUrl}
-                      alt={profile.fullName}
-                      width={72}
-                      height={72}
-                      priority
-                      loading="eager"
-                      className="h-[60px] w-[60px] object-cover sm:h-[72px] sm:w-[72px]"
-                    />
+                  <div className="relative shrink-0">
+                    <BrandAvatarRing decor={decor} />
+                    <div className="overflow-hidden rounded-full border border-white/90 bg-panel shadow-subtle">
+                      <Image
+                        src={profile.avatarUrl}
+                        alt={profile.fullName}
+                        width={72}
+                        height={72}
+                        priority
+                        loading="eager"
+                        className="h-[60px] w-[60px] object-cover sm:h-[72px] sm:w-[72px]"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-base text-ink-soft">
@@ -245,14 +261,19 @@ export function PublicProfileView({
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <ButtonLink
-                href={bookingHref}
-                documentNavigation={guidedDemo}
-                className="gap-2"
-              >
-                Выбрать время
-                <ArrowRight size={16} />
-              </ButtonLink>
+              <span className="relative isolate inline-flex">
+                <span className="absolute inset-0 -z-10">
+                  <BrandCtaUnderlay decor={decor} />
+                </span>
+                <ButtonLink
+                  href={bookingHref}
+                  documentNavigation={guidedDemo}
+                  className="gap-2"
+                >
+                  Выбрать время
+                  <ArrowRight size={16} />
+                </ButtonLink>
+              </span>
               {hasPortfolioWorks ? (
                 <Button
                   type="button"
@@ -471,6 +492,7 @@ export function PublicProfileView({
             data-demo-id="works"
             className="relative mt-14 rounded-section space-y-6"
           >
+            <BrandDivider decor={decor} />
             <Reveal variant="fade-up">
               <div className="max-w-2xl space-y-2">
                 <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
@@ -530,6 +552,7 @@ export function PublicProfileView({
           data-demo-id="services"
           className="relative mt-16 rounded-section space-y-6"
         >
+          <BrandDivider decor={decor} />
           <Reveal variant="fade-up">
             <div className="max-w-2xl space-y-2">
               <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
@@ -567,6 +590,7 @@ export function PublicProfileView({
                         : "var(--color-accent-soft)",
                   }}
                 >
+                  <BrandCardCorner decor={decor} />
                   <div className="space-y-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-2">

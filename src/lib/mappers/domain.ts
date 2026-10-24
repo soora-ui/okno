@@ -1,6 +1,7 @@
 import type { Profile } from "@/lib/mock-data";
 import { decryptPhone } from "@/lib/booking";
 import { normalizeBookingThemePresetId } from "@/lib/booking-theme-presets";
+import { normalizeBrandTheme } from "@/lib/brand-theme/schema";
 import { normalizeBookingPageSettings } from "@/lib/booking-page-settings";
 import {
   defaultAvatarUrl,
@@ -49,6 +50,10 @@ export function mapProfile(row: Record<string, unknown>): Profile {
     avatarPath: media.avatarPath,
     portfolioWorks: media.portfolioWorks,
     bookingThemePresetId: normalizeBookingThemePresetId(row.booking_theme_preset),
+    brandTheme: normalizeBrandTheme(row.brand_theme),
+    brandThemeAppliedAt: row.brand_theme_applied_at
+      ? String(row.brand_theme_applied_at)
+      : null,
     bookingPageSettings: normalizeBookingPageSettings(row.booking_page_settings),
     subscriptionTier: normalizeSubscriptionTier(row.subscription_tier),
     subscriptionUntil: row.subscription_until

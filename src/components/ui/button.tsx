@@ -37,6 +37,7 @@ export function Button({
   return (
     <button
       type={props.type ?? "button"}
+      data-ui-button=""
       style={styles[variant]}
       className={cn(
         "inline-flex min-h-11 items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition duration-300 hover:-translate-y-0.5 active:scale-[0.98]",
@@ -64,7 +65,8 @@ export function ButtonLink({
     return (
       <a
         href={typeof href === "string" ? href : String(href)}
-        style={styles[variant]}
+        data-ui-button=""
+      style={styles[variant]}
         className={sharedClassName}
       >
         {children}
@@ -75,6 +77,7 @@ export function ButtonLink({
   return (
     <Link
       href={href}
+      data-ui-button=""
       style={styles[variant]}
       className={sharedClassName}
       {...props}
