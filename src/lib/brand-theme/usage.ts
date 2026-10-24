@@ -7,13 +7,12 @@ export function startOfMonthUtc(now: Date): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 }
 
-export async function getBrandThemeGenerationsLeft(
+/** Бесплатные полные генерации в этом месяце; null — база не ответила. */
+export async function countBrandThemeGenerationsUsed(
   profileId: string,
   now = new Date(),
-): Promise<number> {
-  if (!isSupabaseConfigured) {
-    return brandThemeFreeGenerationsPerMonth;
-  }
+): Promise<number | null> {
+  if (!isSupabaseConfigured) return 0;
 
   const admin = createSupabaseAdminClient();
   const { count, error } = await admin
@@ -25,11 +24,20 @@ export async function getBrandThemeGenerationsLeft(
     .gte("created_at", startOfMonthUtc(now));
 
   if (error) {
-    // Миграции ещё нет или база недоступна: показываем полный лимит, а не
-    // роняем настройки. Списание всё равно проверяется при генерации.
     logError("Failed to count brand theme generations", { profileId, error });
-    return brandThemeFreeGenerationsPerMonth;
+    return null;
   }
 
-  return Math.max(brandThemeFreeGenerationsPerMonth - (count ?? 0), 0);
+  return count ?? 0;
+}
+
+export async function getBrandThemeGenerationsLeft(
+  profileId: string,
+  now = new Date(),
+): Promise<number> {
+  const used = await countBrandThemeGenerationsUsed(profileId, now);
+  // Миграции ещё нет или база недоступна: показываем полный лимит, а не
+  // роняем настройки. Списание всё равно перепроверяется при генерации.
+  if (used === null) return brandThemeFreeGenerationsPerMonth;
+  return Math.max(brandThemeFreeGenerationsPerMonth - used, 0);
 }
