@@ -41,10 +41,12 @@ export function BookingThemeSettings({
     .map((service) => service.title);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+    <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+      {/* Без data-settings-form: форма живёт в окне «Оформление страницы»
+          (портал вне раздела настроек), и общая панель сохранения её не
+          видит — сохраняет своя кнопка. */}
       <form
         action={action}
-        data-settings-form
         className="min-w-0 space-y-4 rounded-nested border border-line bg-surface p-5"
       >
         <input
@@ -53,23 +55,17 @@ export function BookingThemeSettings({
           value={selectedPresetId}
         />
 
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-ink">Готовые пресеты</p>
-            {locked ? <Badge>Не используются</Badge> : null}
-          </div>
-          {locked ? (
+        {/* Что пресет действует на профиль, запись и подтверждение, говорит
+            шапка окна «Оформление страницы» — здесь только выбор. */}
+        {locked ? (
+          <div className="space-y-2">
+            <Badge>Не используются</Badge>
             <p className="text-sm leading-6 text-ink-soft">
               Сейчас действует фирменный стиль. Выбрать пресет можно после
               возврата к стандартному.
             </p>
-          ) : null}
-          <p className="text-sm leading-6 text-ink-soft">
-            Один пресет применяется ко всему клиентскому пути мастера: профиль,
-            запись и экран подтверждения. Кабинет и системные страницы остаются
-            без изменений.
-          </p>
-        </div>
+          </div>
+        ) : null}
 
         <fieldset disabled={locked} className={cn("grid gap-3", locked && "opacity-50")}>
           {bookingThemePresets.map((preset) => (
@@ -139,9 +135,7 @@ export function BookingThemeSettings({
         <div className="space-y-1">
           <p className="text-sm font-semibold text-ink">Как это увидит клиент</p>
           <p className="text-sm leading-6 text-ink-soft">
-            В предпросмотре показан основной экран записи. Этот же пресет мягко
-            применяется к профилю мастера и экрану подтверждения. Клиент увидит
-            ту тему, которая стоит у него на устройстве, — поэтому здесь обе.
+            Светлую или тёмную пару выбирает телефон клиента, поэтому здесь обе.
           </p>
         </div>
 

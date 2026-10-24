@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { createPortal } from "react-dom";
-import { motion, useReducedMotion } from "framer-motion";
+import { useState, useTransition } from "react";
 import { ArrowRight, Info, Lock, Palette, Smartphone, TriangleAlert, Upload } from "lucide-react";
 import { resetBrandThemeAction } from "@/app/actions/brand-theme";
 import { BrandMiniPreview } from "@/components/brand-theme/brand-mini-preview";
@@ -108,7 +106,7 @@ export function BrandThemeEntry({
   masterName: string;
   generationsLeft: number;
 }) {
-  const [isIntroOpen, setIntroOpen] = useState(false);
+  const [view, setView] = useState<"entry" | "intro">("entry");
   const [notice, setNotice] = useState<string | null>(null);
   const [isResetting, startReset] = useTransition();
   const firstName = masterName.split(" ")[0] || masterName;
@@ -120,12 +118,27 @@ export function BrandThemeEntry({
     });
   };
 
+  if (view === "intro") {
+    return (
+      <BrandThemeIntroPanel
+        generationsLeft={generationsLeft}
+        onBack={() => setView("entry")}
+        onStart={() => {
+          setView("entry");
+          // Мастер загрузки материалов (4.2–4.10) — следующий этап, макетов
+          // ещё нет. До тех пор вкладка видна только вне продакшена.
+          setNotice("Загрузка материалов появится на следующем этапе разработки.");
+        }}
+      />
+    );
+  }
+
   return (
     <>
       {state === "A" ? (
         <section
           aria-labelledby="brand-theme-title"
-          className="flex flex-col gap-8 rounded-card border border-line bg-surface p-6 shadow-card md:flex-row md:items-center"
+          className="flex flex-col gap-8 rounded-card border border-line bg-surface p-6 md:flex-row md:items-center"
         >
           <div className="flex flex-1 flex-col gap-3.5">
             <div className="flex flex-wrap items-center gap-3">
@@ -165,7 +178,7 @@ export function BrandThemeEntry({
       {state === "B" ? (
         <section
           aria-labelledby="brand-theme-title"
-          className="flex flex-col gap-7 rounded-card border border-line bg-surface p-6 shadow-card md:flex-row md:items-center md:justify-between"
+          className="flex flex-col gap-7 rounded-card border border-line bg-surface p-6 md:flex-row md:items-center md:justify-between"
         >
           <div className="flex items-start gap-[18px]">
             <IconBubble>
@@ -184,7 +197,7 @@ export function BrandThemeEntry({
           </div>
           <div className="flex shrink-0 flex-col gap-3 md:items-end">
             <GenerationsCounter left={generationsLeft} variant="month" />
-            <Button onClick={() => setIntroOpen(true)} className="w-full md:w-auto">
+            <Button onClick={() => setView("intro")} className="w-full md:w-auto">
               Создать фирменный стиль
             </Button>
           </div>
@@ -194,7 +207,7 @@ export function BrandThemeEntry({
       {state === "C" || state === "D" ? (
         <section
           aria-labelledby="brand-theme-title"
-          className="flex flex-col gap-7 rounded-card border border-line bg-surface p-6 shadow-card md:flex-row md:items-center"
+          className="flex flex-col gap-7 rounded-card border border-line bg-surface p-6 md:flex-row md:items-center"
         >
           <BrandMiniPreview theme={theme} name={firstName} className="self-center" />
           <div className="flex flex-1 flex-col gap-3.5">
@@ -218,7 +231,7 @@ export function BrandThemeEntry({
                   <GenerationsCounter left={generationsLeft} variant="left" />
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  <Button variant="secondary" onClick={() => setIntroOpen(true)}>
+                  <Button variant="secondary" onClick={() => setView("intro")}>
                     Изменить
                   </Button>
                   <Button variant="ghost" onClick={reset} disabled={isResetting}>
@@ -265,17 +278,6 @@ export function BrandThemeEntry({
         </p>
       ) : null}
 
-      <BrandThemeIntro
-        isOpen={isIntroOpen}
-        generationsLeft={generationsLeft}
-        onClose={() => setIntroOpen(false)}
-        onStart={() => {
-          setIntroOpen(false);
-          // Мастер загрузки материалов (4.2–4.10) — следующий этап, макетов
-          // ещё нет. До тех пор карточка видна только вне продакшена.
-          setNotice("Загрузка материалов появится на следующем этапе разработки.");
-        }}
-      />
     </>
   );
 }
@@ -298,106 +300,62 @@ const steps = [
   },
 ] as const;
 
-// Вступление (макет 4.1): модалка на десктопе, шит снизу на телефоне.
-// Закрытие мгновенное, без exit-анимации — как у модалки сертификатов, где
-// придержанный rAF в фоновой вкладке оставлял окно висеть в DOM. Рендерится
-// порталом в body: карточки настроек анимируются и создают свой контекст
-// наложения, внутри которого fixed z-50 оказывался под соседними секциями.
-function BrandThemeIntro({
-  isOpen,
+// Вступление (макет 4.1). Живёт внутри окна «Оформление страницы» как
+// отдельный вид, а не вторым окном поверх: туда же дальше встанут шаги
+// мастера загрузки (4.2–4.10).
+function BrandThemeIntroPanel({
   generationsLeft,
-  onClose,
+  onBack,
   onStart,
 }: {
-  isOpen: boolean;
   generationsLeft: number;
-  onClose: () => void;
+  onBack: () => void;
   onStart: () => void;
 }) {
-  const reduceMotion = useReducedMotion();
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
   const noGenerations = generationsLeft === 0;
 
-  return createPortal(
-    <motion.div
-      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:px-6"
-      style={{ backgroundColor: "rgba(35,36,31,0.46)", backdropFilter: "blur(6px)" }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: reduceMotion ? 0 : 0.2 }}
-      onClick={onClose}
-    >
-      <motion.div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="brand-theme-intro-title"
-        className="flex max-h-[calc(100dvh-32px)] w-full flex-col gap-[22px] overflow-auto rounded-t-section border border-line bg-surface p-6 pb-[calc(24px+env(safe-area-inset-bottom))] shadow-ink sm:max-w-[600px] sm:rounded-section sm:p-8"
-        initial={reduceMotion ? false : { opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <span aria-hidden="true" className="mx-auto -mt-2.5 block h-[5px] w-11 rounded-full bg-[var(--color-line)] sm:hidden" />
-        <div className="flex flex-col gap-2">
-          <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">Фирменный стиль</span>
-          <h2 id="brand-theme-intro-title" className="text-2xl font-semibold tracking-[-0.02em] text-ink">
-            Как это работает
-          </h2>
-          <p className="text-ink-soft">Три коротких шага. Займёт несколько минут.</p>
-        </div>
+  return (
+    <section aria-labelledby="brand-theme-intro-title" className="flex flex-col gap-[22px]">
+      <div className="flex flex-col gap-2">
+        <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">Фирменный стиль</span>
+        <h3 id="brand-theme-intro-title" className="text-2xl font-semibold tracking-[-0.02em] text-ink">
+          Как это работает
+        </h3>
+        <p className="text-ink-soft">Три коротких шага. Займёт несколько минут.</p>
+      </div>
 
-        <ol className="flex flex-col gap-[18px]">
-          {steps.map(({ icon: Icon, title, text }) => (
-            <li key={title} className="flex items-start gap-4">
-              <IconBubble>
-                <Icon size={20} strokeWidth={1.6} />
-              </IconBubble>
-              <div>
-                <p className="text-base font-semibold leading-[1.3] text-ink">{title}</p>
-                <p className="text-[13px] leading-[1.45] text-muted">{text}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+      <ol className="flex flex-col gap-[18px]">
+        {steps.map(({ icon: Icon, title, text }) => (
+          <li key={title} className="flex items-start gap-4">
+            <IconBubble>
+              <Icon size={20} strokeWidth={1.6} />
+            </IconBubble>
+            <div>
+              <p className="text-base font-semibold leading-[1.3] text-ink">{title}</p>
+              <p className="text-[13px] leading-[1.45] text-muted">{text}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
 
-        <div className="flex items-start gap-3 rounded-panel border border-accent bg-accent-soft p-4">
-          <Info aria-hidden="true" size={20} strokeWidth={1.6} className="mt-0.5 shrink-0 text-accent-deep" />
-          <p className="text-[13px] leading-[1.45] text-ink">
-            Меняется только оформление. Порядок блоков и запись для клиентов остаются прежними.
-          </p>
-        </div>
+      <div className="flex items-start gap-3 rounded-panel border border-accent bg-accent-soft p-4">
+        <Info aria-hidden="true" size={20} strokeWidth={1.6} className="mt-0.5 shrink-0 text-accent-deep" />
+        <p className="text-[13px] leading-[1.45] text-ink">
+          Меняется только оформление. Порядок блоков и запись для клиентов остаются прежними.
+        </p>
+      </div>
 
-        <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
-          <GenerationsCounter left={generationsLeft} variant="month" />
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <Button variant="ghost" onClick={onClose}>
-              Не сейчас
-            </Button>
-            <Button onClick={onStart} disabled={noGenerations}>
-              Начать
-            </Button>
-          </div>
+      <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <GenerationsCounter left={generationsLeft} variant="month" />
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button variant="ghost" onClick={onBack}>
+            Не сейчас
+          </Button>
+          <Button onClick={onStart} disabled={noGenerations}>
+            Начать
+          </Button>
         </div>
-      </motion.div>
-    </motion.div>,
-    document.body,
+      </div>
+    </section>
   );
 }

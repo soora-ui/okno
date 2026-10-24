@@ -40,10 +40,8 @@ import {
   brandThemeFreeGenerationsPerMonth,
   isBrandThemeSettingsEnabled,
 } from "@/lib/brand-theme/limits";
-import {
-  BrandThemeEntry,
-  resolveBrandThemeEntryState,
-} from "@/components/settings/brand-theme-entry";
+import { resolveBrandThemeEntryState } from "@/components/settings/brand-theme-entry";
+import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { bookingThemePresets } from "@/lib/booking-theme-presets";
 import { Card } from "@/components/ui/card";
 import {
@@ -80,21 +78,6 @@ import {
 import { RECORD_TAB_SECTIONS } from "@/config/recordTabSections";
 import { isSettingsTabId, type SettingsTabId } from "@/config/settingsTabs";
 import { cn, pluralizeRu } from "@/lib/utils";
-
-const BookingThemeSettings = dynamic(
-  () =>
-    import("@/components/settings/booking-theme-settings").then(
-      (mod) => mod.BookingThemeSettings,
-    ),
-  {
-    loading: () => (
-      <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <div className="h-[34rem] animate-pulse rounded-nested border border-line bg-panel" />
-        <div className="h-[34rem] animate-pulse rounded-nested border border-line bg-panel" />
-      </div>
-    ),
-  },
-);
 
 // Leaflet работает только в браузере и весит заметно — грузим пикер отдельно.
 const MapLocationPicker = dynamic(
@@ -389,24 +372,20 @@ export function SettingsTabs({
           title="Цвет клиентских страниц"
           description="Профиль, запись и подтверждение. Светлую или тёмную пару выбирает телефон клиента."
         />
-        {isBrandThemeSettingsEnabled ? (
-          <BrandThemeEntry
-            state={resolveBrandThemeEntryState({
-              hasAccess: hasCapability(profile, "brandTheme"),
-              hasTheme: profile.brandTheme !== null,
-            })}
-            theme={profile.brandTheme}
-            appliedAt={profile.brandThemeAppliedAt}
-            subscriptionUntil={profile.subscriptionUntil}
-            presetId={profile.bookingThemePresetId}
-            masterName={profile.fullName}
-            generationsLeft={brandThemeGenerationsLeft}
-          />
-        ) : null}
-        <BookingThemeSettings
+        <AppearanceSettings
           profile={profile}
           services={services}
-          locked={isBrandThemeSettingsEnabled && profile.brandTheme !== null}
+          brand={
+            isBrandThemeSettingsEnabled
+              ? {
+                  state: resolveBrandThemeEntryState({
+                    hasAccess: hasCapability(profile, "brandTheme"),
+                    hasTheme: profile.brandTheme !== null,
+                  }),
+                  generationsLeft: brandThemeGenerationsLeft,
+                }
+              : null
+          }
         />
       </Card>
     ),
