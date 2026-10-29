@@ -5,7 +5,7 @@ import {
   normalizeHexList,
   type GeneratedVariant,
 } from "@/lib/brand-theme/generation-prompt";
-import { BrandMaterialError, readBrandMaterials } from "@/lib/brand-theme/materials";
+import { BrandMaterialError, prepareBrandMaterial } from "@/lib/brand-theme/materials";
 import { brandThemeSamples } from "@/lib/brand-theme/samples";
 
 const rose = brandThemeSamples.rose;
@@ -87,29 +87,54 @@ describe("buildBrandThemeBriefText", () => {
   });
 });
 
-describe("readBrandMaterials", () => {
+describe("prepareBrandMaterial", () => {
   const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#8e4a55"/></svg>';
 
   it("определяет тип по содержимому, а не по имени", async () => {
-    const [material] = await readBrandMaterials([
-      { kind: "logo", file: new File([png], "logo.jpg", { type: "image/jpeg" }) },
-    ]);
+    const material = await prepareBrandMaterial(
+      "example",
+      new File([png], "photo.jpg", { type: "image/jpeg" }),
+    );
     expect(material.type).toBe("image/png");
   });
 
   it("не пускает не-картинки под видом картинок", async () => {
     await expect(
-      readBrandMaterials([
-        { kind: "example", file: new File(["<svg onload=alert(1)>"], "x.png", { type: "image/png" }) },
-      ]),
+      prepareBrandMaterial("example", new File(["<html>"], "x.png", { type: "image/png" })),
     ).rejects.toBeInstanceOf(BrandMaterialError);
   });
 
-  it("держит лимит на количество", async () => {
-    const logos = [0, 1].map((index) => ({
-      kind: "logo" as const,
-      file: new File([png], `logo-${index}.png`),
-    }));
-    await expect(readBrandMaterials(logos)).rejects.toThrow("не больше 1");
+  it("PDF — только для брендбука", async () => {
+    const pdf = new TextEncoder().encode("%PDF-1.4");
+    await expect(prepareBrandMaterial("example", new File([pdf], "x.pdf"))).rejects.toThrow(
+      "PNG или JPG",
+    );
+  });
+
+  it("SVG-логотип сразу превращается в PNG", async () => {
+    const material = await prepareBrandMaterial("logo", new File([svg], "logo.svg"));
+    expect(material.type).toBe("image/png");
+    expect(Array.from(material.bytes.slice(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  });
+
+  it("скрипт внутри SVG не переживает растеризацию", async () => {
+    const evil = svg.replace("<rect", '<script>alert(1)</script><rect');
+    const material = await prepareBrandMaterial("logo", new File([evil], "logo.svg"));
+    expect(new TextDecoder().decode(material.bytes)).not.toContain("alert");
+  });
+
+  it("SVG вне логотипа не принимается", async () => {
+    await expect(prepareBrandMaterial("example", new File([svg], "x.svg"))).rejects.toBeInstanceOf(
+      BrandMaterialError,
+    );
+  });
+
+  it("логотип в JPG не принимается: нужна прозрачность", async () => {
+    const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
+    await expect(prepareBrandMaterial("logo", new File([jpg], "logo.jpg"))).rejects.toThrow(
+      "SVG или PNG",
+    );
   });
 });

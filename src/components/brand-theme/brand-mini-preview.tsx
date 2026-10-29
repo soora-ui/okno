@@ -2,6 +2,7 @@ import { BrandThemeStyle } from "@/components/brand-theme/brand-theme-style";
 import { BrandAvatarRing, BrandCtaUnderlay } from "@/components/brand-theme/brand-decor";
 import { bookingThemeAttr, type BookingThemePresetId } from "@/lib/booking-theme-presets";
 import { publicThemeAttr } from "@/lib/brand-theme/attr";
+import { decorFor } from "@/lib/brand-theme/decor";
 import type { BrandTheme } from "@/lib/brand-theme/schema";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +29,6 @@ export function BrandMiniPreview({
   const attr = theme
     ? publicThemeAttr(presetId, theme)
     : { ...bookingThemeAttr(presetId), "data-booking-theme-mode": "light" };
-  const decor = theme?.decor ?? null;
 
   return (
     <div
@@ -63,14 +63,14 @@ export function BrandMiniPreview({
               {name}
             </p>
             <span className="relative block h-6 w-6 shrink-0">
-              <BrandAvatarRing decor={decor} />
+              <BrandAvatarRing decor={decorFor(theme, "avatar")} />
               <span className="block h-6 w-6 rounded-full bg-panel" />
             </span>
           </div>
           <span className="block h-1.5 w-14 rounded-full bg-panel" />
           <span className="relative isolate inline-flex">
             <span className="absolute inset-0 -z-10">
-              <BrandCtaUnderlay decor={decor} />
+              <BrandCtaUnderlay decor={decorFor(theme, "cta")} />
             </span>
             <span
               data-ui-button=""

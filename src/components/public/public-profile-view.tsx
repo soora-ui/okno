@@ -42,8 +42,11 @@ import {
   BrandCardCorner,
   BrandCtaUnderlay,
   BrandDivider,
+  BrandFooterDecor,
   BrandHeroDecor,
 } from "@/components/brand-theme/brand-decor";
+import { brandLogoPath, decorFor } from "@/lib/brand-theme/decor";
+import { resolveProfileMediaUrl } from "@/lib/profile-media";
 import { BrandThemeStyle } from "@/components/brand-theme/brand-theme-style";
 import { publicThemeAttr } from "@/lib/brand-theme/attr";
 import { socialNetworkMeta, socialNetworks } from "@/lib/booking-page-settings";
@@ -96,7 +99,7 @@ export function PublicProfileView({
   // Фирменный стиль перекрывает пресет. В демо-туре его нет: там мастер
   // переключает пресеты, и фирменная тема помешала бы это увидеть.
   const brandTheme = guidedDemo || tourThemeBridge ? null : profile.brandTheme;
-  const decor = brandTheme?.decor ?? null;
+  const brandLogo = resolveProfileMediaUrl(brandLogoPath(brandTheme));
 
   // pb-28 на main нужен только под мобильную плавающую кнопку записи
   // (она lg:hidden). На десктопе это было 112px пустоты после подвала,
@@ -129,7 +132,20 @@ export function PublicProfileView({
               borderColor: "var(--public-edge)",
             }}
           >
-            <BrandLogo href={homeHref} />
+            {/* С фирменным стилем в шапке — логотип мастера; подпись okno
+                остаётся в подвале («Создано в okno»). */}
+            {brandLogo ? (
+              <span className="flex min-h-11 items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element -- PNG из profile-media, размер заранее неизвестен */}
+                <img
+                  src={brandLogo}
+                  alt={profile.workspaceName || profile.fullName}
+                  className="h-10 w-auto max-w-[180px] object-contain"
+                />
+              </span>
+            ) : (
+              <BrandLogo href={homeHref} />
+            )}
             <div className="hidden items-center gap-3 sm:flex">
               <span className="inline-flex items-center gap-2 rounded-full bg-panel px-4 py-2 text-sm text-ink-soft">
                 <MapPin size={16} />
@@ -166,7 +182,7 @@ export function PublicProfileView({
               borderColor: "var(--public-edge)",
             }}
           >
-            <BrandHeroDecor decor={decor} />
+            <BrandHeroDecor decor={decorFor(brandTheme, "hero")} />
             <div className="space-y-3">
               <Badge tone="accent">{eyebrowLabel}</Badge>
               <div data-tour="identity" className="space-y-3">
@@ -175,7 +191,7 @@ export function PublicProfileView({
                     {profile.fullName}
                   </h1>
                   <div className="relative shrink-0">
-                    <BrandAvatarRing decor={decor} />
+                    <BrandAvatarRing decor={decorFor(brandTheme, "avatar")} />
                     <div className="overflow-hidden rounded-full border border-white/90 bg-panel shadow-subtle">
                       <Image
                         src={profile.avatarUrl}
@@ -263,7 +279,7 @@ export function PublicProfileView({
             <div className="flex flex-wrap gap-3">
               <span className="relative isolate inline-flex">
                 <span className="absolute inset-0 -z-10">
-                  <BrandCtaUnderlay decor={decor} />
+                  <BrandCtaUnderlay decor={decorFor(brandTheme, "cta")} />
                 </span>
                 <ButtonLink
                   href={bookingHref}
@@ -492,7 +508,7 @@ export function PublicProfileView({
             data-demo-id="works"
             className="relative mt-14 rounded-section space-y-6"
           >
-            <BrandDivider decor={decor} />
+            <BrandDivider decor={decorFor(brandTheme, "dividers")} />
             <Reveal variant="fade-up">
               <div className="max-w-2xl space-y-2">
                 <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
@@ -552,7 +568,7 @@ export function PublicProfileView({
           data-demo-id="services"
           className="relative mt-16 rounded-section space-y-6"
         >
-          <BrandDivider decor={decor} />
+          <BrandDivider decor={decorFor(brandTheme, "dividers")} />
           <Reveal variant="fade-up">
             <div className="max-w-2xl space-y-2">
               <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">
@@ -590,7 +606,7 @@ export function PublicProfileView({
                         : "var(--color-accent-soft)",
                   }}
                 >
-                  <BrandCardCorner decor={decor} />
+                  <BrandCardCorner decor={decorFor(brandTheme, "cards")} />
                   <div className="space-y-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-2">
@@ -760,7 +776,8 @@ export function PublicProfileView({
         {/* Подвал намеренно компактный: это страница мастера, а не сайт okno.
             Было mt-16/pt-6/text-sm — на фоне контента подвал читался как
             отдельная секция. Стало вдвое меньше по отступам и на шаг мельче. */}
-        <footer className="mt-8 flex flex-col gap-2 border-t border-line pt-4 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
+        <footer className="relative mt-8 flex flex-col gap-2 border-t border-line pt-4 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
+          <BrandFooterDecor decor={decorFor(brandTheme, "footer")} />
           <p>Онлайн-запись к {profile.fullName}.</p>
           <Link
             href={homeHref}

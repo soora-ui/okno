@@ -4,6 +4,7 @@ import {
   brandFontIds,
   brandShadowLevels,
   brandThemeSchema,
+  type BrandFontId,
   type BrandTheme,
 } from "@/lib/brand-theme/schema";
 
@@ -41,11 +42,13 @@ export type BrandThemeBrief = {
   wishes: string;
   // Перегенерация: что не понравилось в прошлый раз.
   regenerationComment?: string;
+  // Шаг 2а: шрифты, которые мастер подтвердил после разбора брендбука.
+  preferredFonts?: { heading: BrandFontId | null; body: BrandFontId | null };
 };
 
 const colorRole = z.string().describe("Цвет в формате #rrggbb");
 
-const generatedVariantSchema = z.object({
+export const generatedVariantSchema = z.object({
   name: z.string().describe("Короткое название варианта, 2–4 слова, по-русски"),
   explanation: z
     .string()
@@ -146,6 +149,13 @@ export function buildBrandThemeBriefText(brief: BrandThemeBrief): string {
   }
   if (brief.wishes.trim()) {
     lines.push(`Пожелания к странице: «${brief.wishes.trim()}».`);
+  }
+  if (brief.preferredFonts?.heading || brief.preferredFonts?.body) {
+    const parts = [
+      brief.preferredFonts.heading ? `заголовки — ${brief.preferredFonts.heading}` : null,
+      brief.preferredFonts.body ? `основной текст — ${brief.preferredFonts.body}` : null,
+    ].filter(Boolean);
+    lines.push(`Шрифты мастер уже выбрал, используй их во всех вариантах: ${parts.join(", ")}.`);
   }
   if (brief.regenerationComment?.trim()) {
     lines.push(

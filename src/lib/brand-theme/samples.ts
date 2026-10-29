@@ -1,5 +1,11 @@
 import type { BrandTheme } from "@/lib/brand-theme/schema";
 
+const defaults = {
+  decorSlots: { hero: true, avatar: true, dividers: true, cards: true, cta: true, footer: false },
+  decorIntensity: 60,
+  logo: null,
+} as const;
+
 // Темы из макета «дизайн создания публичной страницы» (PublicPage.dc.html):
 // три контрастных бренда, на которых видно, что система тянет и светлую
 // пастель, и тёмный барбершоп. Нужны превью в настройках и тестам.
@@ -35,6 +41,7 @@ export const brandThemeSamples = {
     radius: { card: 22, button: 999, image: 16 },
     shadow: "soft",
     decor: "botanical",
+    ...defaults,
   },
   // Барбершоп «Латунь»: почти чёрный, латунь, острые углы, геометрия.
   brass: {
@@ -66,6 +73,7 @@ export const brandThemeSamples = {
     radius: { card: 4, button: 2, image: 2 },
     shadow: "deep",
     decor: "geometric",
+    ...defaults,
   },
   // Бровист Brow Mira: кобальт, жирный гротеск, мазки кистью.
   cobalt: {
@@ -97,5 +105,6 @@ export const brandThemeSamples = {
     radius: { card: 20, button: 14, image: 18 },
     shadow: "soft",
     decor: "brush",
+    ...defaults,
   },
 } satisfies Record<string, BrandTheme>;

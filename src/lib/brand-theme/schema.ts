@@ -34,6 +34,18 @@ export type BrandDecorStyle = (typeof brandDecorStyles)[number];
 
 export const brandShadowLevels = ["none", "soft", "deep"] as const;
 
+// Фиксированные места декора на публичной странице (макет 4.12, «Декор»).
+// Мастер включает и выключает каждое отдельно; структура страницы от этого
+// не меняется — пустой слот просто ничего не рисует.
+export const brandDecorSlots = ["hero", "avatar", "dividers", "cards", "cta", "footer"] as const;
+
+export type BrandDecorSlot = (typeof brandDecorSlots)[number];
+
+// Логотип лежит в profile-media уже растеризованным в PNG (SVG мастера на
+// страницу не попадает: в нём мог быть скрипт). Путь проверяется строго,
+// чтобы тема не могла сослаться на чужой файл или внешний адрес.
+export const brandLogoPathPattern = /^[A-Za-z0-9-]{1,64}\/brand-logo\/[A-Za-z0-9-]{1,100}\.png$/;
+
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Цвет в формате #rrggbb");
 
 export const brandThemeColorsSchema = z.object({
@@ -75,9 +87,32 @@ export const brandThemeSchema = z.object({
   }),
   shadow: z.enum(brandShadowLevels),
   decor: z.enum(brandDecorStyles),
+  // Поля ниже появились с мастером по макетам; у тем, сохранённых раньше,
+  // их нет — значения по умолчанию воспроизводят прежний вид.
+  decorSlots: z
+    .object({
+      hero: z.boolean(),
+      avatar: z.boolean(),
+      dividers: z.boolean(),
+      cards: z.boolean(),
+      cta: z.boolean(),
+      footer: z.boolean(),
+    })
+    .default({ hero: true, avatar: true, dividers: true, cards: true, cta: true, footer: false }),
+  // Интенсивность декора, %: прозрачность рисунков.
+  decorIntensity: z.number().int().min(10).max(100).default(60),
+  logo: z
+    .object({
+      path: z.string().regex(brandLogoPathPattern),
+      // Логотип теряется на тёмном фоне — мастер может загрузить светлую версию.
+      darkPath: z.string().regex(brandLogoPathPattern).nullable(),
+    })
+    .nullable()
+    .default(null),
 });
 
 export type BrandTheme = z.infer<typeof brandThemeSchema>;
+export type BrandThemeInput = z.input<typeof brandThemeSchema>;
 export type BrandThemeColors = z.infer<typeof brandThemeColorsSchema>;
 
 // Тема из базы читается мягко: битая или старая запись не должна ронять

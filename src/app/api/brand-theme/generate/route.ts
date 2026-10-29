@@ -1,103 +1,88 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentAuthProfile } from "@/lib/data";
-import { isSupabaseConfigured, isSupportAssistantConfigured } from "@/lib/env";
+import { listGenerationVariants } from "@/lib/brand-theme/drafts";
 import {
   BrandThemeGenerationError,
   brandThemeModel,
   generateBrandThemeVariants,
 } from "@/lib/brand-theme/generate";
 import { brandMoods, normalizeHexList } from "@/lib/brand-theme/generation-prompt";
-import {
-  BrandMaterialError,
-  brandMaterialKinds,
-  readBrandMaterials,
-  type BrandMaterialKind,
-} from "@/lib/brand-theme/materials";
 import { brandThemeFreeGenerationsPerMonth } from "@/lib/brand-theme/limits";
+import { maxTotalBytes, totalMaterialBytes } from "@/lib/brand-theme/materials";
+import { requireBrandThemeProfile } from "@/lib/brand-theme/route-auth";
+import { brandFontIds } from "@/lib/brand-theme/schema";
+import { loadBrandMaterials, publishBrandLogo } from "@/lib/brand-theme/storage";
 import {
   countBrandThemeGenerationsUsed,
   getBrandThemeGenerationsLeft,
 } from "@/lib/brand-theme/usage";
 import { writeAuditLog } from "@/lib/observability/audit";
 import { logError } from "@/lib/observability/logger";
-import { hasCapability } from "@/lib/subscription";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-// Генерация трёх вариантов фирменного стиля (ТЗ 4.6–4.8). Маршрут, а не
-// server action: материалы весят мегабайты, а у server actions лимит тела
-// в 1 МБ. Ответ — три черновика в brand_themes и сами темы для превью.
+// Генерация трёх вариантов (макеты 4.6–4.8, 4.11 «Сгенерировать заново»).
+// Материалы уже лежат в хранилище — сюда приходят их id и то, что мастер
+// написал. Генерация получает статус: если у мастера пропала связь, сервер
+// доводит её до конца, а клиент потом спрашивает
+// /api/brand-theme/generations/[id].
 
 export const maxDuration = 120;
 
 const GENERIC_ERROR = "Что-то пошло не так. Генерация не списана — попробуйте ещё раз.";
 
-const briefSchema = z.object({
-  hexColors: z.string().max(200).default(""),
+const bodySchema = z.object({
+  materialIds: z.array(z.string().uuid()).max(20).default([]),
+  logoMaterialId: z.string().uuid().nullable().default(null),
+  logoDarkMaterialId: z.string().uuid().nullable().default(null),
+  hexColors: z.array(z.string()).max(8).default([]),
   colorWords: z.string().trim().max(500).default(""),
   moods: z.array(z.enum(brandMoods)).max(brandMoods.length).default([]),
   wishes: z.string().trim().max(1000).default(""),
   regenerationComment: z.string().trim().max(500).default(""),
+  preferredFonts: z
+    .object({
+      heading: z.enum(brandFontIds).nullable(),
+      body: z.enum(brandFontIds).nullable(),
+    })
+    .default({ heading: null, body: null }),
 });
 
 export async function POST(request: Request) {
-  if (!isSupabaseConfigured || !isSupportAssistantConfigured) {
-    return NextResponse.json({ error: "Генерация сейчас недоступна." }, { status: 503 });
-  }
+  const auth = await requireBrandThemeProfile({ needsClaude: true });
+  if ("response" in auth) return auth.response;
+  const { profile } = auth;
 
-  const authProfile = await getCurrentAuthProfile();
-  const profile = authProfile?.profile;
-  if (!profile) {
-    return NextResponse.json({ error: "Сессия истекла. Войдите заново." }, { status: 401 });
+  const body = bodySchema.safeParse(await request.json().catch(() => null));
+  if (!body.success) {
+    return NextResponse.json({ error: "Проверьте поля формы." }, { status: 400 });
   }
-  if (!hasCapability(profile, "brandTheme")) {
+  const input = body.data;
+
+  const logoIds = [input.logoMaterialId, input.logoDarkMaterialId].filter(
+    (id): id is string => id !== null,
+  );
+  let materials;
+  let logos;
+  try {
+    materials = await loadBrandMaterials(
+      profile.id,
+      input.materialIds.filter((id) => !logoIds.includes(id)).concat(logoIds.slice(0, 1)),
+    );
+    logos = await loadBrandMaterials(profile.id, logoIds);
+  } catch (error) {
+    logError("Failed to load brand materials", { profileId: profile.id, error });
+    return NextResponse.json({ error: GENERIC_ERROR }, { status: 500 });
+  }
+  if (totalMaterialBytes(materials) > maxTotalBytes) {
     return NextResponse.json(
-      { error: "Фирменный стиль доступен на тарифах «Расширенный» и «Студия»." },
-      { status: 403 },
+      { error: "Материалов слишком много за раз: оставьте самые важные." },
+      { status: 400 },
     );
   }
 
-  let form: FormData;
-  try {
-    form = await request.formData();
-  } catch {
-    return NextResponse.json({ error: "Некорректный запрос." }, { status: 400 });
-  }
-
-  const brief = briefSchema.safeParse({
-    hexColors: form.get("hexColors") ?? undefined,
-    colorWords: form.get("colorWords") ?? undefined,
-    moods: form.getAll("moods"),
-    wishes: form.get("wishes") ?? undefined,
-    regenerationComment: form.get("regenerationComment") ?? undefined,
-  });
-  if (!brief.success) {
-    return NextResponse.json({ error: "Проверьте поля формы." }, { status: 400 });
-  }
-
-  const entries = brandMaterialKinds.flatMap((kind: BrandMaterialKind) =>
-    form
-      .getAll(kind)
-      .filter((value): value is File => value instanceof File && value.size > 0)
-      .map((file) => ({ kind, file })),
-  );
-
-  let materials;
-  try {
-    materials = await readBrandMaterials(entries);
-  } catch (error) {
-    if (error instanceof BrandMaterialError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-    throw error;
-  }
-
-  const hexColors = normalizeHexList(brief.data.hexColors.split(/[\s,;]+/)).slice(0, 5);
+  const hexColors = normalizeHexList(input.hexColors).slice(0, 8);
   const hasText =
-    hexColors.length > 0 ||
-    brief.data.colorWords !== "" ||
-    brief.data.moods.length > 0 ||
-    brief.data.wishes !== "";
+    hexColors.length > 0 || input.colorWords !== "" || input.moods.length > 0 || input.wishes !== "";
   if (materials.length === 0 && !hasText) {
     return NextResponse.json(
       { error: "Загрузите материалы или опишите стиль — без них не из чего собирать." },
@@ -113,87 +98,93 @@ export async function POST(request: Request) {
     );
   }
 
-  // Попытку списываем до запроса к Claude: иначе двойной клик дал бы две
-  // генерации по цене одной. Если генерация не удалась — возвращаем.
+  // Попытку резервируем до запроса к Claude: иначе двойной клик дал бы две
+  // генерации по цене одной. Неудача помечается failed и в лимит не идёт.
   const admin = createSupabaseAdminClient();
   const { data: reservation, error: reserveError } = await admin
     .from("brand_theme_generations")
-    .insert({ profile_id: profile.id, kind: "full" })
+    .insert({ profile_id: profile.id, kind: "full", status: "pending" })
     .select("id")
     .single();
   if (reserveError || !reservation) {
     logError("Failed to reserve brand theme generation", { profileId: profile.id, error: reserveError });
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 500 });
   }
+  const generationId = String(reservation.id);
 
-  const refund = async () => {
-    const { error } = await admin.from("brand_theme_generations").delete().eq("id", reservation.id);
-    if (error) logError("Failed to refund brand theme generation", { profileId: profile.id, error });
+  const fail = async (message: string, status: number, error?: unknown) => {
+    if (error) logError("Brand theme generation failed", { profileId: profile.id, error });
+    await admin
+      .from("brand_theme_generations")
+      .update({ status: "failed", error: message })
+      .eq("id", generationId);
+    return NextResponse.json({ error: message, generationId }, { status });
   };
 
   // Два параллельных запроса оба видели «осталась одна» — тот, чей резерв
   // вывел счётчик за лимит, отступает.
   const usedNow = await countBrandThemeGenerationsUsed(profile.id);
   if (usedNow !== null && usedNow > brandThemeFreeGenerationsPerMonth) {
-    await refund();
+    await admin.from("brand_theme_generations").delete().eq("id", generationId);
     return NextResponse.json(
       { error: "Бесплатные генерации на этот месяц закончились.", code: "limit" },
       { status: 402 },
     );
   }
 
-  const textBrief = {
+  const brief = {
     specialty: profile.specialty,
     workspaceName: profile.workspaceName,
     hexColors,
-    colorWords: brief.data.colorWords,
-    moods: brief.data.moods,
-    wishes: brief.data.wishes,
-    regenerationComment: brief.data.regenerationComment,
+    colorWords: input.colorWords,
+    moods: input.moods,
+    wishes: input.wishes,
+    regenerationComment: input.regenerationComment,
+    preferredFonts: input.preferredFonts,
   };
 
   let generation;
+  let logo: { path: string; darkPath: string | null } | null = null;
   try {
-    generation = await generateBrandThemeVariants({ brief: textBrief, materials });
-  } catch (error) {
-    await refund();
-    if (error instanceof BrandThemeGenerationError) {
-      return NextResponse.json({ error: error.message }, { status: 502 });
+    generation = await generateBrandThemeVariants({ brief, materials });
+    const lightLogo = logos.find((item) => item.id === input.logoMaterialId);
+    const darkLogo = logos.find((item) => item.id === input.logoDarkMaterialId);
+    const path = lightLogo ? await publishBrandLogo(profile.passwordAuthId, lightLogo) : null;
+    if (path) {
+      logo = {
+        path,
+        darkPath: darkLogo ? await publishBrandLogo(profile.passwordAuthId, darkLogo) : null,
+      };
     }
-    logError("Brand theme generation failed", { profileId: profile.id, error });
-    return NextResponse.json({ error: GENERIC_ERROR }, { status: 502 });
+  } catch (error) {
+    if (error instanceof BrandThemeGenerationError) return fail(error.message, 502);
+    return fail(GENERIC_ERROR, 502, error);
   }
 
-  // Черновики: мастер может вернуться к любому варианту из истории (4.15),
-  // а «Поправить» продолжит с того же контекста.
-  const { data: drafts, error: draftsError } = await admin
-    .from("brand_themes")
-    .insert(
-      generation.variants.map((variant) => ({
-        profile_id: profile.id,
-        tokens: variant.theme,
-        status: "draft",
-        source: {
-          generationId: reservation.id,
-          model: brandThemeModel,
-          name: variant.name,
-          explanation: variant.explanation,
-          contrastFixes: variant.contrastFixes,
-          brief: textBrief,
-          materials: materials.map(({ kind, name, type }) => ({ kind, name, type })),
-          foundColors: generation.foundColors,
-          foundFonts: generation.foundFonts,
-          fontNote: generation.fontNote,
-        },
-      })),
-    )
-    .select("id");
+  const { error: draftsError } = await admin.from("brand_themes").insert(
+    generation.variants.map((variant) => ({
+      profile_id: profile.id,
+      tokens: { ...variant.theme, logo },
+      status: "draft",
+      source: {
+        generationId,
+        model: brandThemeModel,
+        name: variant.name,
+        explanation: variant.explanation,
+        contrastFixes: variant.contrastFixes,
+        brief,
+        materialIds: materials.map((material) => material.id),
+        logoMaterialId: input.logoMaterialId,
+        logoDarkMaterialId: input.logoDarkMaterialId,
+        foundColors: generation.foundColors,
+        foundFonts: generation.foundFonts,
+        fontNote: generation.fontNote,
+      },
+    })),
+  );
+  if (draftsError) return fail(GENERIC_ERROR, 500, draftsError);
 
-  if (draftsError || !drafts || drafts.length !== generation.variants.length) {
-    await refund();
-    logError("Failed to save brand theme drafts", { profileId: profile.id, error: draftsError });
-    return NextResponse.json({ error: GENERIC_ERROR }, { status: 500 });
-  }
+  await admin.from("brand_theme_generations").update({ status: "done" }).eq("id", generationId);
 
   await writeAuditLog({
     actorKind: "master",
@@ -206,16 +197,9 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({
-    generationsLeft: generationsLeft - 1,
-    foundColors: generation.foundColors,
-    foundFonts: generation.foundFonts,
+    generationId,
+    generationsLeft: Math.max(generationsLeft - 1, 0),
     fontNote: generation.fontNote,
-    variants: generation.variants.map((variant, index) => ({
-      id: String(drafts[index].id),
-      name: variant.name,
-      explanation: variant.explanation,
-      theme: variant.theme,
-      contrastFixes: variant.contrastFixes,
-    })),
+    variants: await listGenerationVariants(profile.id, generationId),
   });
 }

@@ -13,6 +13,9 @@ import type { BrandDecorStyle } from "@/lib/brand-theme/schema";
 type DecorProps = { decor: BrandDecorStyle | null };
 
 const d1 = "var(--brand-decor-1)";
+// Интенсивность декора: фон — как есть, линии и рамки — не ниже 0,4.
+const backdropOpacity = { opacity: "calc(var(--brand-decor-opacity, 0.6) * 0.75)" };
+const lineOpacity = { opacity: "calc(0.4 + var(--brand-decor-opacity, 0.6) * 0.6)" };
 const d2 = "var(--brand-decor-2)";
 const leaf = "M0 0C6-9 18-9 24 0C18 9 6 9 0 0Z";
 
@@ -21,11 +24,11 @@ export function BrandHeroDecor({ decor }: DecorProps) {
   if (!decor || decor === "none") return null;
 
   const className =
-    "pointer-events-none absolute inset-0 -z-10 h-full w-full opacity-45";
+    "pointer-events-none absolute inset-0 -z-10 h-full w-full";
 
   if (decor === "geometric") {
     return (
-      <svg aria-hidden="true" viewBox="0 0 400 200" preserveAspectRatio="xMaxYMid meet" className={className}>
+      <svg aria-hidden="true" viewBox="0 0 400 200" preserveAspectRatio="xMaxYMid meet" className={className} style={backdropOpacity}>
         <g fill="none" stroke={d1} strokeWidth="1">
           <path d="M250 40h110v110H250z" />
           <path d="M265 55h80v80h-80z" stroke={d2} />
@@ -38,7 +41,7 @@ export function BrandHeroDecor({ decor }: DecorProps) {
 
   if (decor === "botanical") {
     return (
-      <svg aria-hidden="true" viewBox="0 0 400 200" preserveAspectRatio="xMaxYMax meet" className={className}>
+      <svg aria-hidden="true" viewBox="0 0 400 200" preserveAspectRatio="xMaxYMax meet" className={className} style={backdropOpacity}>
         <g fill="none" stroke={d2} strokeWidth="1.6" strokeLinecap="round">
           <path d="M300 210C310 160 300 110 332 56" />
           <path d="M356 210C352 168 372 138 396 104" />
@@ -63,7 +66,7 @@ export function BrandHeroDecor({ decor }: DecorProps) {
   // Мазки растягиваются без сохранения пропорций, поэтому держим их в
   // полосе сверху: на высокой мобильной карточке они иначе становятся арками.
   return (
-    <svg aria-hidden="true" viewBox="0 0 400 200" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-56 w-full opacity-45">
+    <svg aria-hidden="true" viewBox="0 0 400 200" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-56 w-full" style={backdropOpacity}>
       <g fill="none" strokeLinecap="round">
         <path d="M-20 160C60 110 130 200 210 140S340 60 430 110" stroke={d1} strokeWidth="34" opacity=".35" vectorEffect="non-scaling-stroke" />
         <path d="M-20 70C80 20 150 100 240 50S350 10 430 40" stroke={d2} strokeWidth="12" opacity=".6" vectorEffect="non-scaling-stroke" />
@@ -80,7 +83,7 @@ export function BrandAvatarRing({ decor }: DecorProps) {
 
   if (decor === "geometric") {
     return (
-      <svg aria-hidden="true" viewBox="0 0 100 100" className={className}>
+      <svg aria-hidden="true" viewBox="0 0 100 100" className={className} style={lineOpacity}>
         <path d="M50 2L98 50 50 98 2 50Z" fill="none" stroke={d1} strokeWidth="1.4" />
         <path d="M50 9L91 50 50 91 9 50Z" fill="none" stroke={d2} strokeWidth=".8" />
       </svg>
@@ -97,7 +100,7 @@ export function BrandAvatarRing({ decor }: DecorProps) {
       [41.8, 96.3, 190],
     ];
     return (
-      <svg aria-hidden="true" viewBox="0 0 100 100" className={className}>
+      <svg aria-hidden="true" viewBox="0 0 100 100" className={className} style={lineOpacity}>
         <circle cx="50" cy="50" r="47" fill="none" stroke={d1} strokeWidth="1.2" />
         <g fill={d2}>
           {leaves.map(([x, y, r]) => (
@@ -109,7 +112,7 @@ export function BrandAvatarRing({ decor }: DecorProps) {
   }
 
   return (
-    <svg aria-hidden="true" viewBox="0 0 100 100" className={className}>
+    <svg aria-hidden="true" viewBox="0 0 100 100" className={className} style={lineOpacity}>
       <path d="M14 66C4 34 30 6 62 9 92 12 99 48 86 74 72 98 30 98 16 72" fill="none" stroke={d1} strokeWidth="5" strokeLinecap="round" />
     </svg>
   );
@@ -160,6 +163,7 @@ export function BrandDivider({ decor }: DecorProps) {
     <div
       aria-hidden="true"
       className="pointer-events-none absolute inset-x-0 -top-11 flex items-center gap-3.5"
+      style={lineOpacity}
     >
       <i className="h-px flex-1" style={{ backgroundColor: "var(--color-line)" }} />
       <DividerMark decor={decor} />
@@ -176,7 +180,7 @@ export function BrandCardCorner({ decor }: DecorProps) {
 
   if (decor === "geometric") {
     return (
-      <svg aria-hidden="true" viewBox="0 0 40 40" className={className}>
+      <svg aria-hidden="true" viewBox="0 0 40 40" className={className} style={lineOpacity}>
         <path d="M6 4h30v30" fill="none" stroke={d1} strokeWidth="2.4" />
         <path d="M14 12h14v14" fill="none" stroke={d2} strokeWidth="1.8" />
       </svg>
@@ -185,7 +189,7 @@ export function BrandCardCorner({ decor }: DecorProps) {
 
   if (decor === "botanical") {
     return (
-      <svg aria-hidden="true" viewBox="0 0 40 40" className={className}>
+      <svg aria-hidden="true" viewBox="0 0 40 40" className={className} style={lineOpacity}>
         <path d="M8 34C14 24 22 16 34 8" fill="none" stroke={d2} strokeWidth="2" strokeLinecap="round" />
         <path d="M0 0C4-6 12-6 16 0C12 6 4 6 0 0Z" transform="translate(16 24) rotate(-50)" fill={d1} />
         <path d="M0 0C4-6 12-6 16 0C12 6 4 6 0 0Z" transform="translate(26 15) rotate(-60)" fill={d1} />
@@ -194,7 +198,7 @@ export function BrandCardCorner({ decor }: DecorProps) {
   }
 
   return (
-    <svg aria-hidden="true" viewBox="0 0 40 40" className={className}>
+    <svg aria-hidden="true" viewBox="0 0 40 40" className={className} style={lineOpacity}>
       <path d="M6 32C12 14 24 8 36 10" fill="none" stroke={d1} strokeWidth="6" strokeLinecap="round" />
     </svg>
   );
@@ -228,6 +232,29 @@ export function BrandCtaUnderlay({ decor }: DecorProps) {
       aria-hidden="true"
       className="pointer-events-none absolute -bottom-2 -left-1.5 -right-2.5 -top-0.5 -rotate-[1.5deg] rounded-2xl opacity-55"
       style={{ backgroundColor: d2 }}
+    />
+  );
+}
+
+/**
+ * Слот 6. Узор в подвале: полоса над подписью «Создано в okno». Высота
+ * фиксированная, в поток вёрстки не встаёт — лежит в отступе над подвалом.
+ */
+export function BrandFooterDecor({ decor }: DecorProps) {
+  if (!decor || decor === "none") return null;
+
+  const pattern =
+    decor === "geometric"
+      ? `repeating-linear-gradient(135deg, ${d1} 0 1px, transparent 1px 12px)`
+      : decor === "botanical"
+        ? `radial-gradient(circle at 6px 6px, ${d2} 0 2px, transparent 2.5px) 0 0 / 18px 12px, radial-gradient(circle at 15px 9px, ${d1} 0 1.5px, transparent 2px) 0 0 / 18px 12px`
+        : `repeating-linear-gradient(170deg, ${d2} 0 5px, transparent 5px 16px)`;
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-x-0 -top-5 h-3 rounded-full"
+      style={{ background: pattern, ...backdropOpacity }}
     />
   );
 }

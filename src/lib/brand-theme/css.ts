@@ -99,6 +99,9 @@ export function brandThemeVars(
     "--brand-radius-image": `${radius.image}px`,
     "--brand-decor-1": colors.decor1,
     "--brand-decor-2": colors.decor2,
+    // Интенсивность декора (4.12): фоновые рисунки берут её как есть,
+    // линейные — от 0,4 до 1, чтобы на минимуме не пропадать совсем.
+    "--brand-decor-opacity": String(theme.decorIntensity / 100),
   };
 }
 

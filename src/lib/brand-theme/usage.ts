@@ -21,6 +21,8 @@ export async function countBrandThemeGenerationsUsed(
     .eq("profile_id", profileId)
     .eq("kind", "full")
     .eq("paid", false)
+    // Неудавшаяся генерация попытку не тратит (4.16, «Генерация не списана»).
+    .neq("status", "failed")
     .gte("created_at", startOfMonthUtc(now));
 
   if (error) {
