@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, Info, Lock, Palette, Smartphone, TriangleAlert, Upload } from "lucide-react";
 import { resetBrandThemeAction } from "@/app/actions/brand-theme";
 import { BrandMiniPreview } from "@/components/brand-theme/brand-mini-preview";
@@ -106,6 +107,7 @@ export function BrandThemeEntry({
   masterName: string;
   generationsLeft: number;
 }) {
+  const router = useRouter();
   const [view, setView] = useState<"entry" | "intro">("entry");
   const [notice, setNotice] = useState<string | null>(null);
   const [isResetting, startReset] = useTransition();
@@ -123,12 +125,7 @@ export function BrandThemeEntry({
       <BrandThemeIntroPanel
         generationsLeft={generationsLeft}
         onBack={() => setView("entry")}
-        onStart={() => {
-          setView("entry");
-          // Мастер загрузки материалов (4.2–4.10) — следующий этап, макетов
-          // ещё нет. До тех пор вкладка видна только вне продакшена.
-          setNotice("Загрузка материалов появится на следующем этапе разработки.");
-        }}
+        onStart={() => router.push("/brand-style")}
       />
     );
   }
@@ -231,9 +228,9 @@ export function BrandThemeEntry({
                   <GenerationsCounter left={generationsLeft} variant="left" />
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  <Button variant="secondary" onClick={() => setView("intro")}>
+                  <ButtonLink href="/settings/brand-style" variant="secondary">
                     Изменить
-                  </Button>
+                  </ButtonLink>
                   <Button variant="ghost" onClick={reset} disabled={isResetting}>
                     {isResetting ? "Возвращаю..." : "Вернуть стандартный пресет"}
                   </Button>

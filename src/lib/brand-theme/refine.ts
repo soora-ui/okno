@@ -15,29 +15,14 @@ import { env } from "@/lib/env";
 // чипам и комментарию. Генерацию не тратит; модель получает текущую тему
 // целиком и меняет только то, о чём просили.
 
-export const brandRefineChips = [
-  "Темнее",
-  "Светлее",
-  "Меньше декора",
-  "Больше декора",
-  "Другой шрифт заголовков",
-  "Кнопка ярче",
-  "Убрать узоры",
-] as const;
+import {
+  brandRefineTargets,
+  type BrandRefineChip,
+  type BrandRefineTarget,
+} from "@/lib/brand-theme/refine-options";
 
-export type BrandRefineChip = (typeof brandRefineChips)[number];
-
-// «Выбрать элемент на странице»: правка привязывается к месту.
-export const brandRefineTargets = {
-  cta: "Кнопка «Записаться»",
-  hero: "Шапка страницы",
-  headings: "Заголовки",
-  cards: "Карточки услуг",
-  background: "Фон страницы",
-  decor: "Декор",
-} as const;
-
-export type BrandRefineTarget = keyof typeof brandRefineTargets;
+export { brandRefineChips, brandRefineTargets } from "@/lib/brand-theme/refine-options";
+export type { BrandRefineChip, BrandRefineTarget } from "@/lib/brand-theme/refine-options";
 
 const refinedThemeSchema = generatedVariantSchema.extend({
   decorIntensity: z.number().int().describe("Интенсивность декора, 10–100"),

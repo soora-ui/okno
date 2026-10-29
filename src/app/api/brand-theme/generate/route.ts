@@ -161,6 +161,16 @@ export async function POST(request: Request) {
     return fail(GENERIC_ERROR, 502, error);
   }
 
+  // Мастер нажал «Отменить», пока шёл запрос: результат не сохраняем.
+  const { data: current } = await admin
+    .from("brand_theme_generations")
+    .select("status")
+    .eq("id", generationId)
+    .maybeSingle();
+  if (current?.status !== "pending") {
+    return NextResponse.json({ error: "Генерация отменена.", code: "cancelled" }, { status: 409 });
+  }
+
   const { error: draftsError } = await admin.from("brand_themes").insert(
     generation.variants.map((variant) => ({
       profile_id: profile.id,

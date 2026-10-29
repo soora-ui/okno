@@ -10,6 +10,7 @@ const RESERVED_USERNAMES = new Set([
   "admin",
   "analytics",
   "archive",
+  "brand-style",
   "clients",
   "dashboard",
   "feedback",

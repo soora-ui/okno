@@ -7,7 +7,7 @@ import type { BrandFontId, BrandTheme } from "@/lib/brand-theme/schema";
 
 export const brandThemeAttrValue = "brand";
 
-const selector = `[data-booking-theme="${brandThemeAttrValue}"]`;
+const baseSelector = `[data-booking-theme="${brandThemeAttrValue}"]`;
 
 function rgba(hex: string, alpha: number) {
   const value = Number.parseInt(hex.slice(1), 16);
@@ -105,10 +105,18 @@ export function brandThemeVars(
   };
 }
 
+// scope — когда на одной странице несколько разных тем сразу (три варианта
+// палитры в мастере, 4.8): у каждой миниатюры свой data-brand-scope. Значение
+// — наш собственный идентификатор, в него пропускаются только [a-z0-9-].
 export function brandThemeCss(
   theme: BrandTheme,
   fontFamily: (id: BrandFontId) => string,
+  scope?: string,
 ): string {
+  const safeScope = scope?.replace(/[^a-z0-9-]/gi, "");
+  const selector = safeScope
+    ? `${baseSelector}[data-brand-scope="${safeScope}"]`
+    : baseSelector;
   const vars = Object.entries(brandThemeVars(theme, fontFamily))
     .map(([name, value]) => `${name}:${value}`)
     .join(";");
