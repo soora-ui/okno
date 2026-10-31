@@ -6,7 +6,6 @@ import { isSettingsTabId } from "@/config/settingsTabs";
 import { getSettingsData } from "@/lib/data";
 import { getOwnerRecentSubscriptionPayment } from "@/lib/repositories/owner-repository";
 import { hasCapability, resolveSubscription } from "@/lib/subscription";
-import { isBrandThemeSettingsEnabled } from "@/lib/brand-theme/limits";
 import { getBrandThemeGenerationsLeft } from "@/lib/brand-theme/usage";
 import { canManageWorkspace, isTeamWorkspaceKind } from "@/lib/workspace";
 
@@ -78,7 +77,7 @@ export default async function SettingsPage({
   // Счётчик нужен только карточке фирменного стиля в состояниях B и C —
   // остальным мастерам лишний запрос ни к чему.
   const brandThemeGenerationsLeft =
-    isBrandThemeSettingsEnabled && hasCapability(profile, "brandTheme")
+    hasCapability(profile, "brandTheme")
       ? await getBrandThemeGenerationsLeft(profile.id)
       : undefined;
   const showWorkspaceAdminLink =

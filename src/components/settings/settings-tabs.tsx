@@ -36,10 +36,7 @@ import {
   resolveSubscription,
 } from "@/lib/subscription";
 import { formatPublicProfileLink, publicLinkHost } from "@/lib/site";
-import {
-  brandThemeFreeGenerationsPerMonth,
-  isBrandThemeSettingsEnabled,
-} from "@/lib/brand-theme/limits";
+import { brandThemeFreeGenerationsPerMonth } from "@/lib/brand-theme/limits";
 import { resolveBrandThemeEntryState } from "@/components/settings/brand-theme-entry";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { bookingThemePresets } from "@/lib/booking-theme-presets";
@@ -375,17 +372,13 @@ export function SettingsTabs({
         <AppearanceSettings
           profile={profile}
           services={services}
-          brand={
-            isBrandThemeSettingsEnabled
-              ? {
-                  state: resolveBrandThemeEntryState({
-                    hasAccess: hasCapability(profile, "brandTheme"),
-                    hasTheme: profile.brandTheme !== null,
-                  }),
-                  generationsLeft: brandThemeGenerationsLeft,
-                }
-              : null
-          }
+          brand={{
+            state: resolveBrandThemeEntryState({
+              hasAccess: hasCapability(profile, "brandTheme"),
+              hasTheme: profile.brandTheme !== null,
+            }),
+            generationsLeft: brandThemeGenerationsLeft,
+          }}
         />
       </Card>
     ),
