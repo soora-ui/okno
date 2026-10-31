@@ -10,8 +10,32 @@ import type {
 
 type Interval = { start: number; end: number };
 
+const MINUTE_MS = 60_000;
+
+// Даты из базы приходят с явным смещением («…+00:00») — их точно разбирает
+// Date.parse, а fromISO у luxon на сотнях записей мастера заметно дороже.
+// Без смещения строку читаем как UTC через luxon: Date.parse принял бы её
+// за местное время сервера.
+const ISO_WITH_OFFSET = /(?:Z|[+-]\d{2}:\d{2})$/;
+
 function toMillis(iso: string) {
+  if (ISO_WITH_OFFSET.test(iso)) {
+    const parsed = Date.parse(iso);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+
   return DateTime.fromISO(iso, { zone: "utc" }).toMillis();
+}
+
+function formatLocalTime(ms: number, fixedOffsetMinutes: number | null, timezone: string) {
+  if (fixedOffsetMinutes === null) {
+    return DateTime.fromMillis(ms, { zone: timezone }).toFormat("HH:mm");
+  }
+
+  const local = new Date(ms + fixedOffsetMinutes * MINUTE_MS);
+  const hours = String(local.getUTCHours()).padStart(2, "0");
+  const minutes = String(local.getUTCMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
 }
 
 export function buildBookingSlotsForService(input: {
@@ -99,32 +123,40 @@ export function buildBookingSlotsForService(input: {
 
     if (!startOfDay.isValid || !endOfDay.isValid || endOfDay <= startOfDay) continue;
 
-    const lastPossibleStart = endOfDay.minus({
-      minutes: service.durationMinutes,
-    });
+    // Сетка слотов считается в миллисекундах: plus() у luxon в поясе мастера
+    // на каждый слот ходит в Intl за смещением, и этот цикл съедал две трети
+    // CPU рендера страницы мастера (нагрузочный тест 2026-10-31). Минуты
+    // luxon прибавляет к абсолютному времени, так что результат тот же.
+    const intervalMs = profile.slotIntervalMinutes * MINUTE_MS;
+    const durationMs = service.durationMinutes * MINUTE_MS;
+    // Перерыв — у каждой услуги свой: новая запись занимает время до конца
+    // своего перерыва, а уже сделанная — до своего busy_until (там перерыв
+    // её услуги, зафиксированный на момент записи).
+    const busyMs = durationMs + Math.max(0, service.bufferMinutes) * MINUTE_MS;
+    const lastPossibleStartMs = endOfDay.toMillis() - durationMs;
+    // Смещение пояса для подписи «HH:mm» одно на весь рабочий день, если
+    // внутри него нет перевода часов; в день перевода спрашиваем luxon.
+    const fixedOffset =
+      startOfDay.offset === endOfDay.offset ? startOfDay.offset : null;
 
     const times: string[] = [];
 
-    for (
-      let slotStart = startOfDay;
-      slotStart <= lastPossibleStart;
-      slotStart = slotStart.plus({ minutes: profile.slotIntervalMinutes })
-    ) {
-      if (slotStart < now) continue;
+    if (intervalMs <= 0) continue;
 
-      const slotEnd = slotStart.plus({ minutes: service.durationMinutes });
-      // Перерыв — у каждой услуги свой: новая запись занимает время до конца
-      // своего перерыва, а уже сделанная — до своего busy_until (там перерыв
-      // её услуги, зафиксированный на момент записи).
-      const slotBusyEnd = slotEnd.plus({ minutes: Math.max(0, service.bufferMinutes) });
-      const slotStartMs = slotStart.toMillis();
-      const slotBusyEndMs = slotBusyEnd.toMillis();
+    for (
+      let slotStartMs = startOfDay.toMillis();
+      slotStartMs <= lastPossibleStartMs;
+      slotStartMs += intervalMs
+    ) {
+      if (slotStartMs < nowMs) continue;
+
+      const slotBusyEndMs = slotStartMs + busyMs;
       const intersects = (interval: Interval) =>
         slotStartMs < interval.end && slotBusyEndMs > interval.start;
 
       if (busyIntervals.some(intersects) || blockedIntervals.some(intersects)) continue;
 
-      times.push(slotStart.toFormat("HH:mm"));
+      times.push(formatLocalTime(slotStartMs, fixedOffset, profile.timezone));
     }
 
     if (times.length > 0) {
