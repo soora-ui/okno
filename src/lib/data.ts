@@ -71,7 +71,7 @@ import {
 import {
   countActiveWorkspaceSeats,
   getPublicWorkspaceTeamRows,
-  getWorkspaceTeamRows,
+  getTeamDashboardRows,
 } from "@/lib/repositories/team-repository";
 import { buildBookingSlotsForService } from "@/lib/slots";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -1068,6 +1068,9 @@ export async function getSettingsData() {
   };
 }
 
+// Сколько ближайших записей и последних клиентов видно в кабинете студии.
+const TEAM_DASHBOARD_LIST_LIMIT = 10;
+
 export async function getTeamDashboardData(): Promise<TeamDashboardData | null> {
   const authProfile = await getCurrentAuthProfile();
 
@@ -1084,33 +1087,34 @@ export async function getTeamDashboardData(): Promise<TeamDashboardData | null> 
     return null;
   }
 
-  const teamRows = await getWorkspaceTeamRows({
+  const timezone = profile.timezone;
+  const now = DateTime.now().setZone(timezone);
+  const startOfToday = now.startOf("day");
+  const startOfTomorrowMs = startOfToday.plus({ days: 1 }).toMillis();
+  const teamRows = await getTeamDashboardRows({
     workspaceId: profile.workspaceId,
+    bookingsFromIso: startOfToday.toUTC().toISO() ?? new Date().toISOString(),
+    nowIso: now.toUTC().toISO() ?? new Date().toISOString(),
+    listLimit: TEAM_DASHBOARD_LIST_LIMIT,
   });
 
   const members = teamRows.members.map((row) => mapProfile(row));
   const services = teamRows.services.map((row) => mapService(row));
-  const bookings = teamRows.bookings.map((row) => mapBooking(row));
-  const clients = teamRows.clients.map((row) => mapClient(row));
+  // Подтверждённые записи с начала сегодняшнего дня (см. getTeamDashboardRows).
+  const confirmedBookings = teamRows.bookings.map((row) => mapBooking(row));
+  const recentClientRows = teamRows.recentClients.map((row) => mapClient(row));
   const memberMap = new Map(members.map((member) => [member.id, member]));
   const serviceMap = new Map(services.map((service) => [service.id, service]));
-  const clientMap = new Map(clients.map((client) => [client.id, client]));
-  const timezone = profile.timezone;
-  const now = DateTime.now().setZone(timezone);
-  const todayKey = now.toFormat("yyyy-MM-dd");
-  const confirmedBookings = bookings.filter((booking) => booking.status === "confirmed");
-  const upcomingConfirmedBookings = confirmedBookings.filter((booking) => {
-    const startsAt = DateTime.fromISO(booking.startsAt, { zone: "utc" }).setZone(
-      timezone,
-    );
-    return startsAt.toMillis() >= now.toMillis();
-  });
-  const bookingsTodayCount = confirmedBookings.filter((booking) => {
-    const startsAt = DateTime.fromISO(booking.startsAt, { zone: "utc" }).setZone(
-      timezone,
-    );
-    return startsAt.toFormat("yyyy-MM-dd") === todayKey;
-  }).length;
+  const clientNameMap = new Map(
+    teamRows.upcomingClients.map((row) => [String(row.id), String(row.name)]),
+  );
+  const nowMs = now.toMillis();
+  const upcomingConfirmedBookings = confirmedBookings.filter(
+    (booking) => Date.parse(booking.startsAt) >= nowMs,
+  );
+  const bookingsTodayCount = confirmedBookings.filter(
+    (booking) => Date.parse(booking.startsAt) < startOfTomorrowMs,
+  ).length;
 
   const teamMembers = members
     .map((member) => {
@@ -1121,7 +1125,7 @@ export async function getTeamDashboardData(): Promise<TeamDashboardData | null> 
       const activeServicesCount = services.filter(
         (service) => service.profileId === member.id && service.isActive,
       ).length;
-      const clientCount = clients.filter((client) => client.profileId === member.id).length;
+      const clientCount = teamRows.clientCounts[member.id] ?? 0;
 
       return {
         id: member.id,
@@ -1154,30 +1158,30 @@ export async function getTeamDashboardData(): Promise<TeamDashboardData | null> 
     });
 
   const upcomingBookings = upcomingConfirmedBookings
-    .slice(0, 10)
+    .slice(0, TEAM_DASHBOARD_LIST_LIMIT)
     .map((booking) => {
       const member = memberMap.get(booking.profileId);
-      const client = clientMap.get(booking.clientId);
+      const clientName = clientNameMap.get(booking.clientId);
       const service = serviceMap.get(booking.serviceId);
 
       return {
         id: booking.id,
         memberName: member?.fullName ?? "Сотрудник",
         memberUsername: member?.username ?? "",
-        clientName: client?.name ?? "Клиент",
+        clientName: clientName ?? "Клиент",
         serviceTitle: service?.title ?? "Услуга",
         startsAtLabel: formatTeamMoment(booking.startsAt, timezone),
         sourceLabel: booking.source === "manual" ? "Добавил администратор" : "Онлайн-запись",
       } satisfies TeamUpcomingBookingItem;
     });
 
-  const recentClients = [...clients]
+  const recentClients = recentClientRows
     .sort((left, right) => {
       const leftMoment = left.lastBookingAt || left.createdAt;
       const rightMoment = right.lastBookingAt || right.createdAt;
       return rightMoment.localeCompare(leftMoment);
     })
-    .slice(0, 10)
+    .slice(0, TEAM_DASHBOARD_LIST_LIMIT)
     .map((client) => {
       const member = memberMap.get(client.profileId);
 
@@ -1209,7 +1213,10 @@ export async function getTeamDashboardData(): Promise<TeamDashboardData | null> 
       staffCount: members.filter((member) => member.accountRole === "staff").length,
       bookingsTodayCount,
       upcomingBookingsCount: upcomingConfirmedBookings.length,
-      clientCount: clients.length,
+      clientCount: Object.values(teamRows.clientCounts).reduce(
+        (sum, count) => sum + count,
+        0,
+      ),
     },
     members: teamMembers,
     upcomingBookings,
