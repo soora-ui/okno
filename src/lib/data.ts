@@ -70,6 +70,7 @@ import {
 } from "@/lib/subscription-seats";
 import {
   countActiveWorkspaceSeats,
+  getPublicWorkspaceTeamRows,
   getWorkspaceTeamRows,
 } from "@/lib/repositories/team-repository";
 import { buildBookingSlotsForService } from "@/lib/slots";
@@ -290,6 +291,26 @@ const PUBLIC_BOOKING_COLUMNS = [
 ].join(",");
 
 
+// Профиль публичной страницы целиком уходит в клиентский компонент, а значит
+// и в HTML. Почта, id входа и чат Telegram мастера посетителю не нужны —
+// раньше они лежали в разметке у каждой страницы мастера и студии.
+function toPublicProfile(profile: Profile): Profile {
+  return {
+    ...profile,
+    email: "",
+    passwordAuthId: "",
+    telegramChatId: null,
+    referredBy: null,
+  };
+}
+
+// Свободные окна считаются от «сейчас», так что закончившиеся записи и
+// блокировки странице не нужны. Запас в сутки — на перерыв после записи
+// (busy_until позже ends_at) и на расхождение часов с базой.
+function publicBusyCutoffIso() {
+  return new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+}
+
 export const getPublicPageData = cache(async function getPublicPageData(
   username: string,
   includeMedia = true,
@@ -349,17 +370,19 @@ export const getPublicPageData = cache(async function getPublicPageData(
     notFound();
   }
 
-  const mappedProfile = mapProfile(publicProfileRow);
+  const mappedProfile = toPublicProfile(mapProfile(publicProfileRow));
+  const busyCutoffIso = publicBusyCutoffIso();
 
   if (
     canManageWorkspace(mappedProfile.accountRole) &&
     isTeamWorkspaceKind(mappedProfile.workspaceKind)
   ) {
-    const teamRows = await getWorkspaceTeamRows({
+    const teamRows = await getPublicWorkspaceTeamRows({
       workspaceId: mappedProfile.workspaceId,
+      bookingsEndAfterIso: busyCutoffIso,
     });
     const mappedMembers = teamRows.members
-      .map((row) => mapProfile(row))
+      .map((row) => toPublicProfile(mapProfile(row)))
       .filter((member) => isAccountActive(member.accountStatus));
     const memberIds = mappedMembers.map((member) => member.id);
 
@@ -382,6 +405,7 @@ export const getPublicPageData = cache(async function getPublicPageData(
         .from("blocked_slots")
         .select(PUBLIC_BLOCKED_SLOT_COLUMNS)
         .in("profile_id", memberIds)
+        .gt("ends_at", busyCutoffIso)
         .order("starts_at"),
     ]);
 
@@ -473,7 +497,8 @@ export const getPublicPageData = cache(async function getPublicPageData(
     admin
       .from("blocked_slots")
       .select(PUBLIC_BLOCKED_SLOT_COLUMNS)
-      .eq("profile_id", publicProfileRow.id),
+      .eq("profile_id", publicProfileRow.id)
+      .gt("ends_at", busyCutoffIso),
     admin
       .from("bookings")
       .select(PUBLIC_BOOKING_COLUMNS)
@@ -482,6 +507,7 @@ export const getPublicPageData = cache(async function getPublicPageData(
       // okno-tz-rating-prepayment.md) — должен учитываться при построении
       // свободных слотов так же, как confirmed.
       .in("status", ["confirmed", "pending_payment"])
+      .gt("ends_at", busyCutoffIso)
       .order("starts_at"),
   ]);
 

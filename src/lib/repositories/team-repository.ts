@@ -119,6 +119,75 @@ export async function countActiveWorkspaceSeats(
   return count ?? 0;
 }
 
+// Данные команды для публичной страницы студии: только то, из чего
+// считаются свободные окна. Клиентов и прошлые записи она не показывает, а
+// getWorkspaceTeamRows тянул их целиком на каждое открытие страницы.
+export async function getPublicWorkspaceTeamRows(input: {
+  workspaceId: string;
+  bookingsEndAfterIso: string;
+}) {
+  const admin = createSupabaseAdminClient();
+
+  const { data: memberRows, error: memberError } = await admin
+    .from("profiles")
+    .select(TEAM_PROFILE_COLUMNS)
+    .eq("workspace_id", input.workspaceId)
+    .order("created_at");
+
+  if (memberError) {
+    if (isRetryableSupabaseNetworkError(memberError)) {
+      throw new Error(
+        "Нет связи с командой. Проверь подключение к Supabase и попробуй еще раз.",
+      );
+    }
+
+    throw new Error("Не получилось загрузить сотрудников.");
+  }
+
+  const normalizedMemberRows = asRows(memberRows);
+  const memberIds = normalizedMemberRows.map((row) => String(row.id));
+
+  if (memberIds.length === 0) {
+    return { members: [] as Row[], services: [] as Row[], bookings: [] as Row[] };
+  }
+
+  const [serviceResult, bookingResult] = await Promise.all([
+    admin
+      .from("services")
+      .select(TEAM_SERVICE_COLUMNS)
+      .in("profile_id", memberIds)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    admin
+      .from("bookings")
+      .select(TEAM_BOOKING_COLUMNS)
+      .in("profile_id", memberIds)
+      .in("status", ["confirmed", "pending_payment"])
+      .gt("ends_at", input.bookingsEndAfterIso)
+      .order("starts_at", { ascending: true }),
+  ]);
+
+  if (serviceResult.error || bookingResult.error) {
+    if (
+      [serviceResult.error, bookingResult.error].some((error) =>
+        isRetryableSupabaseNetworkError(error),
+      )
+    ) {
+      throw new Error(
+        "Нет связи с командой. Проверь подключение к Supabase и попробуй еще раз.",
+      );
+    }
+
+    throw new Error("Не получилось загрузить данные команды.");
+  }
+
+  return {
+    members: normalizedMemberRows,
+    services: asRows(serviceResult.data),
+    bookings: asRows(bookingResult.data),
+  };
+}
+
 export async function getWorkspaceTeamRows(input: { workspaceId: string }) {
   const admin = createSupabaseAdminClient();
 
