@@ -1,6 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import {
+  brandLogoRing,
+  brandLogoViewBox,
+  brandLogoWordmarkPath,
+  brandLogoWordmarkTransform,
+} from "@/components/layout/brand-logo";
 import { pricingPlans, trialDays } from "@/config/plans";
 import { defaultOgImage } from "@/config/site";
 
@@ -34,26 +40,25 @@ export default async function OpengraphImage() {
           fontFamily: "Manrope",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: 999,
-              background: "#23241f",
-              color: "#faf7f1",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 40,
-              fontWeight: 700,
-              paddingBottom: 6,
-            }}
-          >
-            o
-          </div>
-          <div style={{ fontSize: 40, fontWeight: 700 }}>okno</div>
-        </div>
+        <svg
+          width={(brandLogoViewBox.width * 72) / brandLogoViewBox.height}
+          height={72}
+          viewBox={`${brandLogoViewBox.x} ${brandLogoViewBox.y} ${brandLogoViewBox.width} ${brandLogoViewBox.height}`}
+        >
+          <circle
+            cx={brandLogoRing.cx}
+            cy={brandLogoRing.cy}
+            r={brandLogoRing.r}
+            fill="none"
+            stroke="#23241f"
+            strokeWidth={brandLogoRing.strokeWidth}
+          />
+          <path
+            d={brandLogoWordmarkPath}
+            fill="#23241f"
+            transform={brandLogoWordmarkTransform}
+          />
+        </svg>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div
