@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { BookingThemeStyles } from "@/components/booking/booking-theme-styles";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { siteDescription, siteName, siteTitle, siteUrl } from "@/config/site";
 import "./globals.css";
 
@@ -20,6 +21,11 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // Цвет статус-бара Android и окна задач — как фон страницы в каждой теме.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf7f1" },
+    { media: "(prefers-color-scheme: dark)", color: "#181712" },
+  ],
 };
 
 // openGraph страницы заменяет этот целиком, а не дополняет: страницы со своим
@@ -30,6 +36,14 @@ export const metadata: Metadata = {
   title: siteTitle,
   description: siteDescription,
   applicationName: siteName,
+  // Запуск с экрана «Домой» на iOS — без панелей Safari. Статус-бар
+  // прозрачный: под ним фон страницы своей темы, а отступ под вырез
+  // добавляет globals.css (display-mode: standalone).
+  appleWebApp: {
+    capable: true,
+    title: siteName,
+    statusBarStyle: "black-translucent",
+  },
   openGraph: {
     siteName,
     locale: "ru_RU",
@@ -58,7 +72,10 @@ export default function RootLayout({
           <style>{`[data-reveal]{opacity:1!important;transform:none!important;filter:none!important;border-radius:inherit!important}`}</style>
         </noscript>
       </head>
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full font-sans">
+        {children}
+        <ServiceWorkerRegistration />
+      </body>
     </html>
   );
 }

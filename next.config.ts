@@ -99,6 +99,16 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // Сервис-воркер браузер должен перепроверять при каждом заходе, иначе
+      // исправление в нём доедет до установленных приложений только через сутки.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
       // Мини-апп Telegram в веб-версии открывается в iframe на web.telegram.org,
       // всё остальное встраивать можно только в наши же страницы (тур, превью).
       {

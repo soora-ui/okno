@@ -573,3 +573,34 @@ input[type="number"] {
 [data-booking-theme][data-booking-theme-mode="dark"] .osm-tiles {
   filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.55);
 }
+
+/* Приложение с экрана «Домой» (PWA). На iOS статус-бар прозрачный
+   (black-translucent), и страница начинается под часами и вырезом: сдвигаем
+   её на высоту safe area и закрываем эту полосу фоном, чтобы прокручиваемый
+   контент не просвечивал под системными значками. В обычном браузере
+   правило не действует. */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    /* Без панелей браузера выделение текста и системное меню по долгому
+       нажатию на кнопках и вкладках выглядят как сбой, а не как функция. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 60;
+    height: env(safe-area-inset-top);
+    background-color: var(--color-background);
+  }
+
+  a,
+  button,
+  nav {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}

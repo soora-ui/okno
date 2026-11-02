@@ -39,7 +39,15 @@ const SINGLE_SEGMENT_PATH = /^\/[^/]+$/;
 const VALID_SEGMENT_PATH = /^\/[a-z0-9-]+$/;
 // Служебные файлы для поисковиков и AI-краулеров (src/app/robots.ts,
 // sitemap.ts, llms.txt) — с точкой в имени, но настоящие маршруты.
-const CRAWLER_FILES = new Set(["/robots.txt", "/sitemap.xml", "/llms.txt"]);
+// Туда же файлы приложения (PWA): манифест, сервис-воркер и офлайн-экран.
+const CRAWLER_FILES = new Set([
+  "/robots.txt",
+  "/sitemap.xml",
+  "/llms.txt",
+  "/manifest.webmanifest",
+  "/sw.js",
+  "/offline.html",
+]);
 
 function buildLoginRedirect(
   request: NextRequest,
