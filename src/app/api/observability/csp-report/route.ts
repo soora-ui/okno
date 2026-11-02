@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { logWarn } from "@/lib/observability/logger";
 
-// Приёмник отчётов Content-Security-Policy-Report-Only (next.config.ts). Пишем
-// в ленту /admin/errors, чтобы до включения политики увидеть всё, что она бы
-// заблокировала. Один и тот же источник за час пишем один раз: браузер шлёт
-// отчёт на каждую загрузку, а эндпоинт открыт всем.
+// Приёмник отчётов Content-Security-Policy (next.config.ts). Пишем в ленту
+// /admin/errors, чтобы видеть, что политика заблокировала: новый внешний
+// источник, который пора разрешить, или попытку инъекции. Один и тот же источник
+// за час пишем один раз: браузер шлёт отчёт на каждую загрузку, а эндпоинт
+// открыт всем.
 const DEDUPE_MS = 60 * 60 * 1000;
 const MAX_KEYS = 500;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -66,8 +67,12 @@ export async function POST(request: Request) {
 
   const directive = asText(report["effective-directive"]) ?? asText(report["violated-directive"]);
   const blocked = blockedSource(asText(report["blocked-uri"]));
+  // eval блокируется штатно: zod проверяет его в try/catch на каждой загрузке.
+  if (blocked === "eval") {
+    return new NextResponse(null, { status: 204 });
+  }
   if (directive && shouldLog(`${directive}|${blocked}`)) {
-    logWarn("CSP report-only violation", {
+    logWarn("CSP violation", {
       directive,
       blocked,
       documentUri: asText(report["document-uri"]),

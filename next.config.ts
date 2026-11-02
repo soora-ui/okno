@@ -32,33 +32,28 @@ const connectSources = [
   ...(supabaseOrigin ? [supabaseOrigin, supabaseOrigin.replace(/^http/, "ws")] : []),
 ];
 
-// Полная политика пока только в Report-Only: Next кладёт инлайновые скрипты без
-// nonce, а nonce через proxy.ts сделает все страницы динамическими. Нарушения
-// летят в /api/observability/csp-report → лента /admin/errors; когда она
-// затихнет, политику можно переключить в Content-Security-Policy.
-const reportOnlyCsp = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"} https://telegram.org`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://images.unsplash.com https://tile.openstreetmap.org",
-  "font-src 'self' data:",
-  `connect-src ${connectSources.join(" ")}`,
-  "media-src 'self' blob:",
-  "worker-src 'self' blob:",
-  "frame-src 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "report-uri /api/observability/csp-report",
-].join("; ");
-
-// А это включено по-настоящему: ничего из сайта не ломает, но закрывает
-// кликджекинг, <object>/<embed> и подмену <base>.
-function enforcedCsp(frameAncestors: string) {
+// Инлайновые скрипты Next кладёт без nonce, а nonce через proxy.ts сделал бы все
+// страницы динамическими — поэтому script-src с 'unsafe-inline'. Внешние скрипты
+// при этом закрыты: кроме своих, только SDK мини-аппа Telegram. Нарушения летят
+// в /api/observability/csp-report → лента /admin/errors.
+// 'unsafe-eval' на проде не нужен: zod лишь проверяет его в try/catch.
+// Картинки — любые https: аватары и логотипы бывают внешними, вреда от этого нет.
+function buildCsp(frameAncestors: string) {
   return [
+    "default-src 'self'",
+    `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"} https://telegram.org`,
+    "style-src 'self' 'unsafe-inline'",
+    `img-src 'self' data: blob: https:${supabaseOrigin?.startsWith("http:") ? ` ${supabaseOrigin}` : ""}`,
+    "font-src 'self' data:",
+    `connect-src ${connectSources.join(" ")}`,
+    "media-src 'self' blob:",
+    "worker-src 'self' blob:",
+    "frame-src 'self'",
+    "form-action 'self'",
     `frame-ancestors ${frameAncestors}`,
     "object-src 'none'",
     "base-uri 'self'",
+    "report-uri /api/observability/csp-report",
   ].join("; ");
 }
 
@@ -72,11 +67,13 @@ const securityHeaders = [
   },
   // allow-popups: оплата и вход через сторонние окна должны видеть opener.
   { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
-  { key: "Content-Security-Policy-Report-Only", value: reportOnlyCsp },
-  // Без includeSubDomains: трекинг ссылок Unisender и почтовые поддомены не
-  // обязаны жить на HTTPS. Браузеры игнорируют HSTS на http://localhost.
+  // Устаревший фильтр браузеров сам бывал источником утечек; при CSP — выключен.
+  { key: "X-XSS-Protection", value: "0" },
+  // Веб-сайтов на поддоменах нет (mail — только почта, link.mail для Unisender не
+  // заведён). Заведёте трекинг ссылок — только с HTTPS. Браузеры игнорируют HSTS
+  // на http://localhost.
   ...(isProduction
-    ? [{ key: "Strict-Transport-Security", value: "max-age=31536000" }]
+    ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]
     : []),
 ];
 
@@ -108,7 +105,7 @@ const nextConfig: NextConfig = {
         source: "/((?!tg(?:/|$)).*)",
         headers: [
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          { key: "Content-Security-Policy", value: enforcedCsp("'self'") },
+          { key: "Content-Security-Policy", value: buildCsp("'self'") },
         ],
       },
       {
@@ -116,7 +113,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value: enforcedCsp("'self' https://web.telegram.org"),
+            value: buildCsp("'self' https://web.telegram.org"),
           },
         ],
       },
