@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { assessClientReturn } from "@/lib/client-return";
+import { isoToMillis } from "@/lib/iso-millis";
 import type {
   AvailabilityRule,
   BlockedSlot,
@@ -125,7 +126,6 @@ type Interval = { start: number; end: number };
 
 type PreparedBooking = {
   booking: Booking;
-  start: DateTime;
   startMs: number;
   endMs: number;
   busyEndMs: number;
@@ -224,17 +224,17 @@ export function buildAnalyticsReport(input: AnalyticsInput): AnalyticsReport {
   const endMs = range.end.toMillis();
   const priceById = new Map(input.services.map((service) => [service.id, service.price]));
 
+  // Времена записей — числами: DateTime в поясе мастера на каждую запись
+  // ходил в Intl за смещением и съедал заметную долю CPU страницы.
   const prepared: PreparedBooking[] = input.bookings.map((booking) => {
-    const start = DateTime.fromISO(booking.startsAt, { zone: "utc" }).setZone(zone);
-    const endMsValue = DateTime.fromISO(booking.endsAt, { zone: "utc" }).toMillis();
-    const busyEnd = DateTime.fromISO(booking.busyUntil || booking.endsAt, { zone: "utc" });
+    const endMsValue = isoToMillis(booking.endsAt);
+    const busyEndMs = isoToMillis(booking.busyUntil || booking.endsAt);
 
     return {
       booking,
-      start,
-      startMs: start.toMillis(),
+      startMs: isoToMillis(booking.startsAt),
       endMs: endMsValue,
-      busyEndMs: busyEnd.isValid ? Math.max(busyEnd.toMillis(), endMsValue) : endMsValue,
+      busyEndMs: Number.isNaN(busyEndMs) ? endMsValue : Math.max(busyEndMs, endMsValue),
       price: booking.price ?? priceById.get(booking.serviceId) ?? 0,
     };
   });
@@ -271,8 +271,8 @@ export function buildAnalyticsReport(input: AnalyticsInput): AnalyticsReport {
   // занятого визитами вместе с перерывами.
   const blocked = mergeIntervals(
     input.blockedSlots.map((slot) => ({
-      start: DateTime.fromISO(slot.startsAt, { zone: "utc" }).toMillis(),
-      end: DateTime.fromISO(slot.endsAt, { zone: "utc" }).toMillis(),
+      start: isoToMillis(slot.startsAt),
+      end: isoToMillis(slot.endsAt),
     })),
   );
   const busy = mergeIntervals(
@@ -405,9 +405,17 @@ export function buildAnalyticsReport(input: AnalyticsInput): AnalyticsReport {
   const returningCount = periodClients.size - newCount;
 
   // «Давно не были» — та же оценка, что в разделе «Клиенты».
+  // Записи раскладываем по клиентам один раз: фильтр всех записей на
+  // каждого клиента давал квадрат от размера базы.
+  const preparedByClient = new Map<string, PreparedBooking[]>();
+  for (const item of prepared) {
+    const own = preparedByClient.get(item.booking.clientId);
+    if (own) own.push(item);
+    else preparedByClient.set(item.booking.clientId, [item]);
+  }
   let dueForReturn = 0;
   for (const client of input.clients) {
-    const own = prepared.filter((item) => item.booking.clientId === client.id);
+    const own = preparedByClient.get(client.id) ?? [];
     const assessment = assessClientReturn({
       pastVisits: own
         .filter((item) => isAttended(item.booking) && item.startMs <= nowMs)

@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { isoToMillis } from "@/lib/iso-millis";
 import type {
   AvailabilityRule,
   BlockedSlot,
@@ -11,21 +12,6 @@ import type {
 type Interval = { start: number; end: number };
 
 const MINUTE_MS = 60_000;
-
-// Даты из базы приходят с явным смещением («…+00:00») — их точно разбирает
-// Date.parse, а fromISO у luxon на сотнях записей мастера заметно дороже.
-// Без смещения строку читаем как UTC через luxon: Date.parse принял бы её
-// за местное время сервера.
-const ISO_WITH_OFFSET = /(?:Z|[+-]\d{2}:\d{2})$/;
-
-function toMillis(iso: string) {
-  if (ISO_WITH_OFFSET.test(iso)) {
-    const parsed = Date.parse(iso);
-    if (!Number.isNaN(parsed)) return parsed;
-  }
-
-  return DateTime.fromISO(iso, { zone: "utc" }).toMillis();
-}
 
 function formatLocalTime(ms: number, fixedOffsetMinutes: number | null, timezone: string) {
   if (fixedOffsetMinutes === null) {
@@ -93,12 +79,12 @@ export function buildBookingSlotsForService(input: {
   const busyIntervals: Interval[] = bookings
     .filter((booking) => booking.status === "confirmed" || booking.status === "pending_payment")
     .map((booking) => ({
-      start: toMillis(booking.startsAt),
-      end: toMillis(booking.busyUntil || booking.endsAt),
+      start: isoToMillis(booking.startsAt),
+      end: isoToMillis(booking.busyUntil || booking.endsAt),
     }))
     .filter((interval) => interval.end > nowMs);
   const blockedIntervals: Interval[] = blockedSlots
-    .map((slot) => ({ start: toMillis(slot.startsAt), end: toMillis(slot.endsAt) }))
+    .map((slot) => ({ start: isoToMillis(slot.startsAt), end: isoToMillis(slot.endsAt) }))
     .filter((interval) => interval.end > nowMs);
   const visibleDays: BookingSlot[] = [];
 
