@@ -333,6 +333,39 @@ export function TourPlayer({
     }
   }, []);
 
+  // Страховка от вечного «Загружаем демо…»: onLoad мог потеряться, а сама
+  // загрузка окна — не начаться (так было в Safari на iOS). Досматриваем
+  // готовность, через 8 с перезапускаем загрузку, через 20 с честно говорим,
+  // что не вышло, и даём обновить страницу.
+  const [stuckFrame, setStuckFrame] = useState<string | null>(null);
+  const currentFrame = SCENES[index].frame;
+  const currentFrameReady = Boolean(loaded[currentFrame]);
+  useEffect(() => {
+    if (currentFrameReady) return;
+    const id = currentFrame;
+    const check = () => {
+      const doc = frameRefs.current[id]?.contentDocument;
+      if (doc?.readyState === "complete" && doc.location.href !== "about:blank") {
+        setLoaded((l) => (l[id] ? l : { ...l, [id]: true }));
+        return true;
+      }
+      return false;
+    };
+    const poll = setInterval(check, 500);
+    const retry = setTimeout(() => {
+      const iframe = frameRefs.current[id];
+      if (!check() && iframe) iframe.src = frameSrc[id];
+    }, 8000);
+    const giveUp = setTimeout(() => {
+      if (!check()) setStuckFrame(id);
+    }, 20000);
+    return () => {
+      clearInterval(poll);
+      clearTimeout(retry);
+      clearTimeout(giveUp);
+    };
+  }, [currentFrame, currentFrameReady, frameSrc]);
+
   const makeCtx = useCallback(
     (frame: string, token: Token, surface: "main" | "client" = "main"): SceneCtx => {
       const win = frameRefs.current[frame]!.contentWindow!;
@@ -998,8 +1031,24 @@ export function TourPlayer({
       </div>
 
       {!frameReady ? (
-        <div className="absolute inset-0 z-[70] flex items-center justify-center bg-[var(--color-background)] text-sm text-muted">
-          Загружаем демо…
+        <div className="absolute inset-0 z-[70] flex flex-col items-center justify-center gap-3 bg-[var(--color-background)] px-6 text-center text-sm text-muted">
+          {stuckFrame === scene.frame ? (
+            <>
+              <span>Демо не загружается.</span>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  window.location.reload();
+                }}
+                className="pointer-events-auto rounded-full border border-line px-4 py-2 font-medium text-ink"
+              >
+                Обновить
+              </button>
+            </>
+          ) : (
+            "Загружаем демо…"
+          )}
         </div>
       ) : null}
     </div>

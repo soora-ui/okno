@@ -5,7 +5,7 @@
 //
 // Меняете список PRECACHE или логику — поднимите версию: старый кэш удалится
 // при активации новой.
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `okno-static-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png"];
@@ -48,6 +48,10 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
+    // Встроенные страницы (демо-экраны тура и базы знаний в iframe) — мимо
+    // воркера: офлайн-экран внутри окошка не нужен, а Safari на iOS при
+    // перехвате переходов в iframe оставлял их незагруженными.
+    if (request.destination !== "document") return;
     event.respondWith(
       fetch(request).catch(() =>
         caches.match(OFFLINE_URL).then((response) => response ?? Response.error()),
