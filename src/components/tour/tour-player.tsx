@@ -338,6 +338,7 @@ export function TourPlayer({
   // готовность, через 8 с перезапускаем загрузку, через 20 с честно говорим,
   // что не вышло, и даём обновить страницу.
   const [stuckFrame, setStuckFrame] = useState<string | null>(null);
+  const stuckReportedRef = useRef(false);
   const currentFrame = SCENES[index].frame;
   const currentFrameReady = Boolean(loaded[currentFrame]);
   useEffect(() => {
@@ -352,6 +353,44 @@ export function TourPlayer({
       return false;
     };
     const poll = setInterval(check, 500);
+    // Диагностика: на iPhone демо висело, а воспроизвести не вышло. Один раз
+    // за загрузку страницы шлём в ленту ошибок (/admin/errors), что видит
+    // плеер: есть ли окно, что у него внутри, какого размера сцена.
+    const report = setTimeout(() => {
+      if (check() || stuckReportedRef.current) return;
+      stuckReportedRef.current = true;
+      const iframe = frameRefs.current[id];
+      let inner: Record<string, unknown>;
+      try {
+        const doc = iframe?.contentDocument;
+        inner = doc
+          ? { readyState: doc.readyState, href: doc.location.href, bodyLength: doc.body?.innerHTML.length ?? null }
+          : { contentDocument: null };
+      } catch (error) {
+        inner = { error: String(error) };
+      }
+      const stageBox = stageRef.current?.getBoundingClientRect();
+      void fetch("/api/observability/client-error", {
+        method: "POST",
+        keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Tour demo frame not loaded after 10s",
+          route: window.location.pathname + window.location.search,
+          context: {
+            frame: id,
+            src: frameSrc[id],
+            iframeInDom: Boolean(iframe?.isConnected),
+            iframeCount: document.querySelectorAll("iframe").length,
+            ...inner,
+            stage: stageBox ? [Math.round(stageBox.width), Math.round(stageBox.height)] : null,
+            scale: scaleRef.current,
+            visibility: document.visibilityState,
+            userAgent: navigator.userAgent,
+          },
+        }),
+      }).catch(() => {});
+    }, 10000);
     const retry = setTimeout(() => {
       const iframe = frameRefs.current[id];
       if (!check() && iframe) iframe.src = frameSrc[id];
@@ -361,6 +400,7 @@ export function TourPlayer({
     }, 20000);
     return () => {
       clearInterval(poll);
+      clearTimeout(report);
       clearTimeout(retry);
       clearTimeout(giveUp);
     };
