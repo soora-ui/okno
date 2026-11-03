@@ -339,6 +339,17 @@ export function TourPlayer({
   // что не вышло, и даём обновить страницу.
   const [stuckFrame, setStuckFrame] = useState<string | null>(null);
   const stuckReportedRef = useRef(false);
+  // Нарушения CSP на странице плеера — в отчёт о зависшем окне.
+  const cspViolationsRef = useRef<string[]>([]);
+  useEffect(() => {
+    const onViolation = (event: SecurityPolicyViolationEvent) => {
+      if (cspViolationsRef.current.length < 10) {
+        cspViolationsRef.current.push(`${event.effectiveDirective} ${event.blockedURI}`);
+      }
+    };
+    document.addEventListener("securitypolicyviolation", onViolation);
+    return () => document.removeEventListener("securitypolicyviolation", onViolation);
+  }, []);
   const currentFrame = SCENES[index].frame;
   const currentFrameReady = Boolean(loaded[currentFrame]);
   useEffect(() => {
@@ -386,6 +397,8 @@ export function TourPlayer({
             stage: stageBox ? [Math.round(stageBox.width), Math.round(stageBox.height)] : null,
             scale: scaleRef.current,
             visibility: document.visibilityState,
+            loadingAttr: iframe?.getAttribute("loading") ?? null,
+            cspViolations: cspViolationsRef.current,
             userAgent: navigator.userAgent,
           },
         }),
@@ -1006,6 +1019,9 @@ export function TourPlayer({
               }}
               src={frameSrc[id]}
               title={id}
+              // Safari сам решает, когда грузить iframe, и окно внутри
+              // уменьшенного устройства считал невидимым: оставалось about:blank.
+              loading="eager"
               tabIndex={-1}
               aria-hidden
               onLoad={() => setLoaded((l) => (l[id] ? l : { ...l, [id]: true }))}
@@ -1207,6 +1223,7 @@ export function TourPlayer({
                           }}
                           src={frameSrc[id]}
                           title={id}
+                          loading="eager"
                           tabIndex={-1}
                           onLoad={() => setLoaded((l) => (l[id] ? l : { ...l, [id]: true }))}
                           className="pointer-events-none absolute inset-0 border-0 bg-[var(--color-background)]"
