@@ -100,9 +100,13 @@ export function FreeWindowsStoryDialog({
   storyHref,
   defaultPalette,
   hasBrandStyle = false,
+  memberId = null,
   onClose,
 }: {
   storyHref: string;
+  // Админ студии делится окошками выбранного мастера: картинка, скидка и
+  // ссылка — этого мастера (API проверяет, что он из той же студии).
+  memberId?: string | null;
   defaultPalette: StoryPalette;
   // Фирменный стиль применён: «Мой стиль» есть в выборе и выбран по
   // умолчанию — сторис в тон странице, на которую она ведёт.
@@ -138,6 +142,7 @@ export function FreeWindowsStoryDialog({
     style,
     palette,
     ...(discount > 0 ? { discount: String(discount) } : {}),
+    ...(memberId ? { member: memberId } : {}),
   })}`;
 
   const pick = useCallback(
@@ -169,7 +174,10 @@ export function FreeWindowsStoryDialog({
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`${storyHref}?format=data`, { signal: controller.signal })
+    fetch(
+      `${storyHref}?${new URLSearchParams({ format: "data", ...(memberId ? { member: memberId } : {}) })}`,
+      { signal: controller.signal },
+    )
       .then((response) => {
         if (!response.ok) throw new Error(`story data ${response.status}`);
         return response.json() as Promise<StoryData>;
@@ -183,7 +191,7 @@ export function FreeWindowsStoryDialog({
         if (error.name !== "AbortError") setDataState("error");
       });
     return () => controller.abort();
-  }, [storyHref]);
+  }, [storyHref, memberId]);
 
   // PNG рисуем, только когда выбор постоял полсекунды: пролистывание цветов
   // не должно ставить в очередь рендеры, которые никто не увидит.
@@ -247,7 +255,7 @@ export function FreeWindowsStoryDialog({
       // Сначала скидка, потом картинка: если сохранить не вышло, сторис со
       // скидкой, которой нет, не уйдёт. В демо базу мастера не трогаем.
       if (!demo && discount !== (activeDiscount?.percent ?? 0)) {
-        const result = await setHotWindowsDiscountAction(discount);
+        const result = await setHotWindowsDiscountAction(discount, memberId);
         if (!result.success) throw new Error(result.message);
         setStoryData((current) =>
           current ? { ...current, hotWindowsDiscount: result.discount } : current,

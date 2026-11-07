@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentAuthProfile } from "@/lib/data";
-import { getOwnerFreeWindows } from "@/lib/free-windows-data";
+import { resolveFreeWindowsStoryTarget } from "@/lib/free-windows-data";
 import { renderFreeWindowsStoryPng } from "@/lib/free-windows-story";
 import { loadServerStoryBrand } from "@/lib/free-windows-story-brand";
 import { brandLogoPath } from "@/lib/brand-theme/decor";
@@ -29,23 +29,32 @@ function parseDiscountPercent(value: string | null) {
 // brand — фирменный стиль мастера, если он применён), по
 // умолчанию — цвет страницы записи мастера. ?discount=20 — стикер скидки на
 // окошки. ?format=data — те же окошки JSON-ом для превью, вместе с уже
-// включённой скидкой.
+// включённой скидкой. ?member=<id> — админ студии рисует окошки выбранного
+// мастера своей студии: имя, ссылка, тема и скидка — этого мастера.
 export async function GET(request: Request) {
   const authProfile = await getCurrentAuthProfile();
   if (!authProfile) {
     return NextResponse.json({ error: "Нужно войти в кабинет." }, { status: 401 });
   }
 
-  const { profile } = authProfile;
   const { searchParams } = new URL(request.url);
-  const freeWindows = await getOwnerFreeWindows(authProfile);
+  const target = await resolveFreeWindowsStoryTarget({
+    profile: authProfile.profile,
+    source: authProfile.source,
+    memberId: searchParams.get("member"),
+  });
 
-  if (freeWindows.status !== "ready" || freeWindows.days.length === 0) {
+  if (target.status !== "ready") {
     return NextResponse.json(
       { error: "Свободных окошек на ближайшие дни нет." },
       { status: 404 },
     );
   }
+
+  // Дальше «мастер» — тот, чьи окошки на картинке: сам вошедший или
+  // выбранный админом сотрудник.
+  const { profile } = target;
+  const freeWindows = { days: target.days };
 
   const publicLink = formatPublicProfileLink(profile.username);
 

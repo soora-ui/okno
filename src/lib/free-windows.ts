@@ -148,16 +148,20 @@ export function freeWindowTimelineSegment(window: FreeWindow, axis: FreeWindowsT
 
 // Пост для Telegram / VK / WhatsApp. Пишем от лица мастера и без эмодзи:
 // мастер вставит свои, если захочет, а лишние удалять неудобно.
+// masterName — для поста студии: админ делится окошками конкретного мастера,
+// и клиенту нужно сразу видеть, к кому запись.
 export function buildFreeWindowsShareText(
   days: FreeWindowDay[],
   bookingUrl: string,
   discountPercent?: number | null,
+  masterName?: string | null,
 ) {
   const lines = days.map((day) => `${day.label}: ${formatFreeWindowRanges(day.windows)}`);
+  const who = masterName ? ` у мастера ${masterName}` : "";
   return [
     discountPercent
-      ? `Есть свободные окошки на ближайшие дни, на них скидка ${discountPercent}%:`
-      : "Есть свободные окошки на ближайшие дни:",
+      ? `Есть свободные окошки${who} на ближайшие дни, на них скидка ${discountPercent}%:`
+      : `Есть свободные окошки${who} на ближайшие дни:`,
     "",
     ...lines,
     "",

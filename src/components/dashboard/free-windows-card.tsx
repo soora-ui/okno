@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useState, useTransition, type ReactNode } from "react";
 import { DateTime } from "luxon";
 import { Check, CircleCheck, Copy, Smartphone, Tag } from "lucide-react";
 import { setHotWindowsDiscountAction } from "@/app/actions/free-windows";
@@ -30,6 +30,9 @@ export function FreeWindowsCard({
   hasBrandStyle = false,
   hotWindowsDiscount = null,
   timezone,
+  memberId = null,
+  masterName = null,
+  picker = null,
 }: {
   days: FreeWindowDay[];
   bookingUrl: string;
@@ -41,6 +44,11 @@ export function FreeWindowsCard({
   // Действующая скидка на окошки; включают её в окне сторис.
   hotWindowsDiscount?: HotWindowsDiscount | null;
   timezone: string;
+  // Кабинет админа студии: окошки выбранного мастера. memberId уходит в
+  // сторис и скидку, имя — в текст для чатов, picker — выбор мастера в шапке.
+  memberId?: string | null;
+  masterName?: string | null;
+  picker?: ReactNode;
 }) {
   const demo = useDemoMode();
   const [copied, setCopied] = useState(false);
@@ -52,7 +60,7 @@ export function FreeWindowsCard({
   function disableDiscount() {
     setDisableError(false);
     startDisabling(async () => {
-      const result = await setHotWindowsDiscountAction(0);
+      const result = await setHotWindowsDiscountAction(0, memberId);
       if (!result.success) setDisableError(true);
     });
   }
@@ -63,7 +71,7 @@ export function FreeWindowsCard({
       // показываем, что текст скопировался бы.
       if (!demo) {
         await navigator.clipboard.writeText(
-          buildFreeWindowsShareText(days, bookingUrl, hotWindowsDiscount?.percent),
+          buildFreeWindowsShareText(days, bookingUrl, hotWindowsDiscount?.percent, masterName),
         );
       }
       setCopied(true);
@@ -74,12 +82,36 @@ export function FreeWindowsCard({
     }
   }
 
+  const busyNotice = (
+    <div className="flex items-center gap-3 rounded-panel border border-line bg-panel px-5 py-4">
+      <CircleCheck size={20} strokeWidth={1.8} className="shrink-0 text-muted" aria-hidden />
+      <span className="text-[15px] font-medium text-ink-soft">
+        {masterName ? `У мастера ${masterName} ближайшие три дня заняты` : "Ближайшие три дня заняты"}
+      </span>
+    </div>
+  );
+
+  const header = (
+    <div className="space-y-2">
+      <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+        Горящие окошки
+      </p>
+      <h2 className="text-[22px] font-semibold leading-[1.3] tracking-[-0.025em] text-ink">
+        {masterName ? `Где у мастера ${masterName} пусто` : "Где в расписании пусто"}
+      </h2>
+    </div>
+  );
+
   if (days.length === 0) {
-    return (
-      <div className="flex items-center gap-3 rounded-panel border border-line bg-panel px-5 py-4">
-        <CircleCheck size={20} strokeWidth={1.8} className="shrink-0 text-muted" aria-hidden />
-        <span className="text-[15px] font-medium text-ink-soft">Ближайшие три дня заняты</span>
-      </div>
+    // С выбором мастера карточка остаётся: админ переключится на другого.
+    return picker ? (
+      <Card className="space-y-5">
+        {header}
+        {picker}
+        {busyNotice}
+      </Card>
+    ) : (
+      busyNotice
     );
   }
 
@@ -91,14 +123,8 @@ export function FreeWindowsCard({
 
   return (
     <Card className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-          Горящие окошки
-        </p>
-        <h2 className="text-[22px] font-semibold leading-[1.3] tracking-[-0.025em] text-ink">
-          Где в расписании пусто
-        </h2>
-      </div>
+      {header}
+      {picker}
 
       <div className="space-y-4">
         {/* Шкала часов: крайние метки прижаты к краям, средние — по центру. */}
@@ -207,6 +233,7 @@ export function FreeWindowsCard({
           storyHref={storyHref}
           defaultPalette={storyDefaultPalette}
           hasBrandStyle={hasBrandStyle}
+          memberId={memberId}
           onClose={closeStoryDialog}
         />
       ) : null}

@@ -171,8 +171,8 @@ const everyPlanRow = (label: string, hint?: string): PlanComparisonRow => ({
   values: byPlan(() => true),
 });
 
-// Есть у частного мастера, но пока не в кабинете студии (горящие окошки и
-// источники записей в v1 — только для соло).
+// Есть у частного мастера, но пока не в кабинете студии (источники записей
+// в v1 — только для соло).
 const soloOnlyRow = (label: string, hint?: string): PlanComparisonRow => ({
   label,
   hint,
@@ -218,9 +218,9 @@ export const planComparisonGroups: PlanComparisonGroup[] = [
   {
     title: "Привлечение клиентов",
     rows: [
-      soloOnlyRow(
+      everyPlanRow(
         "Горящие окошки для сторис и чатов",
-        "Свободное время на три дня: картинка 1080×1920 или готовый текст со ссылкой",
+        "Свободное время на три дня: картинка 1080×1920 или готовый текст со ссылкой. В студии — у каждого мастера, админ выбирает мастера",
       ),
       soloOnlyRow(
         "Источники записей",

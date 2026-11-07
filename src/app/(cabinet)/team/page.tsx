@@ -9,8 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TeamFreeWindowsCard } from "@/components/team/team-free-windows-card";
 import { resolveCityValue } from "@/lib/cities";
 import { getTeamDashboardData } from "@/lib/data";
+import { getTeamFreeWindows } from "@/lib/free-windows-data";
+import { defaultStoryPalette } from "@/lib/free-windows-story-options";
+import { isHotWindowsDiscountActive } from "@/lib/service-discounts";
 
 export default async function TeamPage() {
   const data = await getTeamDashboardData();
@@ -20,6 +24,9 @@ export default async function TeamPage() {
   }
 
   const { members, profile, recentClients, upcomingBookings, workspace } = data;
+  // Горящие окошки мастеров студии: админ выбирает мастера и делится его
+  // свободным временем (документы/горящие-окошки.md).
+  const teamFreeWindows = await getTeamFreeWindows(profile);
 
   return (
     <div className="space-y-6 py-4">
@@ -79,6 +86,25 @@ export default async function TeamPage() {
 
       <div className="print-stack-cols grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-6">
+          {teamFreeWindows.status === "ready" && teamFreeWindows.members.length > 0 ? (
+            <div className="print-hidden">
+              <TeamFreeWindowsCard
+                storyHref="/api/free-windows/story"
+                members={teamFreeWindows.members.map((member) => ({
+                  id: member.profile.id,
+                  fullName: member.profile.fullName,
+                  days: member.days,
+                  bookingUrl: member.bookingUrl,
+                  timezone: member.profile.timezone,
+                  storyDefaultPalette: defaultStoryPalette(member.profile.bookingThemePresetId),
+                  hasBrandStyle: Boolean(member.profile.brandTheme),
+                  hotWindowsDiscount: isHotWindowsDiscountActive(member.profile.hotWindowsDiscount)
+                    ? member.profile.hotWindowsDiscount
+                    : null,
+                }))}
+              />
+            </div>
+          ) : null}
           <Card className="print-avoid-break print-no-shadow space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div>

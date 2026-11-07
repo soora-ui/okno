@@ -154,3 +154,18 @@ describe("buildFreeWindowsTimelineAxis", () => {
     ]);
   });
 });
+
+describe("buildFreeWindowsShareText для студии", () => {
+  it("называет мастера, к которому запись", () => {
+    const text = buildFreeWindowsShareText(
+      [{ date: "2026-11-09", label: "Завтра, 9 ноября", dayName: "Завтра", dateLabel: "9 ноября", windows: [{ start: "12:00", end: "14:00", serviceId: "a" }] }],
+      "https://okno.business/irina",
+      15,
+      "Ирина Петрова",
+    );
+    expect(text.split("\n")[0]).toBe(
+      "Есть свободные окошки у мастера Ирина Петрова на ближайшие дни, на них скидка 15%:",
+    );
+    expect(text).toContain("Записаться онлайн: https://okno.business/irina");
+  });
+});

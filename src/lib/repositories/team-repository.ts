@@ -41,6 +41,10 @@ const TEAM_PROFILE_COLUMNS = [
   "created_by_profile_id",
   "avatar_url",
   "portfolio_works",
+  // Скидка на горящие окошки мастера: страница студии и карточка админа
+  // показывают её так же, как личная страница (миграция 202610210001).
+  "hot_windows_discount_percent",
+  "hot_windows_discount_until",
 ].join(",");
 
 const TEAM_SERVICE_COLUMNS = [
