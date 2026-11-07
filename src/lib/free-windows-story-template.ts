@@ -1,5 +1,6 @@
 import { formatFreeWindowRanges, type FreeWindowDay } from "@/lib/free-windows";
 import type { StoryPalette, StoryStyle } from "@/lib/free-windows-story-options";
+import type { BrandDecorStyle, BrandTheme } from "@/lib/brand-theme/schema";
 
 // Шаблон картинки «Горящие окошки» (документы/горящие-окошки.md) — HTML со
 // стилями по макету «Горящие окошки»: три стиля × пять палитр, координаты из
@@ -123,6 +124,20 @@ export type StoryInput = {
   // Скидка на горящие окошки (src/lib/service-discounts.ts): на картинке —
   // крупный стикер, чтобы её замечали, пока листают сторис.
   discountPercent?: number | null;
+  // Фирменный стиль мастера для style: "brand". Без него «Мой стиль»
+  // рисуется светлым шаблоном — картинка не должна падать из-за темы.
+  brand?: StoryBrand | null;
+};
+
+export type StoryBrand = {
+  theme: BrandTheme;
+  // PNG логотипа: на сервере — data URI (satori не ходит в хранилище сам),
+  // в превью — публичный адрес. null — логотипа нет, рисуем знак okno.
+  logoSrc: string | null;
+  // CSS-семейства шрифтов темы. На сервере — имена, под которыми шрифты
+  // отданы satori; в превью — семейства next/font со страницы.
+  headingFont: string;
+  bodyFont: string;
 };
 
 function dayRanges(day: FreeWindowDay, dayCount: number) {
@@ -308,7 +323,102 @@ function renderInk(input: StoryInput, t: PaletteTokens) {
   </div>`;
 }
 
+function hexToRgba(hex: string, alpha: number) {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return `rgba(${(value >> 16) & 255},${(value >> 8) & 255},${value & 255},${alpha})`;
+}
+
+const leafPath = "M0 0C6-9 18-9 24 0C18 9 6 9 0 0Z";
+
+// Декор фирменного стиля в углах сторис — те же рисунки, что в шапке
+// публичной страницы (components/brand-theme/brand-decor.tsx, BrandHeroDecor),
+// только цветами темы напрямую: в satori CSS-переменных нет.
+function brandDecorSvg(style: BrandDecorStyle, d1: string, d2: string, opacity: number, transform = "") {
+  const svgStyle = `opacity:${opacity};${transform ? `transform:${transform};` : ""}`;
+  if (style === "geometric") {
+    return `<svg width="300" height="300" viewBox="230 20 150 150" style="${svgStyle}"><g fill="none" stroke="${d1}" stroke-width="1.2"><path d="M250 40h110v110H250z"/><path d="M265 55h80v80h-80z" stroke="${d2}"/><path d="M250 40l110 110M360 40L250 150" opacity=".5"/><path d="M190 200L390 0" opacity=".4"/></g></svg>`;
+  }
+  if (style === "botanical") {
+    const leaves = (fill: string, items: Array<[number, number, number]>) =>
+      `<g fill="${fill}">${items.map(([x, y, r]) => `<path d="${leafPath}" transform="translate(${x} ${y}) rotate(${r})"/>`).join("")}</g>`;
+    return `<svg width="300" height="300" viewBox="240 40 160 160" style="${svgStyle}"><g fill="none" stroke="${d2}" stroke-width="1.6" stroke-linecap="round"><path d="M300 210C310 160 300 110 332 56"/><path d="M356 210C352 168 372 138 396 104"/><path d="M250 210C262 176 258 150 280 122"/></g>${leaves(d1, [[306, 140, -20], [312, 100, -70], [330, 62, -40], [352, 150, -10]])}${leaves(d2, [[364, 120, -60], [386, 106, -25], [264, 162, -25], [278, 128, -65]])}</svg>`;
+  }
+  return `<svg width="360" height="180" viewBox="0 0 400 200" style="${svgStyle}"><g fill="none" stroke-linecap="round"><path d="M-20 160C60 110 130 200 210 140S340 60 430 110" stroke="${d1}" stroke-width="34" opacity=".35"/><path d="M-20 70C80 20 150 100 240 50S350 10 430 40" stroke="${d2}" stroke-width="12" opacity=".6"/></g></svg>`;
+}
+
+// «Мой стиль»: раскладка светлого шаблона, но всё оформление — из
+// фирменной темы мастера: цвета, шрифты, вес и разрядка заголовка,
+// скругления, тени, декор и логотип. Читаемость пар «текст на фоне» тема
+// уже прошла при генерации (lib/brand-theme/contrast.ts), поэтому здесь
+// берём только её же пары: текст на фоне, на карточке, на кнопке.
+function renderBrand(input: StoryInput, brand: StoryBrand) {
+  const { theme } = brand;
+  const c = theme.colors;
+  const dark = theme.scheme === "dark";
+  const shadowBase = dark ? "#000000" : c.ink;
+  const shadowK = theme.shadow === "deep" ? 2 : 1;
+  const cardShadow =
+    theme.shadow === "none" ? "" : `box-shadow:0 24px 80px ${hexToRgba(shadowBase, 0.08 * shadowK * (dark ? 4 : 1))};`;
+  const pillRadius = Math.min(theme.radius.button, 9999);
+  const cardRadius = theme.radius.card;
+  const decorOpacity = (theme.decorIntensity / 100) * 0.75;
+  const showDecor = theme.decor !== "none";
+  const heading = `font-family:${brand.headingFont};font-weight:${theme.fonts.headingWeight};letter-spacing:${theme.fonts.headingTracking}em`;
+
+  const days = input.days
+    .map(
+      (day, index) => `<div style="display:flex;flex-direction:column;gap:10px;padding:18px 0;${index === 0 ? "" : `border-top:1px solid ${c.line};`}">
+        <div style="display:flex;align-items:baseline;gap:5px">
+          <span style="font-size:16px;font-weight:600;color:${c.ink}">${escapeHtml(day.dayName)}</span>
+          <span style="font-size:14px;font-weight:400;color:${c.inkSoft}">· ${escapeHtml(day.dateLabel)}</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">${dayRanges(day, input.days.length)
+          .map(
+            (range) =>
+              `<div style="display:flex;padding:7px 16px;border-radius:${pillRadius}px;background:${c.accentSoft};border:1px solid ${c.accent};color:${c.accentDeep};font-size:17px;font-weight:600">${range}</div>`,
+          )
+          .join("")}</div>
+      </div>`,
+    )
+    .join("");
+
+  const mark = brand.logoSrc
+    ? `<img src="${brand.logoSrc}" style="height:44px;max-width:200px;object-fit:contain;object-position:left center" />`
+    : `<div style="display:flex;align-items:center;gap:10px">${logo(c.ink, c.background, 30)}<span style="font-size:22px;font-weight:600;letter-spacing:-0.02em;color:${c.ink}">okno</span></div>`;
+
+  return `<div style="position:relative;display:flex;width:${storyLayout.width}px;height:${storyLayout.height}px;background-color:${c.background};background-image:radial-gradient(circle at 0% 0%, ${hexToRgba(c.accent, 0.35)}, ${hexToRgba(c.accent, 0)} 55%), radial-gradient(circle at 100% 100%, ${hexToRgba(c.accentSoft, 0.9)}, ${hexToRgba(c.accentSoft, 0)} 55%);font-family:${brand.bodyFont};color:${c.ink}">
+    ${showDecor && theme.decorSlots.hero ? `<div style="position:absolute;display:flex;right:-20px;top:40px">${brandDecorSvg(theme.decor, c.decor1, c.decor2, decorOpacity)}</div>` : ""}
+    ${showDecor && theme.decorSlots.footer ? `<div style="position:absolute;display:flex;left:-30px;bottom:30px">${brandDecorSvg(theme.decor, c.decor1, c.decor2, decorOpacity, "rotate(180deg)")}</div>` : ""}
+    <div style="position:relative;display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;padding:116px 40px">
+      <div style="display:flex;flex-direction:column;gap:18px">
+        ${mark}
+        <div style="display:flex;align-self:flex-start;align-items:center;gap:8px;padding:6px 14px;border-radius:${pillRadius}px;background:${c.card};border:1px solid ${c.line}">
+          <div style="display:flex;width:8px;height:8px;border-radius:9999px;background:${c.accentDeep}"></div>
+          <span style="font-size:11px;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:${c.inkSoft}">Горящие окошки</span>
+        </div>
+        <div style="display:flex;font-size:54px;line-height:1.06;${heading}">Есть свободные окошки</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="display:flex;width:44px;height:44px;border-radius:9999px;background:${c.button};color:${c.buttonText};align-items:center;justify-content:center;font-size:16px;font-weight:600">${escapeHtml(masterInitials(input.masterName))}</div>
+          <div style="display:flex;flex-direction:column;gap:2px;${nameWidth(input)}">
+            <span style="font-size:19px;font-weight:600;${heading.replace(/font-weight:\d+;/, "")}">${escapeHtml(input.masterName)}</span>
+            <span style="font-size:14px;${input.discountPercent ? `font-weight:600;color:${c.accentDeep}` : `color:${c.inkSoft}`}">${input.discountPercent ? `Скидка ${input.discountPercent}% на эти окошки` : "Запишитесь на удобное время"}</span>
+          </div>
+        </div>
+      </div>
+      <div style="position:relative;display:flex;flex-direction:column;padding:8px 24px;border-radius:${cardRadius}px;background:${c.card};border:1px solid ${c.line};${cardShadow}">${days}${input.discountPercent ? discountSticker(input.discountPercent, { bg: c.button, text: c.buttonText, ring: c.background }, "right:-22px;top:-74px") : ""}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:12px">
+        <span style="font-size:13px;font-weight:500;color:${c.inkSoft}">Запись онлайн, без звонков и переписки</span>
+        <div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 12px 0 24px;border-radius:${pillRadius}px;background:${c.button};color:${c.buttonText};font-size:21px;font-weight:500;${cardShadow}">
+          <span>${escapeHtml(input.publicLink)}</span>
+          <div style="display:flex;width:36px;height:36px;border-radius:${Math.min(pillRadius, 18)}px;background:${c.buttonText};align-items:center;justify-content:center">${arrow(c.button)}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 export function buildFreeWindowsStoryHtml(input: StoryInput) {
+  if (input.style === "brand" && input.brand) return renderBrand(input, input.brand);
   const tokens = storyPaletteTokens[input.palette];
   if (input.style === "arch") return renderArch(input, tokens);
   if (input.style === "ink") return renderInk(input, tokens);

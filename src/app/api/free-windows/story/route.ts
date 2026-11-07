@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getCurrentAuthProfile } from "@/lib/data";
 import { getOwnerFreeWindows } from "@/lib/free-windows-data";
 import { renderFreeWindowsStoryPng } from "@/lib/free-windows-story";
+import { loadServerStoryBrand } from "@/lib/free-windows-story-brand";
+import { brandLogoPath } from "@/lib/brand-theme/decor";
+import { resolveProfileMediaUrl } from "@/lib/profile-media";
 import {
   defaultStoryPalette,
   parseStoryPalette,
@@ -22,7 +25,8 @@ function parseDiscountPercent(value: string | null) {
 
 // Картинка «Горящие окошки» для сторис мастера (документы/горящие-окошки.md).
 // Только для вошедшего мастера и только его окошки. Стиль и цвет — из
-// окна выбора в кабинете (?style=light|arch|ink&palette=sage|…), по
+// окна выбора в кабинете (?style=light|arch|ink|brand&palette=sage|…;
+// brand — фирменный стиль мастера, если он применён), по
 // умолчанию — цвет страницы записи мастера. ?discount=20 — стикер скидки на
 // окошки. ?format=data — те же окошки JSON-ом для превью, вместе с уже
 // включённой скидкой.
@@ -56,22 +60,39 @@ export async function GET(request: Request) {
         hotWindowsDiscount: isHotWindowsDiscountActive(profile.hotWindowsDiscount)
           ? profile.hotWindowsDiscount
           : null,
+        // Для «Моего стиля» в превью: тема та же, что на публичной странице,
+        // логотип — по публичному адресу.
+        brandTheme: profile.brandTheme,
+        brandLogoUrl: resolveProfileMediaUrl(brandLogoPath(profile.brandTheme)),
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   }
 
   try {
-    const png = await renderFreeWindowsStoryPng({
-      days: freeWindows.days,
-      masterName: profile.fullName,
-      publicLink,
-      style: parseStoryStyle(searchParams.get("style")),
-      palette:
-        parseStoryPalette(searchParams.get("palette")) ??
-        defaultStoryPalette(profile.bookingThemePresetId),
-      discountPercent: parseDiscountPercent(searchParams.get("discount")),
-    });
+    const style = parseStoryStyle(searchParams.get("style"));
+    // Без применённой темы «Мой стиль» рисуется светлым шаблоном.
+    const brandAssets =
+      style === "brand" && profile.brandTheme
+        ? await loadServerStoryBrand(profile.brandTheme)
+        : null;
+    const png = await renderFreeWindowsStoryPng(
+      {
+        days: freeWindows.days,
+        masterName: profile.fullName,
+        publicLink,
+        style,
+        palette:
+          parseStoryPalette(searchParams.get("palette")) ??
+          defaultStoryPalette(profile.bookingThemePresetId),
+        discountPercent: parseDiscountPercent(searchParams.get("discount")),
+        brand: brandAssets?.brand ?? null,
+      },
+      {
+        extraFonts: brandAssets?.fonts,
+        fallbackFontNames: brandAssets?.fallbackFontNames,
+      },
+    );
 
     return new NextResponse(new Uint8Array(png), {
       headers: {

@@ -27,10 +27,16 @@ export {
 
 const fontsDir = path.join(process.cwd(), "src/lib/free-windows-story-fonts");
 
-let cachedFonts: { name: string; data: Buffer; weight: 400 | 500 | 600; style: "normal" }[] | null =
-  null;
+type StoryFont = {
+  name: string;
+  data: Buffer | ArrayBuffer;
+  weight: 400 | 500 | 600 | 700 | 800;
+  style: "normal";
+};
 
-function loadStoryFonts() {
+let cachedFonts: StoryFont[] | null = null;
+
+function loadStoryFonts(): StoryFont[] {
   cachedFonts ??= (
     [
       ["Manrope-Regular.ttf", 400],
@@ -46,14 +52,26 @@ function loadStoryFonts() {
   return cachedFonts;
 }
 
-export async function renderFreeWindowsStoryPng(input: StoryInput) {
+// extraFonts — шрифты фирменного стиля («Мой стиль»); fallbackFontNames —
+// их имена, если скачать не вышло: под ними отдаём Manrope, и картинка
+// рисуется, а не падает на неизвестном шрифте.
+export async function renderFreeWindowsStoryPng(
+  input: StoryInput,
+  options: { extraFonts?: StoryFont[]; fallbackFontNames?: string[] } = {},
+) {
   const tree = parseHtml(buildFreeWindowsStoryHtml(input));
+  const base = loadStoryFonts();
+  const fonts = [
+    ...base,
+    ...(options.extraFonts ?? []),
+    ...(options.fallbackFontNames ?? []).flatMap((name) => base.map((font) => ({ ...font, name }))),
+  ];
   // satori-html отдаёт свой VNode — структурно то, что ждёт satori, но типы
   // пакетов не совпадают (тот же приём, что в certificates/render.ts).
   const svg = await satori(tree as unknown as Parameters<typeof satori>[0], {
     width: storyLayout.width,
     height: storyLayout.height,
-    fonts: loadStoryFonts(),
+    fonts,
   });
   const resvg = new Resvg(svg, {
     fitTo: { mode: "width", value: storyDimensions.width },

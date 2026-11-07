@@ -7,6 +7,8 @@ import { setHotWindowsDiscountAction } from "@/app/actions/free-windows";
 import { useDemoMode } from "@/components/tour/demo-mode";
 import { Button } from "@/components/ui/button";
 import type { FreeWindowDay } from "@/lib/free-windows";
+import { brandFontFamily } from "@/components/brand-theme/brand-fonts";
+import type { BrandTheme } from "@/lib/brand-theme/schema";
 import { buildFreeWindowsStoryHtml } from "@/lib/free-windows-story-template";
 import {
   storyPaletteMeta,
@@ -29,6 +31,8 @@ type StoryData = {
   masterName: string;
   publicLink: string;
   hotWindowsDiscount?: HotWindowsDiscount | null;
+  brandTheme?: BrandTheme | null;
+  brandLogoUrl?: string | null;
 };
 
 // Скидка на окошки: 0 — без скидки. Больше 30% мастера в горящих окошках
@@ -95,10 +99,14 @@ function canShareFiles() {
 export function FreeWindowsStoryDialog({
   storyHref,
   defaultPalette,
+  hasBrandStyle = false,
   onClose,
 }: {
   storyHref: string;
   defaultPalette: StoryPalette;
+  // Фирменный стиль применён: «Мой стиль» есть в выборе и выбран по
+  // умолчанию — сторис в тон странице, на которую она ведёт.
+  hasBrandStyle?: boolean;
   onClose: () => void;
 }) {
   // Демо живёт на том же адресе, что и настоящий кабинет: свой выбор стиля
@@ -106,7 +114,12 @@ export function FreeWindowsStoryDialog({
   const demo = useDemoMode();
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const [style, setStyle] = useState<StoryStyle>(() => (demo ? undefined : readSavedChoice().style) ?? "light");
+  const availableStyles = storyStyles.filter((item) => item !== "brand" || hasBrandStyle);
+  const [style, setStyle] = useState<StoryStyle>(() => {
+    const saved = demo ? undefined : readSavedChoice().style;
+    if (saved && availableStyles.includes(saved)) return saved;
+    return hasBrandStyle ? "brand" : "light";
+  });
   const [palette, setPalette] = useState<StoryPalette>(
     () => (demo ? undefined : readSavedChoice().palette) ?? defaultPalette,
   );
@@ -204,6 +217,16 @@ export function FreeWindowsStoryDialog({
             palette,
             discountPercent: discount || null,
             fontFamily: "var(--font-manrope-loaded), Manrope, sans-serif",
+            // Шрифты темы в превью — те же next/font, что на публичной
+            // странице; на сервере их заменяют TTF под своими именами.
+            brand: storyData.brandTheme
+              ? {
+                  theme: storyData.brandTheme,
+                  logoSrc: storyData.brandLogoUrl ?? null,
+                  headingFont: brandFontFamily(storyData.brandTheme.fonts.heading),
+                  bodyFont: brandFontFamily(storyData.brandTheme.fonts.body),
+                }
+              : null,
           })
         : null,
     [storyData, style, palette, discount],
@@ -277,7 +300,7 @@ export function FreeWindowsStoryDialog({
       data-story-preview
       data-ready={previewHtml ? "" : undefined}
       role="img"
-      aria-label={`Превью сторис: ${storyStyleLabels[style]}, ${storyPaletteMeta[palette].name}`}
+      aria-label={`Превью сторис: ${storyStyleLabels[style]}${style === "brand" ? "" : `, ${storyPaletteMeta[palette].name}`}`}
       className="relative h-[346px] w-[194px] overflow-hidden rounded-[18px] bg-panel shadow-[0_20px_60px_rgba(35,36,31,0.2)] md:h-[422px] md:w-[238px] md:rounded-[20px] md:shadow-[0_24px_80px_rgba(35,36,31,0.18)]"
     >
       {previewHtml ? (
@@ -377,14 +400,18 @@ export function FreeWindowsStoryDialog({
               <p className="hidden text-[11px] font-medium uppercase tracking-[0.2em] text-muted md:block">
                 Стиль
               </p>
-              <div className="flex gap-2 md:flex-wrap">
-                {storyStyles.map((item) => (
+              {/* Четыре стиля в ряд на телефоне не помещаются — тогда сетка 2×2. */}
+              <div
+                className={`gap-2 md:flex md:flex-wrap ${availableStyles.length > 3 ? "grid grid-cols-2" : "flex"}`}
+              >
+                {availableStyles.map((item) => (
                   <Button
                     key={item}
                     variant={item === style ? "primary" : "secondary"}
                     aria-pressed={item === style}
                     onClick={() => pick({ style: item })}
-                    className="h-11 flex-1 px-2 text-[15px] md:flex-none md:px-[22px]"
+                    // ! — базовый px-5 кнопки иначе перебивает узкий отступ.
+                    className="h-11 flex-1 px-2! text-[15px] md:flex-none md:px-[22px]!"
                   >
                     {storyStyleLabels[item]}
                   </Button>
@@ -392,31 +419,37 @@ export function FreeWindowsStoryDialog({
               </div>
             </div>
 
-            <div className="flex flex-col gap-2.5 md:gap-3">
-              <p className="text-[13px] text-ink-soft md:hidden">
-                Цвет: <span className="font-semibold text-ink">{storyPaletteMeta[palette].name}</span>
+            {style === "brand" ? (
+              <p className="rounded-panel bg-panel px-4 py-3 text-[13px] leading-[1.5] text-ink-soft">
+                Цвета, шрифты, декор и логотип — из вашего фирменного стиля, как на странице записи.
               </p>
-              <p className="hidden text-[11px] font-medium uppercase tracking-[0.2em] text-muted md:block">
-                Цвет
-              </p>
-              <div className="flex justify-between md:hidden">
-                {storyPalettes.map((item) => (
-                  <span key={item}>{swatchButton(item)}</span>
-                ))}
+            ) : (
+              <div className="flex flex-col gap-2.5 md:gap-3">
+                <p className="text-[13px] text-ink-soft md:hidden">
+                  Цвет: <span className="font-semibold text-ink">{storyPaletteMeta[palette].name}</span>
+                </p>
+                <p className="hidden text-[11px] font-medium uppercase tracking-[0.2em] text-muted md:block">
+                  Цвет
+                </p>
+                <div className="flex justify-between md:hidden">
+                  {storyPalettes.map((item) => (
+                    <span key={item}>{swatchButton(item)}</span>
+                  ))}
+                </div>
+                <div className="hidden flex-wrap gap-1.5 md:flex">
+                  {storyPalettes.map((item) => (
+                    <div key={item} className="flex w-[72px] flex-col items-center gap-2.5">
+                      {swatchButton(item)}
+                      <span
+                        className={`text-center text-xs leading-[1.25] text-ink ${item === palette ? "font-semibold" : "font-normal"}`}
+                      >
+                        {storyPaletteMeta[item].name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="hidden flex-wrap gap-1.5 md:flex">
-                {storyPalettes.map((item) => (
-                  <div key={item} className="flex w-[72px] flex-col items-center gap-2.5">
-                    {swatchButton(item)}
-                    <span
-                      className={`text-center text-xs leading-[1.25] text-ink ${item === palette ? "font-semibold" : "font-normal"}`}
-                    >
-                      {storyPaletteMeta[item].name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
 
             <div className="flex flex-col gap-2.5 md:gap-3">
               <p className="flex items-center gap-1.5 text-[13px] text-ink-soft md:text-[11px] md:font-medium md:uppercase md:tracking-[0.2em] md:text-muted">
@@ -430,7 +463,7 @@ export function FreeWindowsStoryDialog({
                     variant={item === discount ? "primary" : "secondary"}
                     aria-pressed={item === discount}
                     onClick={() => setDiscount(item)}
-                    className="h-11 flex-1 px-1 text-[15px] md:flex-none md:px-4"
+                    className="h-11 min-w-0 flex-1 px-1! text-[15px] md:flex-none md:px-4!"
                   >
                     {item === 0 ? "Нет" : `−${item}%`}
                   </Button>

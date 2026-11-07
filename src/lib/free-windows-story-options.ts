@@ -4,13 +4,17 @@ import type { BookingThemePresetId } from "@/lib/booking-theme-presets";
 // выбора. Отдельно от рендера (free-windows-story.ts), потому что окно выбора
 // живёт в браузере, а рендер тянет fs и satori.
 
-export const storyStyles = ["light", "arch", "ink"] as const;
+// brand — «Мой стиль»: картинка в фирменном стиле мастера (цвета, шрифты,
+// декор и логотип его публичной страницы, src/lib/brand-theme). Есть в выборе,
+// только когда фирменный стиль применён; палитра для него не нужна.
+export const storyStyles = ["light", "arch", "ink", "brand"] as const;
 export type StoryStyle = (typeof storyStyles)[number];
 
 export const storyStyleLabels: Record<StoryStyle, string> = {
   light: "Светлая",
   arch: "Арка",
   ink: "Тёмная",
+  brand: "Мой стиль",
 };
 
 export const storyPalettes = ["sage", "olive", "merlot", "lagoon", "rosewood"] as const;

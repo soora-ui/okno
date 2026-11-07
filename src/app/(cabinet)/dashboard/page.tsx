@@ -420,6 +420,7 @@ export default async function DashboardPage() {
               bookingUrl={freeWindows.bookingUrl}
               storyHref={freeWindowsStoryHref}
               storyDefaultPalette={defaultStoryPalette(profile.bookingThemePresetId)}
+              hasBrandStyle={Boolean(profile.brandTheme)}
               hotWindowsDiscount={
                 isHotWindowsDiscountActive(profile.hotWindowsDiscount)
                   ? profile.hotWindowsDiscount

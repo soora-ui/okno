@@ -27,6 +27,7 @@ export function FreeWindowsCard({
   bookingUrl,
   storyHref,
   storyDefaultPalette,
+  hasBrandStyle = false,
   hotWindowsDiscount = null,
   timezone,
 }: {
@@ -35,6 +36,8 @@ export function FreeWindowsCard({
   storyHref: string;
   // Цвет сторис по умолчанию — в тон странице записи мастера.
   storyDefaultPalette: StoryPalette;
+  // Фирменный стиль применён — в окне сторис появляется «Мой стиль».
+  hasBrandStyle?: boolean;
   // Действующая скидка на окошки; включают её в окне сторис.
   hotWindowsDiscount?: HotWindowsDiscount | null;
   timezone: string;
@@ -203,6 +206,7 @@ export function FreeWindowsCard({
         <FreeWindowsStoryDialog
           storyHref={storyHref}
           defaultPalette={storyDefaultPalette}
+          hasBrandStyle={hasBrandStyle}
           onClose={closeStoryDialog}
         />
       ) : null}
