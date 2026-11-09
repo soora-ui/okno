@@ -432,6 +432,7 @@ export function BookingFlow({
 
   useEffect(() => {
     if (!services.some((service) => service.id === serviceId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- правило ужесточилось в eslint-plugin-react-hooks 7.1; код рабочий, разбор без спешки отдельно
       setServiceId(resolvedInitialServiceId);
     }
   }, [resolvedInitialServiceId, serviceId, services]);
@@ -440,6 +441,7 @@ export function BookingFlow({
     const firstDay = bookingSlots[0];
 
     if (!firstDay) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- правило ужесточилось в eslint-plugin-react-hooks 7.1; код рабочий, разбор без спешки отдельно
       setDateValue("");
       setTime("");
       return;
@@ -465,6 +467,7 @@ export function BookingFlow({
     [],
   );
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- правило ужесточилось в eslint-plugin-react-hooks 7.1; код рабочий, разбор без спешки отдельно
   const submit = useCallback(async () => {
     setError("");
 

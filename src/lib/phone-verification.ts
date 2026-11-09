@@ -20,6 +20,20 @@ const RESEND_COOLDOWN_SECONDS = 60;
 const MAX_SENDS_PER_PHONE_PER_HOUR = 6;
 const MAX_SENDS_PER_IP_PER_HOUR = 15;
 const MAX_VERIFY_ATTEMPTS = 5;
+// Общий суточный потолок платных отправок (звонок-сброс и SMS) на весь сервис.
+// Лимиты на номер и на адрес не спасают от перебора номеров с разных адресов,
+// а каждая отправка стоит денег. По умолчанию 500 в сутки: с запасом для
+// живых клиентов, но счёт за ночь атаки ограничен. Меняется переменной
+// SMS_DAILY_SEND_LIMIT. Бесплатный обратный звонок под потолок не попадает —
+// клиент сможет подтвердить номер им, даже если платный канал исчерпан.
+const DEFAULT_MAX_PAID_SENDS_PER_DAY = 500;
+
+function getMaxPaidSendsPerDay() {
+  const configured = Number(env.smsDailySendLimit ?? "");
+  return Number.isInteger(configured) && configured > 0
+    ? configured
+    : DEFAULT_MAX_PAID_SENDS_PER_DAY;
+}
 const TOKEN_TTL_MINUTES = 30;
 
 function getVerificationSecret() {
@@ -175,6 +189,35 @@ async function checkSendRateLimits(input: {
       ok: false,
       error: "Слишком много запросов кода. Попробуй снова чуть позже.",
     };
+  }
+
+  if (input.kind === "code") {
+    const dayAgoIso = now.minus({ hours: 24 }).toISO()!;
+    const { count: paidCount, error: paidError } = await input.admin
+      .from("phone_verification_codes")
+      .select("id", { count: "exact", head: true })
+      .is("check_id", null)
+      .gte("created_at", dayAgoIso);
+
+    if (paidError) {
+      logError("Phone verification: failed to check daily cap", { error: paidError });
+      return { ok: false, error: "Не получилось отправить код. Попробуй еще раз." };
+    }
+
+    const dailyCap = getMaxPaidSendsPerDay();
+    if ((paidCount ?? 0) >= dailyCap) {
+      // Ошибка, а не предупреждение: либо идёт перебор номеров, либо сервис
+      // вырос и потолок пора поднимать — в обоих случаях это надо увидеть.
+      logError("Phone verification: daily paid send cap reached", {
+        sentLast24h: paidCount,
+        dailyCap,
+      });
+      return {
+        ok: false,
+        error:
+          "Сейчас не получается отправить код. Попробуй подтвердить номер обратным звонком.",
+      };
+    }
   }
 
   return { ok: true };

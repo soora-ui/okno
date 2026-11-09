@@ -5,6 +5,7 @@ import { AccountMenu } from "@/components/layout/account-menu";
 import { BrowserToolbarOffset } from "@/components/layout/browser-toolbar-offset";
 import { CabinetBottomNav } from "@/components/dashboard/bottom-nav";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { GuestHeaderActions } from "@/components/layout/guest-header-actions";
 import { PageTransition } from "@/components/layout/page-transition";
 import { InstallAppPrompt } from "@/components/pwa/install-app-prompt";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -52,6 +53,7 @@ export async function SiteShell({
   publicPageHrefOverride,
   publicPageLabelOverride,
   resolveAuth = true,
+  detectAuthOnClient = false,
   showFooter = false,
   showSupportWidget = true,
   bottomNav = false,
@@ -63,6 +65,10 @@ export async function SiteShell({
   publicPageHrefOverride?: string;
   publicPageLabelOverride?: string;
   resolveAuth?: boolean;
+  // Для страниц, отдаваемых готовым HTML (resolveAuth={false}): вошедшего
+  // мастера узнаёт браузер и меняет кнопки шапки на вход в кабинет
+  // (src/components/layout/guest-header-actions.tsx).
+  detectAuthOnClient?: boolean;
   // Футер со ссылками на правовые документы нужен на витрине сервиса. На
   // публичных страницах записи он лишний: там оболочка принадлежит мастеру,
   // а не платформе.
@@ -171,10 +177,16 @@ export async function SiteShell({
               ) : (
                 <>
                   <div className="hidden items-center gap-3 sm:flex">
-                    <ButtonLink href="/login" variant="ghost">
-                      Войти
-                    </ButtonLink>
-                    <ButtonLink href="/register">Начать бесплатно</ButtonLink>
+                    {detectAuthOnClient ? (
+                      <GuestHeaderActions />
+                    ) : (
+                      <>
+                        <ButtonLink href="/login" variant="ghost">
+                          Войти
+                        </ButtonLink>
+                        <ButtonLink href="/register">Начать бесплатно</ButtonLink>
+                      </>
+                    )}
                   </div>
                   <div className={hideGuestMenu ? "hidden" : "sm:hidden"}>
                     <AccountMenu authenticated={false} />

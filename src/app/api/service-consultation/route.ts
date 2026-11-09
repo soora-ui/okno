@@ -1,3 +1,4 @@
+import { getClientIp } from "@/lib/net/client-ip";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
@@ -71,19 +72,6 @@ const attemptsByIp = new Map<string, number[]>();
 const PROFILE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const PROFILE_LIMIT_MAX_REQUESTS = 200;
 const attemptsByProfile = new Map<string, number[]>();
-
-function getClientIp(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0]?.trim() ?? "unknown";
-  }
-
-  return (
-    request.headers.get("x-real-ip") ??
-    request.headers.get("cf-connecting-ip") ??
-    "unknown"
-  );
-}
 
 function consumeLimit(
   store: Map<string, number[]>,

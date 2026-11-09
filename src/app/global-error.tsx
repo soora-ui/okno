@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import NextError from "next/error";
-import * as Sentry from "@sentry/nextjs";
 import { reportClientError } from "@/lib/observability/client-report";
 import { reportError } from "@/lib/observability/logger";
 
@@ -12,7 +11,11 @@ export default function GlobalError({
   error: Error & { digest?: string };
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    // Динамический импорт: SDK не должен попадать в стартовый JS страниц
+    // (см. src/instrumentation-client.ts).
+    void import("@sentry/nextjs")
+      .then((Sentry) => Sentry.captureException(error))
+      .catch(() => {});
     reportError(error, { route: "app.global_error_boundary" });
     reportClientError(error, {
       route: "app.global_error_boundary",

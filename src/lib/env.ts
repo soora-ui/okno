@@ -11,6 +11,7 @@ export const env = {
   smsRuApiId: process.env.SMSRU_API_ID,
   smsRuFrom: process.env.SMSRU_FROM,
   smsRuTestMode: process.env.SMSRU_TEST_MODE,
+  smsDailySendLimit: process.env.SMS_DAILY_SEND_LIMIT,
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
   // Секрет вебхука: Telegram присылает его в заголовке
   // X-Telegram-Bot-Api-Secret-Token, и это единственное доказательство, что

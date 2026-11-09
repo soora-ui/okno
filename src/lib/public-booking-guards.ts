@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { DateTime } from "luxon";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getClientIp } from "@/lib/net/client-ip";
 import { logError } from "@/lib/observability/logger";
 
 type AdminClient = SupabaseClient;
@@ -22,19 +23,9 @@ function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-export function getClientIp(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0]?.trim() ?? "unknown";
-  }
-
-  return (
-    request.headers.get("x-real-ip") ??
-    request.headers.get("cf-connecting-ip") ??
-    request.headers.get("fly-client-ip") ??
-    "unknown"
-  );
-}
+// Определение адреса вынесено в src/lib/net/client-ip.ts; реэкспорт оставлен
+// для существующих импортов.
+export { getClientIp };
 
 // In-memory лимитер для демо-режима (без Supabase таблица попыток недоступна).
 // Одного процесса достаточно: демо не масштабируется горизонтально.

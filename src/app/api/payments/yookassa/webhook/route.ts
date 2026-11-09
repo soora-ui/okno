@@ -157,6 +157,10 @@ async function handleSubscriptionPayment(input: {
       return NextResponse.json({ ok: true, status: "already_succeeded" });
     case "succeeded":
       return NextResponse.json({ ok: true, status: "succeeded" });
+    case "amount_mismatch":
+      // 200, а не 5xx: повтор уведомления ничего не изменит, разбор — вручную
+      // по записи в ленте ошибок.
+      return NextResponse.json({ ok: true, status: "amount_mismatch" });
     case "failed":
       return NextResponse.json({ error: "Внутренняя ошибка." }, { status: 500 });
   }

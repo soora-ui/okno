@@ -202,6 +202,7 @@ export function SupportChatWidget({ raised = false }: { raised?: boolean }) {
       // — специалист мог ответить ночью, и этот ответ обещан.
       const isSameDay = stored.lastMessageDate === localDateKey();
 
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- правило ужесточилось в eslint-plugin-react-hooks 7.1; код рабочий, разбор без спешки отдельно
       setMessages(isSameDay ? stored.messages : []);
       setPendingEscalations(stored.pendingEscalations);
       setLastMessageDate(stored.lastMessageDate);

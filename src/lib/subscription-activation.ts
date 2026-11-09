@@ -75,6 +75,7 @@ export type ActivationOutcome =
   | { kind: "waiting"; status: YooKassaStatus }
   | { kind: "already_succeeded" }
   | { kind: "succeeded"; until: string | null }
+  | { kind: "amount_mismatch" }
   | { kind: "failed" };
 
 // Применяет исход платежа: закрывает строку, двигает subscription_until,
@@ -127,6 +128,39 @@ export async function applySubscriptionPaymentResult(input: {
 
   if (row.status === "succeeded") {
     return { kind: "already_succeeded" };
+  }
+
+  // Срок, тариф и число мест берутся из нашей строки, а деньги — из ЮKassa.
+  // Сверяем одно с другим: строку платежа пишет только сервер (миграция
+  // 202611100001), но если она всё же разойдётся с оплаченной суммой — из-за
+  // ошибки в коде или вмешательства, — доступ за чужую цену выдавать нельзя.
+  // Строку закрываем как отменённую, чтобы подборщик зависших платежей не
+  // возвращался к ней каждый прогон; деньги при этом списаны, поэтому пишем
+  // ошибку в ленту — такой платёж разбирается вручную.
+  const paidRub = payment.amountValue === null ? null : Number(payment.amountValue);
+  if (paidRub !== null && Number.isFinite(paidRub) && Math.abs(paidRub - row.amountRub) >= 0.01) {
+    logError("Subscription payment amount does not match the payment row", {
+      paymentRowId: row.id,
+      profileId: row.profileId,
+      providerPaymentId: payment.id,
+      paidRub,
+      expectedRub: row.amountRub,
+    });
+
+    await supabase
+      .from("subscription_payments")
+      .update({
+        status: "canceled",
+        metadata: {
+          ...(row.metadata ?? {}),
+          cancellationReason: "amount_mismatch",
+          paidRub,
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", row.id);
+
+    return { kind: "amount_mismatch" };
   }
 
   // Доплата за места: доступ уже оплачен, срок не двигаем. Меняется только

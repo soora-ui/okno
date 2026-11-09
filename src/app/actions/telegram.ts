@@ -39,6 +39,8 @@ function revalidateTelegramPaths() {
 export async function createTelegramInviteAction(
   _prevState: TelegramActionState,
 ): Promise<TelegramActionState> {
+  // useActionState всегда передаёт prevState; действию он не нужен.
+  void _prevState;
   const profile = await requireProfile();
 
   if (!profile) {
@@ -81,6 +83,8 @@ export async function createTelegramInviteAction(
 export async function disconnectTelegramAction(
   _prevState: TelegramActionState,
 ): Promise<TelegramActionState> {
+  // useActionState всегда передаёт prevState; действию он не нужен.
+  void _prevState;
   const profile = await requireProfile();
 
   if (!profile) {
@@ -120,6 +124,8 @@ export async function disconnectTelegramAction(
 export async function sendTelegramTestMessageAction(
   _prevState: TelegramActionState,
 ): Promise<TelegramActionState> {
+  // useActionState всегда передаёт prevState; действию он не нужен.
+  void _prevState;
   const profile = await requireProfile();
 
   if (!profile) {

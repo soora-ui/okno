@@ -193,8 +193,12 @@ const comparisons = [
 
 export default function HomePage() {
   return (
+    // Главная отдаётся готовым HTML: сессию на сервере не читаем
+    // (resolveAuth={false}), вошедшего мастера шапка узнаёт в браузере.
     <SiteShell
       hideGuestMenu
+      resolveAuth={false}
+      detectAuthOnClient
       publicPageHrefOverride={demoTourHref}
       publicPageLabelOverride="Демо-тур"
       showFooter
