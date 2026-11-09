@@ -11,7 +11,7 @@ import {
   markMasterYooKassaAccountRevoked,
   revokeYooKassaTokenRemote,
 } from "@/lib/payments/yookassa-oauth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type YooKassaOAuthActionState = {
   success: boolean;
@@ -44,7 +44,9 @@ export async function revokeYooKassaAccountAction(
   }
 
   const profile = authProfile.profile;
-  const supabase = await createSupabaseServerClient();
+  // Сервисный клиент: master_yookassa_accounts закрыта от записи под сессией
+  // мастера (миграция 202611100001); все запросы ниже — по profile.id из сессии.
+  const supabase = createSupabaseAdminClient();
 
   // Токен берём независимо от статуса: подключение, не добравшееся до
   // 'enabled' (не завелись вебхуки), тоже надо отозвать у ЮKassa.

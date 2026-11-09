@@ -908,7 +908,10 @@ export async function updateAccessAction(
     };
   }
 
-  const { error: profileError } = await supabase
+  // email в profiles под сессией мастера менять нельзя (миграция 202611100001):
+  // по нему определяется админ платформы. Пишем сервисным клиентом уже после
+  // того, как новый адрес принял Supabase Auth.
+  const { error: profileError } = await createSupabaseAdminClient()
     .from("profiles")
     .update({ email: parsed.data.email })
     .eq("id", profile.id);

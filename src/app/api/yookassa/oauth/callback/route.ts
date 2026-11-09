@@ -11,12 +11,13 @@ import {
   verifyOAuthState,
   type MasterYooKassaWebhook,
 } from "@/lib/payments/yookassa-oauth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 // Коллбэк ЮKassa Partners API после согласия мастера на подключение
 // (okno-tz-yookassa-oauth.md). Запрос приходит от браузера мастера (редирект
-// с экрана ЮKassa), поэтому кука сессии на месте — используем RLS-клиент, а
-// не service role.
+// с экрана ЮKassa), поэтому кука сессии на месте: мастера определяем по ней.
+// Пишем сервисным клиентом — таблица закрыта от записи под сессией мастера
+// (миграция 202611100001), профиль берётся из сессии, а не из запроса.
 function redirectToSettings(status: string) {
   return NextResponse.redirect(
     new URL(`/settings?tab=booking&yookassa=${status}`, env.appUrl),
@@ -82,7 +83,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
     await upsertMasterYooKassaAccount(supabase, {
       profileId: profile.id,
       accountId: me.accountId,

@@ -25,7 +25,7 @@ import { countActiveWorkspaceSeats } from "@/lib/repositories/team-repository";
 import { resolveSubscription } from "@/lib/subscription";
 import { loadSeatBalance } from "@/lib/subscription-seats";
 import { isSupabaseMissingTableError } from "@/lib/supabase/auth-errors";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 
 const STAFF_BILLING_MESSAGE =
@@ -86,7 +86,9 @@ export async function startProSubscriptionAction(
     return { success: false, message: STAFF_BILLING_MESSAGE };
   }
 
-  const supabase = await createSupabaseServerClient();
+  // Сервисный клиент: платёжные таблицы закрыты от записи под сессией мастера
+  // (миграция 202611100001), иначе строку платежа можно править мимо сайта.
+  const supabase = createSupabaseAdminClient();
   const idempotenceKey = randomUUID();
 
   // Доплата за сотрудников считается на момент оплаты: тариф «Студия» включает
@@ -231,7 +233,7 @@ export async function startSeatTopUpAction(
   }
 
   const access = resolveSubscription(profile);
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
   const balance = await loadSeatBalance(supabase, {
     profileId: profile.id,
     workspaceId: profile.workspaceId,
@@ -375,7 +377,7 @@ export async function disableSubscriptionAutopayAction(
     return { success: false, message: STAFF_BILLING_MESSAGE };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
   const detached = await detachSubscriptionPaymentMethod(supabase, profile.id);
 
   if (!detached) {
