@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentAuthProfile } from "@/lib/data";
 import { getSupportEscalationForProfile } from "@/lib/support-assistant/escalation";
+import { signSupportMessage } from "@/lib/support-assistant/history-signature";
 
 // Статус вопроса, переданного живому оператору. Виджет ходит сюда, пока ждёт
 // ответа, и ещё раз при открытии чата — обращение переживает перезагрузку
@@ -41,6 +42,9 @@ export async function GET(_request: Request, { params }: RouteParams) {
   return NextResponse.json({
     status: escalation.status,
     reply: escalation.reply,
+    // Подпись реплики специалиста: виджет вернёт её в истории, и только
+    // подписанная реплика «специалиста» попадёт в контекст модели.
+    sig: escalation.reply ? signSupportMessage("operator", escalation.reply) : undefined,
     // Метка времени нужна виджету, чтобы отличить новую реплику специалиста
     // от уже показанной: в коротком диалоге он пишет несколько раз.
     answeredAt: escalation.answeredAt,

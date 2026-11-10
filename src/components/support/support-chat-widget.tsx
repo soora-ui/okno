@@ -37,6 +37,12 @@ type ChatMessage = {
    * повторяла его как факт о сервисе.
    */
   fromOperator?: boolean;
+  /**
+   * Подпись сервера у реплики бота или специалиста. Отправляется обратно в
+   * истории: реплику ассистента без подписи сервер в контекст модели не
+   * берёт, чтобы её нельзя было подделать в localStorage.
+   */
+  sig?: string;
 };
 
 /** Обращение, разговор по которому ещё не закрыт. */
@@ -249,6 +255,7 @@ export function SupportChatWidget({ raised = false }: { raised?: boolean }) {
           | {
               status?: string;
               reply?: string | null;
+              sig?: string;
               answeredAt?: string | null;
               isOpen?: boolean;
             }
@@ -280,7 +287,12 @@ export function SupportChatWidget({ raised = false }: { raised?: boolean }) {
 
         setMessages((current) => [
           ...current,
-          { role: "assistant", content: data.reply as string, fromOperator: true },
+          {
+            role: "assistant",
+            content: data.reply as string,
+            fromOperator: true,
+            sig: data.sig,
+          },
         ]);
 
         setPendingEscalations((current) =>
@@ -361,6 +373,7 @@ export function SupportChatWidget({ raised = false }: { raised?: boolean }) {
             role: entry.role,
             content: entry.content,
             fromOperator: entry.fromOperator,
+            sig: entry.sig,
           })),
         }),
       });
@@ -370,6 +383,7 @@ export function SupportChatWidget({ raised = false }: { raised?: boolean }) {
             reply?: string;
             suggestions?: string[];
             escalationId?: string;
+            sig?: string;
             error?: string;
           }
         | null;
@@ -385,6 +399,7 @@ export function SupportChatWidget({ raised = false }: { raised?: boolean }) {
           role: "assistant",
           content: data.reply as string,
           suggestions: data.suggestions?.length ? data.suggestions : undefined,
+          sig: data.sig,
         },
       ]);
 

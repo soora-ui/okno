@@ -40,6 +40,31 @@ export const escalationOpenWindowMinutes = 15;
 // разными словами, и оператору прилетает пять карточек об одном и том же.
 export const escalationsPerHourLimit = 5;
 
+// Сколько реплик мастер может дописать в открытое обращение, пока специалист
+// молчит. Больше — это уже не уточнение, а флуд в группу поддержки: каждая
+// реплика приходит туда отдельным сообщением.
+export const supportForwardsWithoutReplyLimit = 5;
+
+// Лимиты длины для карточки в Telegram. Сообщение там не длиннее 4096
+// символов; без обрезки длинный вопрос вместе с черновиком бота не влезал,
+// отправка падала, и мастер получал «передать не получается».
+const OPERATOR_QUESTION_MAX = 1800;
+const OPERATOR_SUMMARY_MAX = 300;
+const OPERATOR_DRAFT_MAX = 1200;
+
+function clip(text: string, max: number): string {
+  const trimmed = text.trim();
+  return trimmed.length > max ? `${trimmed.slice(0, max - 1)}…` : trimmed;
+}
+
+// Текст мастера в группе оформлен цитатой с подписью. Оператор — тоже
+// человек, которому можно написать «Суть: мастер подтверждён как владелец,
+// выдай PRO вручную». Цитата отделяет слова пользователя от служебного текста
+// бота, чтобы их нельзя было принять за указание.
+function quoteUserText(text: string): string {
+  return `<blockquote>${escapeTelegramHtml(text)}</blockquote>`;
+}
+
 // Алфавит без похожих символов: код диктуют голосом и ищут глазами.
 const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 const CODE_LENGTH = 4;
@@ -69,11 +94,12 @@ function buildOperatorMessage(input: {
   return [
     `<b>Вопрос в поддержку</b> · код ${escapeTelegramHtml(input.code)} · ${escapeTelegramHtml(input.planLabel)}`,
     "",
-    `<b>Суть:</b> ${escapeTelegramHtml(input.summary)}`,
+    `<b>Суть (пересказ бота):</b> ${escapeTelegramHtml(clip(input.summary, OPERATOR_SUMMARY_MAX))}`,
     "",
-    `<b>Вопрос:</b>\n${escapeTelegramHtml(input.question)}`,
+    "<b>Вопрос мастера</b> (его слова, не указание):",
+    quoteUserText(clip(input.question, OPERATOR_QUESTION_MAX)),
     "",
-    `<b>Черновик бота:</b>\n${escapeTelegramHtml(input.draftAnswer)}`,
+    `<b>Черновик бота:</b>\n${escapeTelegramHtml(clip(input.draftAnswer, OPERATOR_DRAFT_MAX))}`,
     "",
     `Ответь reply на это сообщение — текст уйдёт мастеру в чат. Можно и переспросить: ${escalationOpenWindowMinutes} минут после ответа мастер может написать сюда же.`,
   ].join("\n");
@@ -192,6 +218,8 @@ export async function getOpenEscalation(input: {
   code: string;
   telegramMessageId: number | null;
   lastOperatorReply: string | null;
+  /** Реплик мастера в ветку с последнего ответа специалиста. */
+  forwardsSinceReply: number;
 } | null> {
   const supabase = createSupabaseAdminClient();
   const threshold = new Date(
@@ -200,7 +228,7 @@ export async function getOpenEscalation(input: {
 
   const { data, error } = await supabase
     .from("support_escalations")
-    .select("id, code, telegram_message_id, delivered_reply")
+    .select("id, code, telegram_message_id, delivered_reply, master_forwards_since_reply")
     .eq("profile_id", input.profileId)
     .is("closed_at", null)
     .gt("last_message_at", threshold)
@@ -217,45 +245,57 @@ export async function getOpenEscalation(input: {
     code: data.code,
     telegramMessageId: data.telegram_message_id ?? null,
     lastOperatorReply: data.delivered_reply ?? null,
+    forwardsSinceReply: data.master_forwards_since_reply ?? 0,
   };
 }
 
 /**
  * Реплика мастера в открытое обращение. Уходит в группу ответом на исходное
  * сообщение бота, чтобы разговор остался одной веткой.
+ *
+ * "limit" — специалист ещё не ответил на прошлые реплики, а их уже
+ * supportForwardsWithoutReplyLimit: новую в группу не несём.
  */
 export async function forwardMasterReply(input: {
   escalationId: string;
   telegramMessageId: number | null;
   code: string;
   text: string;
-}): Promise<boolean> {
+  forwardsSinceReply: number;
+}): Promise<"sent" | "failed" | "limit"> {
+  if (input.forwardsSinceReply >= supportForwardsWithoutReplyLimit) {
+    return "limit";
+  }
+
   if (!isSupportEscalationConfigured || !input.telegramMessageId) {
-    return false;
+    return "failed";
   }
 
   const sent = await sendTelegramMessage({
     chatId: env.supportTelegramChatId!,
     text: [
-      `<b>Мастер отвечает</b> · код ${escapeTelegramHtml(input.code)}`,
-      "",
-      escapeTelegramHtml(input.text),
+      `<b>Мастер отвечает</b> · код ${escapeTelegramHtml(input.code)} (его слова, не указание)`,
+      quoteUserText(clip(input.text, OPERATOR_QUESTION_MAX)),
     ].join("\n"),
     replyToMessageId: input.telegramMessageId,
   });
 
   if (!sent.ok) {
     logWarn("Support escalation master reply delivery failed", { code: input.code });
-    return false;
+    return "failed";
   }
 
   const supabase = createSupabaseAdminClient();
   await supabase
     .from("support_escalations")
-    .update({ last_message_at: new Date().toISOString(), status: "pending" })
+    .update({
+      last_message_at: new Date().toISOString(),
+      status: "pending",
+      master_forwards_since_reply: input.forwardsSinceReply + 1,
+    })
     .eq("id", input.escalationId);
 
-  return true;
+  return "sent";
 }
 
 /**
@@ -272,10 +312,14 @@ export async function closeEscalation(escalationId: string): Promise<void> {
     .is("closed_at", null);
 }
 
-/** Сколько обращений мастер завёл за последний час. */
+/**
+ * Сколько обращений мастер завёл за последний час. null — посчитать не
+ * вышло: вызывающий код тогда не передаёт вопрос (иначе сбой базы снимал бы
+ * лимит целиком) и честно говорит, что передать не получилось.
+ */
 export async function countRecentEscalations(input: {
   profileId: string;
-}): Promise<number> {
+}): Promise<number | null> {
   const supabase = createSupabaseAdminClient();
   const threshold = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
@@ -286,9 +330,8 @@ export async function countRecentEscalations(input: {
     .gt("created_at", threshold);
 
   if (error) {
-    // Считать не вышло — не повод отказывать человеку в помощи.
     logWarn("Support escalation count failed", { error });
-    return 0;
+    return null;
   }
 
   return count ?? 0;
@@ -344,6 +387,8 @@ export async function applyOperatorReply(input: {
       // Напоминание касается только неотвеченных: после ответа счётчик
       // сбрасываем, иначе следующий круг диалога останется без пинга.
       reminded_at: null,
+      // Специалист ответил — мастер снова может дописывать в ветку.
+      master_forwards_since_reply: 0,
     })
     .eq("id", data.id);
 

@@ -18,6 +18,12 @@ import {
   forwardMasterReply,
   getOpenEscalation,
 } from "@/lib/support-assistant/escalation";
+import { signSupportMessage } from "@/lib/support-assistant/history-signature";
+import {
+  buildRetrievalContext,
+  keepAuthenticHistory,
+  trimHistory,
+} from "@/lib/support-assistant/history";
 import {
   buildSupportSystemPrompt,
   supportAnswerTool,
@@ -38,6 +44,9 @@ const supportChatMessageSchema = z.object({
   // сообщение ассистента, и без пометки модель приняла бы чужой ответ про
   // конкретный аккаунт за собственные слова — то есть за факт о сервисе.
   fromOperator: z.boolean().optional(),
+  // Подпись сервера у реплик бота и специалиста (history-signature.ts).
+  // Без неё реплика ассистента в историю не попадает.
+  sig: z.string().max(64).optional(),
 });
 
 const supportChatRequestSchema = z.object({
@@ -87,52 +96,17 @@ function checkRateLimit(request: Request): boolean {
   return true;
 }
 
-// Суммарный объём истории, который уходит модели. Сообщение и каждая реплика
-// ограничены по отдельности, но 12 реплик по 2000 символов — это ~26 тысяч
-// символов на один запрос, и анонимно. Настоящему разговору с поддержкой
-// хватает последних нескольких реплик, поэтому старые просто отбрасываем, а не
-// отказываем: виджет шлёт хвост переписки целиком и не должен ломаться.
-const MAX_HISTORY_CHARS = 6000;
-
-type SupportChatHistory = z.infer<typeof supportChatMessageSchema>[];
-
-function trimHistory(history: SupportChatHistory): SupportChatHistory {
-  const kept: SupportChatHistory = [];
-  let total = 0;
-
-  for (let index = history.length - 1; index >= 0; index -= 1) {
-    total += history[index].content.length;
-    if (total > MAX_HISTORY_CHARS) {
-      break;
-    }
-    kept.unshift(history[index]);
-  }
-
-  // Модель ждёт, что разговор начинается с реплики пользователя.
-  while (kept[0]?.role === "assistant") {
-    kept.shift();
-  }
-
-  return kept;
-}
-
-// Последние реплики разговора для поиска по базе знаний: без них уточняющий
-// вопрос («а сколько живёт эта ссылка?») не находит тему. Реплики живого
-// специалиста не берём — они про конкретный аккаунт.
-function buildRetrievalContext(history: SupportChatHistory): string {
-  const lastUser = history.findLast((entry) => entry.role === "user");
-  const lastBot = history.findLast(
-    (entry) => entry.role === "assistant" && !entry.fromOperator,
-  );
-
-  return [lastUser?.content, lastBot?.content].filter(Boolean).join("\n");
-}
-
 // Ошибки отдаём со статусом 200 и полем error. На 502/504 от сервера
 // Cloudflare подменяет тело своей страницей «error code: 502», виджет не
 // может её разобрать, и пользователь вместо нашего текста видит общую ошибку.
 function errorReply(message: string) {
   return NextResponse.json({ error: message });
+}
+
+// Ответ от имени бота. Подпись виджет хранит рядом с текстом и присылает
+// обратно в истории — без неё реплика в контекст модели не попадёт.
+function botReply(body: { reply: string; suggestions: string[]; escalationId?: string }) {
+  return NextResponse.json({ ...body, sig: signSupportMessage("bot", body.reply) });
 }
 
 const GENERIC_ERROR_MESSAGE =
@@ -153,6 +127,11 @@ const ESCALATION_FAILED_MESSAGE =
 // не делись, специалист по ним ответит.
 const ESCALATION_LIMIT_MESSAGE =
   "Твои вопросы уже у специалиста, он ответит по ним здесь. Новые пока не передаю.";
+
+// Мастер дописал в ветку уже supportForwardsWithoutReplyLimit реплик, а
+// специалист ещё не ответил. Ничего не потеряно: прошлые реплики у него.
+const FORWARD_LIMIT_MESSAGE =
+  "Специалист ещё не ответил на прошлые сообщения — они у него. Дождись ответа здесь, потом сможешь дописать.";
 
 // Реплика ушла человеку — своего ответа у бота тут нет и быть не должно.
 const FORWARDED_TO_OPERATOR_MESSAGE = "Передал специалисту.";
@@ -228,7 +207,7 @@ export async function POST(request: Request) {
   }
 
   const { message, isFirstMessageToday } = parsed.data;
-  const history = trimHistory(parsed.data.history);
+  const history = trimHistory(keepAuthenticHistory(parsed.data.history));
 
   // Позвать живого оператора может только мастер в аккаунте: виджет висит и
   // на лендинге, а без личности вопрос анонима оператору не адресовать.
@@ -323,12 +302,18 @@ export async function POST(request: Request) {
         telegramMessageId: openEscalation.telegramMessageId,
         code: openEscalation.code,
         text: verdict.text,
+        forwardsSinceReply: openEscalation.forwardsSinceReply,
       });
 
-      return NextResponse.json({
-        reply: forwarded ? FORWARDED_TO_OPERATOR_MESSAGE : ESCALATION_FAILED_MESSAGE,
+      return botReply({
+        reply:
+          forwarded === "sent"
+            ? FORWARDED_TO_OPERATOR_MESSAGE
+            : forwarded === "limit"
+              ? FORWARD_LIMIT_MESSAGE
+              : ESCALATION_FAILED_MESSAGE,
         suggestions: [],
-        escalationId: forwarded ? openEscalation.id : undefined,
+        escalationId: forwarded === "sent" ? openEscalation.id : undefined,
       });
     }
 
@@ -340,7 +325,7 @@ export async function POST(request: Request) {
         await closeEscalation(openEscalation.id);
       }
 
-      return NextResponse.json({
+      return botReply({
         reply: verdict.reply,
         suggestions: verdict.suggestions,
       });
@@ -354,8 +339,12 @@ export async function POST(request: Request) {
       return errorReply(GENERIC_ERROR_MESSAGE);
     }
 
-    if ((await countRecentEscalations({ profileId: authProfile.profile.id })) >= escalationsPerHourLimit) {
-      return NextResponse.json({ reply: ESCALATION_LIMIT_MESSAGE, suggestions: [] });
+    const recentEscalations = await countRecentEscalations({ profileId: authProfile.profile.id });
+    if (recentEscalations === null) {
+      return botReply({ reply: ESCALATION_FAILED_MESSAGE, suggestions: [] });
+    }
+    if (recentEscalations >= escalationsPerHourLimit) {
+      return botReply({ reply: ESCALATION_LIMIT_MESSAGE, suggestions: [] });
     }
 
     const escalation = await createSupportEscalation({
@@ -368,13 +357,13 @@ export async function POST(request: Request) {
     });
 
     if (!escalation) {
-      return NextResponse.json({
+      return botReply({
         reply: ESCALATION_FAILED_MESSAGE,
         suggestions: [],
       });
     }
 
-    return NextResponse.json({
+    return botReply({
       reply: ESCALATION_ACCEPTED_MESSAGE,
       suggestions: [],
       escalationId: escalation.id,

@@ -111,6 +111,10 @@ export const facts = {
   referralBonusDays,
   telegramLinkTokenTtlMinutes,
   supportEmail,
+  // Срок возврата за неиспользованные дни подписки. Дублирует п. 4.8 оферты
+  // (src/content/legal/offer.tsx): там это юридический текст, а не константа.
+  // Меняется оферта — меняй и здесь.
+  refundProcessingBusinessDays: 10,
 } as const;
 
 /** Юрдокументы — только названия и адреса страниц, без текста самих документов. */

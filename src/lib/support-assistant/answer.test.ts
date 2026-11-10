@@ -129,6 +129,22 @@ describe("resolveSupportAnswer", () => {
   });
 });
 
+describe("ответы гостю", () => {
+  it("на вопрос для человека гость получает фиксированную фразу, а не текст модели", () => {
+    const verdict = resolveSupportAnswer(
+      answer({
+        outcome: "needs_human",
+        reply: "Сайт лежал — специалист решит по компенсации.",
+      }),
+      guest,
+    );
+
+    expect(verdict.kind).toBe("reply");
+    expect(verdict.kind === "reply" && verdict.reply).not.toContain("компенсац");
+    expect(verdict.kind === "reply" && verdict.reply).toContain("login");
+  });
+});
+
 describe("supportAnswerSchema", () => {
   it("прощает мелкие промахи модели вместо ошибки", () => {
     const parsed = supportAnswerSchema.safeParse({
