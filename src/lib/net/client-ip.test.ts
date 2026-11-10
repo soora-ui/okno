@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getClientIp } from "./client-ip";
+import { getClientIp, rateLimitKeyForIp } from "./client-ip";
 
 function requestWith(headers: Record<string, string>) {
   return new Request("https://okno.business/api/test", { headers });
@@ -45,5 +45,28 @@ describe("getClientIp", () => {
   it("без заголовков возвращает unknown", () => {
     expect(getClientIp(requestWith({}))).toBe("unknown");
     expect(getClientIp(requestWith({ "x-forwarded-for": " , " }))).toBe("unknown");
+  });
+});
+
+describe("rateLimitKeyForIp", () => {
+  it("IPv4 оставляет как есть", () => {
+    expect(rateLimitKeyForIp("203.0.113.7")).toBe("203.0.113.7");
+  });
+
+  it("IPv6 из одной /64 даёт один ключ", () => {
+    const a = rateLimitKeyForIp("2a02:6b8:0:1::abcd");
+    const b = rateLimitKeyForIp("2a02:06b8:0000:0001:1234:5678:9abc:def0");
+
+    expect(a).toBe("2a02:6b8:0:1::/64");
+    expect(b).toBe(a);
+  });
+
+  it("разные /64 различает", () => {
+    expect(rateLimitKeyForIp("2a02:6b8:0:2::1")).not.toBe(rateLimitKeyForIp("2a02:6b8:0:1::1"));
+  });
+
+  it("нестандартные формы не ломает", () => {
+    expect(rateLimitKeyForIp("::ffff:1.2.3.4")).toBe("::ffff:1.2.3.4");
+    expect(rateLimitKeyForIp("unknown")).toBe("unknown");
   });
 });

@@ -44,13 +44,20 @@ export type SupportPromptContext = {
    * оператора от нового вопроса к себе.
    */
   openEscalationReply?: string | null;
+  /**
+   * Предыдущие реплики разговора для поиска по базе: без них уточняющий
+   * вопрос не находит тему, о которой шла речь.
+   */
+  retrievalContext?: string;
 };
 
 export async function buildSupportSystemPrompt(
   userQuery: string | undefined,
   context: SupportPromptContext,
 ): Promise<string> {
-  const { index, topics } = await supportKnowledgeSource.retrieve(userQuery);
+  const { index, topics } = await supportKnowledgeSource.retrieve(userQuery, {
+    context: context.retrievalContext,
+  });
 
   return [
     "Ты — оператор поддержки сервиса okno.business (онлайн-запись для мастеров бьюти-сферы).",

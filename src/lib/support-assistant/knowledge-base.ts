@@ -37,8 +37,23 @@ export type SupportKnowledgeSource = {
    * совпало) отдаёт индекс и набор базовых тем — бот всё равно сможет
    * сориентировать пользователя по разделам.
    */
-  retrieve: (query?: string) => Promise<SupportKnowledge> | SupportKnowledge;
+  retrieve: (
+    query?: string,
+    options?: SupportRetrieveOptions,
+  ) => Promise<SupportKnowledge> | SupportKnowledge;
 };
+
+export type SupportRetrieveOptions = {
+  /**
+   * Предыдущие реплики разговора одной строкой. Уточняющий вопрос («а сколько
+   * живёт эта ссылка?») сам по себе темы не называет — она осталась в прошлом
+   * вопросе. Контекст добавляет очки темам прошлых реплик, но с половинным
+   * весом, чтобы новый вопрос на другую тему не тонул в старой.
+   */
+  context?: string;
+};
+
+const CONTEXT_SCORE_WEIGHT = 0.5;
 
 // Сколько тем разворачивать подробно. 6 прямых попаданий + связанные темы
 // дают ~1.5–2k токенов контекста — заметно меньше, чем вся карта целиком,
@@ -164,7 +179,13 @@ function collectWithRelated(ranked: SupportTopic[]): SupportTopic[] {
   return selected;
 }
 
-function retrieve(query?: string): SupportKnowledge {
+function queryWords(normalizedQuery: string): string[] {
+  return normalizedQuery
+    .split(/\s+/)
+    .filter((word) => word.length > 2 && !STOP_WORDS.has(word));
+}
+
+function retrieve(query?: string, options?: SupportRetrieveOptions): SupportKnowledge {
   const index = SUPPORT_SITEMAP.map(renderTopicIndexLine);
 
   const trimmed = query?.trim();
@@ -178,13 +199,19 @@ function retrieve(query?: string): SupportKnowledge {
   }
 
   const normalizedQuery = normalize(trimmed);
-  const words = normalizedQuery
-    .split(/\s+/)
-    .filter((word) => word.length > 2 && !STOP_WORDS.has(word));
+  const words = queryWords(normalizedQuery);
+
+  const context = options?.context?.trim();
+  const normalizedContext = context ? normalize(context) : "";
+  const contextWords = context ? queryWords(normalizedContext) : [];
 
   const scored = SUPPORT_SITEMAP.map((topic) => ({
     topic,
-    score: scoreTopic(topic, normalizedQuery, words),
+    score:
+      scoreTopic(topic, normalizedQuery, words) +
+      (context
+        ? CONTEXT_SCORE_WEIGHT * scoreTopic(topic, normalizedContext, contextWords)
+        : 0),
   }))
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score);

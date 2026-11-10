@@ -22,15 +22,36 @@ export const supportAnswerOutcomes = [
   "reply_to_operator",
 ] as const;
 
+// Разбор мягкий там, где модель промахнулась в мелочи: пустая строка в
+// sources, summary длиннее лимита, лишний вариант уточнения. Раньше любая
+// такая мелочь роняла весь ответ в 502 — пользователь видел ошибку на вопрос,
+// на который у бота был нормальный ответ. Чистим и обрезаем, а строгими
+// оставляем только исход и тип текста: без них ответ не разобрать.
+const trimmedStrings = (maxItems: number, maxLength?: number) =>
+  z
+    .array(z.unknown())
+    .optional()
+    .transform((items) =>
+      (items ?? [])
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => (maxLength ? item.slice(0, maxLength) : item))
+        .slice(0, maxItems),
+    );
+
 export const supportAnswerSchema = z.object({
-  // Пустой текст допустим только у reply_to_operator: там ответ пользователю
-  // не показывается, его реплика просто уезжает специалисту. Для остальных
-  // исходов пустоту ловит resolveSupportAnswer.
+  // Пустой текст допустим у reply_to_operator (ответ не показывается) и у
+  // needs_human (вместо него идёт своя формулировка). Для остальных исходов
+  // пустоту ловит resolveSupportAnswer.
   reply: z.string().trim(),
   outcome: z.enum(supportAnswerOutcomes),
-  sources: z.array(z.string().trim().min(1)).max(6).optional(),
-  summary: z.string().trim().max(500).optional(),
-  suggestions: z.array(z.string().trim().min(1).max(80)).max(4).optional(),
+  sources: trimmedStrings(6),
+  summary: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim().slice(0, 500) || undefined),
+  suggestions: trimmedStrings(4, 80),
 });
 
 export type SupportAnswer = z.infer<typeof supportAnswerSchema>;
@@ -50,15 +71,16 @@ export type SupportVerdict =
 
 export function resolveSupportAnswer(
   answer: SupportAnswer,
-  context: { isAuthenticated: boolean; question: string },
+  context: {
+    isAuthenticated: boolean;
+    question: string;
+    /** Открыт ли сейчас разговор с живым специалистом. */
+    hasOpenEscalation: boolean;
+  },
 ): SupportVerdict {
   // Разговор со специалистом продолжается: бот в него не вмешивается.
-  if (answer.outcome === "reply_to_operator") {
+  if (answer.outcome === "reply_to_operator" && context.hasOpenEscalation) {
     return { kind: "forward", text: context.question };
-  }
-
-  if (!answer.reply) {
-    return { kind: "failed" };
   }
 
   const groundedSources = (answer.sources ?? []).filter((title) =>
@@ -69,7 +91,13 @@ export function resolveSupportAnswer(
   // знаний модели, а не из базы. Ровно тот случай, ради которого всё
   // затевалось: лучше позвать человека, чем выдать уверенную выдумку.
   const isUngrounded = answer.outcome === "answer" && groundedSources.length === 0;
-  const needsHuman = answer.outcome === "needs_human" || isUngrounded;
+  // reply_to_operator без открытого разговора: исход лежит в схеме всегда,
+  // и модель изредка выбирает его без ветки. Адресат у реплики тот же —
+  // человек, поэтому это обычное обращение к специалисту.
+  const needsHuman =
+    answer.outcome === "needs_human" ||
+    answer.outcome === "reply_to_operator" ||
+    isUngrounded;
 
   if (needsHuman && context.isAuthenticated) {
     return {
@@ -80,9 +108,14 @@ export function resolveSupportAnswer(
 
   // Аноним, а ответ не опирается на базу. Передать вопрос человеку некому, но
   // и текст модели показывать нельзя: она сама считает его ответом по
-  // существу, а опоры под ним нет. Отдаём свою формулировку.
-  if (isUngrounded) {
+  // существу, а опоры под ним нет. Отдаём свою формулировку. Её же отдаём,
+  // когда модель позвала человека, но текста для гостя не написала.
+  if (isUngrounded || (needsHuman && (!answer.reply || answer.outcome === "reply_to_operator"))) {
     return { kind: "reply", reply: UNGROUNDED_GUEST_REPLY, suggestions: [] };
+  }
+
+  if (!answer.reply) {
+    return { kind: "failed" };
   }
 
   return {

@@ -1,4 +1,4 @@
-import { getClientIp } from "@/lib/net/client-ip";
+import { getClientIp, rateLimitKeyForIp } from "@/lib/net/client-ip";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
@@ -61,7 +61,9 @@ const attemptsByIp = new Map<string, number[]>();
 
 function checkRateLimit(request: Request): boolean {
   const now = Date.now();
-  const ip = getClientIp(request);
+  // IPv6 — по подсети /64: владельцу такой подсети доступны миллиарды
+  // адресов, и лимит на отдельный адрес он обходит сменой хвоста.
+  const ip = rateLimitKeyForIp(getClientIp(request));
   const recent = (attemptsByIp.get(ip) ?? []).filter(
     (timestamp) => now - timestamp < RATE_LIMIT_WINDOW_MS,
   );
@@ -83,6 +85,54 @@ function checkRateLimit(request: Request): boolean {
   }
 
   return true;
+}
+
+// Суммарный объём истории, который уходит модели. Сообщение и каждая реплика
+// ограничены по отдельности, но 12 реплик по 2000 символов — это ~26 тысяч
+// символов на один запрос, и анонимно. Настоящему разговору с поддержкой
+// хватает последних нескольких реплик, поэтому старые просто отбрасываем, а не
+// отказываем: виджет шлёт хвост переписки целиком и не должен ломаться.
+const MAX_HISTORY_CHARS = 6000;
+
+type SupportChatHistory = z.infer<typeof supportChatMessageSchema>[];
+
+function trimHistory(history: SupportChatHistory): SupportChatHistory {
+  const kept: SupportChatHistory = [];
+  let total = 0;
+
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    total += history[index].content.length;
+    if (total > MAX_HISTORY_CHARS) {
+      break;
+    }
+    kept.unshift(history[index]);
+  }
+
+  // Модель ждёт, что разговор начинается с реплики пользователя.
+  while (kept[0]?.role === "assistant") {
+    kept.shift();
+  }
+
+  return kept;
+}
+
+// Последние реплики разговора для поиска по базе знаний: без них уточняющий
+// вопрос («а сколько живёт эта ссылка?») не находит тему. Реплики живого
+// специалиста не берём — они про конкретный аккаунт.
+function buildRetrievalContext(history: SupportChatHistory): string {
+  const lastUser = history.findLast((entry) => entry.role === "user");
+  const lastBot = history.findLast(
+    (entry) => entry.role === "assistant" && !entry.fromOperator,
+  );
+
+  return [lastUser?.content, lastBot?.content].filter(Boolean).join("\n");
+}
+
+// Ошибки отдаём со статусом 200 и полем error. На 502/504 от сервера
+// Cloudflare подменяет тело своей страницей «error code: 502», виджет не
+// может её разобрать, и пользователь вместо нашего текста видит общую ошибку.
+function errorReply(message: string) {
+  return NextResponse.json({ error: message });
 }
 
 const GENERIC_ERROR_MESSAGE =
@@ -177,7 +227,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const { message, history, isFirstMessageToday } = parsed.data;
+  const { message, isFirstMessageToday } = parsed.data;
+  const history = trimHistory(parsed.data.history);
 
   // Позвать живого оператора может только мастер в аккаунте: виджет висит и
   // на лендинге, а без личности вопрос анонима оператору не адресовать.
@@ -197,14 +248,17 @@ export async function POST(request: Request) {
       isAuthenticated: canEscalate,
       isFirstMessageToday,
       openEscalationReply: openEscalation?.lastOperatorReply ?? null,
+      retrievalContext: buildRetrievalContext(history),
     });
     const client = getAnthropicClient();
 
     const response = await client.messages.create({
       model: "claude-sonnet-5",
       // Ответы поддержки короткие по регламенту (1–3 предложения либо до 5
-      // шагов), запас нужен только на длинную инструкцию.
-      max_tokens: 600,
+      // шагов), запас нужен на длинную инструкцию и поля tool-ответа (sources,
+      // summary, suggestions). При 600 составной вопрос упирался в лимит,
+      // tool-ответ обрывался и не проходил разбор.
+      max_tokens: 1024,
       system: systemPrompt,
       tools: [supportAnswerTool],
       // Ответ обязан прийти структурой: по свободному тексту не проверить ни
@@ -238,24 +292,31 @@ export async function POST(request: Request) {
         : null;
 
     if (!answer?.success) {
-      return NextResponse.json({ error: GENERIC_ERROR_MESSAGE }, { status: 502 });
+      // Без текста пользователя: только то, что нужно, чтобы понять причину.
+      console.warn("okno: support answer rejected", {
+        stopReason: response.stop_reason,
+        hasToolBlock: Boolean(toolBlock),
+        issues: answer?.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.code}`),
+      });
+      return errorReply(GENERIC_ERROR_MESSAGE);
     }
 
     const verdict = resolveSupportAnswer(answer.data, {
       isAuthenticated: canEscalate,
       question: message,
+      hasOpenEscalation: Boolean(openEscalation),
     });
 
     if (verdict.kind === "failed") {
-      return NextResponse.json({ error: GENERIC_ERROR_MESSAGE }, { status: 502 });
+      console.warn("okno: support answer empty", {
+        stopReason: response.stop_reason,
+        outcome: answer.data.outcome,
+      });
+      return errorReply(GENERIC_ERROR_MESSAGE);
     }
 
-    // Реплика в открытый разговор со специалистом.
-    //
-    // Исход reply_to_operator лежит в схеме всегда, а инструкция к нему
-    // появляется только при открытом разговоре — модель может выбрать его и
-    // без ветки. Тогда это обычное обращение к человеку: ветки нет, но адресат
-    // тот же, и заводить её надо, а не отвечать «передать не получается».
+    // Реплика в открытый разговор со специалистом. reply_to_operator без
+    // открытой ветки resolveSupportAnswer уже превратил в обычное обращение.
     if (verdict.kind === "forward" && openEscalation) {
       const forwarded = await forwardMasterReply({
         escalationId: openEscalation.id,
@@ -285,17 +346,25 @@ export async function POST(request: Request) {
       });
     }
 
-    if ((await countRecentEscalations({ profileId: authProfile!.profile.id })) >= escalationsPerHourLimit) {
+    // Сюда доходят только обращения к человеку, а звать его может только
+    // мастер в аккаунте. Гость сюда попасть не должен (его needs_human
+    // resolveSupportAnswer отдаёт текстом), но если всё же попал — раньше это
+    // был TypeError на authProfile! и 502.
+    if (!canEscalate || !authProfile) {
+      return errorReply(GENERIC_ERROR_MESSAGE);
+    }
+
+    if ((await countRecentEscalations({ profileId: authProfile.profile.id })) >= escalationsPerHourLimit) {
       return NextResponse.json({ reply: ESCALATION_LIMIT_MESSAGE, suggestions: [] });
     }
 
     const escalation = await createSupportEscalation({
-      profileId: authProfile!.profile.id,
+      profileId: authProfile.profile.id,
       question: message,
       draftAnswer: answer.data.reply,
       // У forward без открытой ветки сути от модели нет — берём сам вопрос.
       summary: verdict.kind === "escalate" ? verdict.summary : message,
-      planLabel: describePlan(authProfile!.profile),
+      planLabel: describePlan(authProfile.profile),
     });
 
     if (!escalation) {
@@ -315,6 +384,6 @@ export async function POST(request: Request) {
     // содержать фрагменты system prompt или служебные детали) — только
     // технический факт в серверный лог.
     console.error("okno: support chat request failed", error);
-    return NextResponse.json({ error: GENERIC_ERROR_MESSAGE }, { status: 502 });
+    return errorReply(GENERIC_ERROR_MESSAGE);
   }
 }

@@ -50,6 +50,35 @@ describe("поиск по карте сервиса", () => {
     expect(titles).toContain("Структура кабинета");
   });
 
+  it("находит функции, про которые бот отвечал «такой функции нет»", async () => {
+    expect(
+      await titlesFor("Как мне вручную добавить запись клиента, который позвонил по телефону?"),
+    ).toContain("Ручная запись");
+    expect(
+      (await titlesFor("Клиентка попросила перенести запись на другой день, как это сделать?"))[0],
+    ).toBe("Перенос записи");
+    expect(await titlesFor("как перенести клиентов из YCLIENTS")).toContain(
+      "Перенос клиентов из другой программы",
+    );
+  });
+
+  it("уточняющий вопрос находит тему прошлой реплики", async () => {
+    const { topics } = await supportKnowledgeSource.retrieve(
+      "а сколько минут живёт эта ссылка?",
+      { context: "Как подключить телеграм бота?" },
+    );
+
+    expect(topics.map((topic) => topic.title)).toContain("Telegram-уведомления мастеру");
+  });
+
+  it("контекст не перебивает новый вопрос на другую тему", async () => {
+    const { topics } = await supportKnowledgeSource.retrieve("как удалить аккаунт", {
+      context: "Как подключить телеграм бота?",
+    });
+
+    expect(topics[0]?.title).toBe("Удаление аккаунта");
+  });
+
   it("индекс отдаётся целиком всегда", async () => {
     const { index } = await supportKnowledgeSource.retrieve("что угодно");
 

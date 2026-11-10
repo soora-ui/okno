@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { resolveSupportAnswer, type SupportAnswer } from "@/lib/support-assistant/answer";
+import {
+  resolveSupportAnswer,
+  supportAnswerSchema,
+  type SupportAnswer,
+} from "@/lib/support-assistant/answer";
 
 // Разбор исходов — единственное место, где обещание «бот ходит только по базе
 // знаний» превращается в проверяемое условие. Если эти тесты падают, бот
 // начал отвечать из общих знаний модели, и заметить это иначе нечем.
 
-const context = { isAuthenticated: true, question: "почему не прошёл платёж" };
+const context = {
+  isAuthenticated: true,
+  question: "почему не прошёл платёж",
+  hasOpenEscalation: true,
+};
+const guest = { ...context, isAuthenticated: false, hasOpenEscalation: false };
 
 function answer(patch: Partial<SupportAnswer>): SupportAnswer {
   return { reply: "текст", outcome: "answer", ...patch } as SupportAnswer;
@@ -91,5 +100,62 @@ describe("resolveSupportAnswer", () => {
     const verdict = resolveSupportAnswer(answer({ reply: "", sources: ["Тарифы и цены"] }), context);
 
     expect(verdict.kind).toBe("failed");
+  });
+
+  it("reply_to_operator без открытого разговора — обычное обращение к человеку", () => {
+    const verdict = resolveSupportAnswer(
+      answer({ outcome: "reply_to_operator", reply: "" }),
+      { ...context, hasOpenEscalation: false },
+    );
+
+    expect(verdict).toEqual({ kind: "escalate", summary: "почему не прошёл платёж" });
+  });
+
+  it("гостю с reply_to_operator отдаёт свою формулировку, а не падает", () => {
+    const verdict = resolveSupportAnswer(
+      answer({ outcome: "reply_to_operator", reply: "" }),
+      guest,
+    );
+
+    expect(verdict.kind).toBe("reply");
+    expect(verdict.kind === "reply" && verdict.reply).toContain("register");
+  });
+
+  it("needs_human без текста: мастера передаёт человеку, гостю отвечает своей фразой", () => {
+    const empty = answer({ outcome: "needs_human", reply: "" });
+
+    expect(resolveSupportAnswer(empty, context).kind).toBe("escalate");
+    expect(resolveSupportAnswer(empty, guest).kind).toBe("reply");
+  });
+});
+
+describe("supportAnswerSchema", () => {
+  it("прощает мелкие промахи модели вместо ошибки", () => {
+    const parsed = supportAnswerSchema.safeParse({
+      reply: "  текст ",
+      outcome: "clarify",
+      sources: ["", "Тарифы и цены", "  "],
+      summary: "я".repeat(800),
+      suggestions: ["Про тарифы", "", "б".repeat(120), "1", "2", "3"],
+    });
+
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.reply).toBe("текст");
+    expect(parsed.data.sources).toEqual(["Тарифы и цены"]);
+    expect(parsed.data.summary).toHaveLength(500);
+    expect(parsed.data.suggestions).toHaveLength(4);
+    expect(parsed.data.suggestions[1]).toHaveLength(80);
+  });
+
+  it("без полей sources и suggestions отдаёт пустые списки", () => {
+    const parsed = supportAnswerSchema.parse({ reply: "ок", outcome: "off_topic" });
+
+    expect(parsed.sources).toEqual([]);
+    expect(parsed.suggestions).toEqual([]);
+  });
+
+  it("неизвестный исход по-прежнему отвергает", () => {
+    expect(supportAnswerSchema.safeParse({ reply: "ок", outcome: "maybe" }).success).toBe(false);
   });
 });
