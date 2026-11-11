@@ -20,7 +20,8 @@
     "db:start": "supabase start -x realtime,edge-runtime,logflare,vector,supavisor",
     "db:stop": "supabase stop",
     "db:sync": "bash scripts/db-sync-from-prod.sh",
-    "db:apply": "bash scripts/db-apply-local.sh"
+    "db:apply": "bash scripts/db-apply-local.sh",
+    "eval:support": "node scripts/support-eval/run.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

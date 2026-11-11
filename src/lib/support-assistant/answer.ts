@@ -27,18 +27,38 @@ export const supportAnswerOutcomes = [
 // такая мелочь роняла весь ответ в 502 — пользователь видел ошибку на вопрос,
 // на который у бота был нормальный ответ. Чистим и обрезаем, а строгими
 // оставляем только исход и тип текста: без них ответ не разобрать.
+// Модель иногда присылает список строкой: JSON-массивом в кавычках
+// ("[\"Тарифы и цены\"]") или одним названием. На проде так упал ответ на
+// вопрос с инъекцией в письме клиента — sources: invalid_type, пользователь
+// получил ошибку. Приводим к массиву, а не отказываем.
+function toList(value: unknown): unknown[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value !== "string" || !value.trim()) {
+    return [];
+  }
+  const text = value.trim();
+  if (text.startsWith("[")) {
+    try {
+      const parsed: unknown = JSON.parse(text);
+      return Array.isArray(parsed) ? parsed : [text];
+    } catch {
+      return [text];
+    }
+  }
+  return [text];
+}
+
 const trimmedStrings = (maxItems: number, maxLength?: number) =>
-  z
-    .array(z.unknown())
-    .optional()
-    .transform((items) =>
-      (items ?? [])
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .map((item) => (maxLength ? item.slice(0, maxLength) : item))
-        .slice(0, maxItems),
-    );
+  z.unknown().optional().transform((value) =>
+    toList(value)
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => (maxLength ? item.slice(0, maxLength) : item))
+      .slice(0, maxItems),
+  );
 
 export const supportAnswerSchema = z.object({
   // Пустой текст допустим у reply_to_operator (ответ не показывается) и у
@@ -63,6 +83,11 @@ export type SupportAnswer = z.infer<typeof supportAnswerSchema>;
 // нечего. «Войди» — потому что у многих аккаунт уже есть, они просто не в нём.
 const UNGROUNDED_GUEST_REPLY =
   "Точного ответа на это у меня нет. Войди в кабинет (okno.business/login) или заведи аккаунт (okno.business/register) — из кабинета вопрос уходит специалисту, и он ответит лично.";
+
+/** Сколько из названных моделью источников — настоящие темы карты. */
+export function countGroundedSources(sources: string[] | undefined): number {
+  return (sources ?? []).filter((title) => Boolean(getSupportTopicByTitle(title))).length;
+}
 
 export type SupportVerdict =
   | { kind: "reply"; reply: string; suggestions: string[] }

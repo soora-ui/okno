@@ -81,6 +81,11 @@ export const env = {
   sentryReplaysSessionSampleRate: process.env.SENTRY_REPLAYS_SESSION_SAMPLE_RATE,
   sentryReplaysOnErrorSampleRate: process.env.SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE,
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+  // Модель AI-поддержки и «причёсывания» ответов оператора. Вынесена в env,
+  // чтобы сменить модель или откатиться без пересборки. claude-sonnet-5 —
+  // последняя Sonnet, которая принимает принудительный tool_choice: на
+  // claude-sonnet-5-5 он возвращает 400, переход потребует переделки вызова.
+  supportAssistantModel: process.env.SUPPORT_ASSISTANT_MODEL || "claude-sonnet-5",
 };
 
 export const isSupabaseConfigured = Boolean(

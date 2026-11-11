@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import { getClientIp, rateLimitKeyForIp } from "@/lib/net/client-ip";
+import { logInfo, logWarn } from "@/lib/observability/logger";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
@@ -7,9 +9,11 @@ import { getCurrentAuthProfile } from "@/lib/data";
 import { getPlan } from "@/config/plans";
 import { resolveSubscription } from "@/lib/subscription";
 import {
+  countGroundedSources,
   resolveSupportAnswer,
   supportAnswerSchema,
 } from "@/lib/support-assistant/answer";
+import { applySupportGreeting } from "@/lib/support-assistant/greeting";
 import {
   closeEscalation,
   countRecentEscalations,
@@ -207,7 +211,40 @@ export async function POST(request: Request) {
   }
 
   const { message, isFirstMessageToday } = parsed.data;
-  const history = trimHistory(keepAuthenticHistory(parsed.data.history));
+  const authenticHistory = keepAuthenticHistory(parsed.data.history);
+  const history = trimHistory(authenticHistory);
+  const startedAt = Date.now();
+
+  // След каждого ответа в лог — без текста переписки. По нему видно, как
+  // часто бот зовёт человека, отвечает без опоры на базу, сколько стоит
+  // запрос и попадает ли промпт в кэш. Раньше на проде не было видно ничего,
+  // кроме исключений.
+  const trace: Record<string, unknown> = {
+    visitor: createHash("sha256")
+      .update(`okno-support:${rateLimitKeyForIp(getClientIp(request))}`)
+      .digest("hex")
+      .slice(0, 12),
+    messageChars: message.length,
+    historySent: parsed.data.history.length,
+    historyForged: parsed.data.history.length - authenticHistory.length,
+    historyKept: history.length,
+  };
+
+  // Любой ответ бота: приветствие (код решает, нужно ли), подпись и след.
+  const respond = (
+    body: { reply: string; suggestions: string[]; escalationId?: string },
+    verdict: string,
+  ) => {
+    logInfo("okno.support.answer", {
+      ...trace,
+      verdict,
+      latencyMs: Date.now() - startedAt,
+    });
+    return botReply({
+      ...body,
+      reply: applySupportGreeting(body.reply, { isFirstMessageToday, message, history }),
+    });
+  };
 
   // Позвать живого оператора может только мастер в аккаунте: виджет висит и
   // на лендинге, а без личности вопрос анонима оператору не адресовать.
@@ -225,20 +262,24 @@ export async function POST(request: Request) {
   try {
     const systemPrompt = await buildSupportSystemPrompt(message, {
       isAuthenticated: canEscalate,
-      isFirstMessageToday,
       openEscalationReply: openEscalation?.lastOperatorReply ?? null,
       retrievalContext: buildRetrievalContext(history),
     });
     const client = getAnthropicClient();
 
     const response = await client.messages.create({
-      model: "claude-sonnet-5",
+      model: env.supportAssistantModel,
       // Ответы поддержки короткие по регламенту (1–3 предложения либо до 5
       // шагов), запас нужен на длинную инструкцию и поля tool-ответа (sources,
       // summary, suggestions). При 600 составной вопрос упирался в лимит,
       // tool-ответ обрывался и не проходил разбор.
       max_tokens: 1024,
-      system: systemPrompt,
+      // Правила и индекс тем одинаковы для всех запросов до деплоя — их
+      // кэшируем; всё, что меняется от запроса к запросу, идёт после отметки.
+      system: [
+        { type: "text", text: systemPrompt.stable, cache_control: { type: "ephemeral" } },
+        { type: "text", text: systemPrompt.dynamic },
+      ],
       tools: [supportAnswerTool],
       // Ответ обязан прийти структурой: по свободному тексту не проверить ни
       // опору на базу знаний, ни выбранный исход.
@@ -254,7 +295,21 @@ export async function POST(request: Request) {
       ],
     });
 
+    Object.assign(trace, {
+      authenticated: canEscalate,
+      stopReason: response.stop_reason,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
+      cacheWriteTokens: response.usage.cache_creation_input_tokens ?? 0,
+    });
+
     if (response.stop_reason === "refusal") {
+      logInfo("okno.support.answer", {
+        ...trace,
+        verdict: "refusal",
+        latencyMs: Date.now() - startedAt,
+      });
       return NextResponse.json(
         { error: "Не получилось ответить на этот вопрос. Попробуй переформулировать." },
         { status: 200 },
@@ -272,13 +327,19 @@ export async function POST(request: Request) {
 
     if (!answer?.success) {
       // Без текста пользователя: только то, что нужно, чтобы понять причину.
-      console.warn("okno: support answer rejected", {
-        stopReason: response.stop_reason,
+      logWarn("okno.support.answer_rejected", {
+        ...trace,
         hasToolBlock: Boolean(toolBlock),
         issues: answer?.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.code}`),
       });
       return errorReply(GENERIC_ERROR_MESSAGE);
     }
+
+    Object.assign(trace, {
+      outcome: answer.data.outcome,
+      sources: answer.data.sources,
+      groundedSources: countGroundedSources(answer.data.sources),
+    });
 
     const verdict = resolveSupportAnswer(answer.data, {
       isAuthenticated: canEscalate,
@@ -287,10 +348,7 @@ export async function POST(request: Request) {
     });
 
     if (verdict.kind === "failed") {
-      console.warn("okno: support answer empty", {
-        stopReason: response.stop_reason,
-        outcome: answer.data.outcome,
-      });
+      logWarn("okno.support.answer_empty", trace);
       return errorReply(GENERIC_ERROR_MESSAGE);
     }
 
@@ -305,16 +363,19 @@ export async function POST(request: Request) {
         forwardsSinceReply: openEscalation.forwardsSinceReply,
       });
 
-      return botReply({
-        reply:
-          forwarded === "sent"
-            ? FORWARDED_TO_OPERATOR_MESSAGE
-            : forwarded === "limit"
-              ? FORWARD_LIMIT_MESSAGE
-              : ESCALATION_FAILED_MESSAGE,
-        suggestions: [],
-        escalationId: forwarded === "sent" ? openEscalation.id : undefined,
-      });
+      return respond(
+        {
+          reply:
+            forwarded === "sent"
+              ? FORWARDED_TO_OPERATOR_MESSAGE
+              : forwarded === "limit"
+                ? FORWARD_LIMIT_MESSAGE
+                : ESCALATION_FAILED_MESSAGE,
+          suggestions: [],
+          escalationId: forwarded === "sent" ? openEscalation.id : undefined,
+        },
+        `forward_${forwarded}`,
+      );
     }
 
     if (verdict.kind === "reply") {
@@ -325,10 +386,7 @@ export async function POST(request: Request) {
         await closeEscalation(openEscalation.id);
       }
 
-      return botReply({
-        reply: verdict.reply,
-        suggestions: verdict.suggestions,
-      });
+      return respond({ reply: verdict.reply, suggestions: verdict.suggestions }, "reply");
     }
 
     // Сюда доходят только обращения к человеку, а звать его может только
@@ -341,10 +399,13 @@ export async function POST(request: Request) {
 
     const recentEscalations = await countRecentEscalations({ profileId: authProfile.profile.id });
     if (recentEscalations === null) {
-      return botReply({ reply: ESCALATION_FAILED_MESSAGE, suggestions: [] });
+      return respond(
+        { reply: ESCALATION_FAILED_MESSAGE, suggestions: [] },
+        "escalation_count_failed",
+      );
     }
     if (recentEscalations >= escalationsPerHourLimit) {
-      return botReply({ reply: ESCALATION_LIMIT_MESSAGE, suggestions: [] });
+      return respond({ reply: ESCALATION_LIMIT_MESSAGE, suggestions: [] }, "escalation_limit");
     }
 
     const escalation = await createSupportEscalation({
@@ -357,17 +418,13 @@ export async function POST(request: Request) {
     });
 
     if (!escalation) {
-      return botReply({
-        reply: ESCALATION_FAILED_MESSAGE,
-        suggestions: [],
-      });
+      return respond({ reply: ESCALATION_FAILED_MESSAGE, suggestions: [] }, "escalation_failed");
     }
 
-    return botReply({
-      reply: ESCALATION_ACCEPTED_MESSAGE,
-      suggestions: [],
-      escalationId: escalation.id,
-    });
+    return respond(
+      { reply: ESCALATION_ACCEPTED_MESSAGE, suggestions: [], escalationId: escalation.id },
+      "escalated",
+    );
   } catch (error) {
     // Не логируем и не пробрасываем пользователю тело ошибки API (может
     // содержать фрагменты system prompt или служебные детали) — только

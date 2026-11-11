@@ -171,6 +171,22 @@ describe("supportAnswerSchema", () => {
     expect(parsed.suggestions).toEqual([]);
   });
 
+  it("принимает список, присланный строкой", () => {
+    const asJson = supportAnswerSchema.parse({
+      reply: "ок",
+      outcome: "answer",
+      sources: '["Тарифы и цены", "Пробный месяц"]',
+    });
+    const single = supportAnswerSchema.parse({
+      reply: "ок",
+      outcome: "answer",
+      sources: "Тарифы и цены",
+    });
+
+    expect(asJson.sources).toEqual(["Тарифы и цены", "Пробный месяц"]);
+    expect(single.sources).toEqual(["Тарифы и цены"]);
+  });
+
   it("неизвестный исход по-прежнему отвергает", () => {
     expect(supportAnswerSchema.safeParse({ reply: "ок", outcome: "maybe" }).success).toBe(false);
   });

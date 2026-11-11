@@ -20,7 +20,7 @@ import { logWarn } from "@/lib/observability/logger";
 // Правило грубое и намеренно перестраховочное: цена ложного срабатывания —
 // чуть менее гладкий текст, цена пропуска — враньё от лица поддержки.
 
-const MODEL = "claude-sonnet-5";
+const MODEL = env.supportAssistantModel;
 
 const SYSTEM_PROMPT = [
   "Ты причёсываешь ответ оператора поддержки okno.business перед отправкой пользователю.",
