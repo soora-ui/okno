@@ -902,7 +902,7 @@ export async function updateAccessAction(
     updatePayload.password = parsed.data.password;
   }
 
-  const { error: authError } = await supabase.auth.updateUser(updatePayload);
+  const { data: updatedAuth, error: authError } = await supabase.auth.updateUser(updatePayload);
   if (authError) {
     logError("Failed to update auth access", { profileId: profile.id, error: authError });
     return {
@@ -911,20 +911,31 @@ export async function updateAccessAction(
     };
   }
 
-  // email в profiles под сессией мастера менять нельзя (миграция 202611100001):
-  // по нему определяется админ платформы. Пишем сервисным клиентом уже после
-  // того, как новый адрес принял Supabase Auth.
-  const { error: profileError } = await createSupabaseAdminClient()
-    .from("profiles")
-    .update({ email: parsed.data.email })
-    .eq("id", profile.id);
+  // Адрес в профиле меняем, только когда его уже принял Supabase Auth. Если
+  // включено подтверждение по письму, updateUser оставляет старый адрес, а
+  // новый ждёт перехода по ссылке — тогда профиль не трогаем: он догонит
+  // учётную запись сам при первой загрузке кабинета после подтверждения
+  // (syncProfileEmailWithAuth в owner-repository.ts). Раньше профиль менялся
+  // сразу, и в нём оказывался адрес, который никто не подтверждал.
+  const confirmedEmail = updatedAuth.user?.email?.trim().toLowerCase() ?? "";
+  const emailAwaitsConfirmation =
+    emailChanged && confirmedEmail !== parsed.data.email.trim().toLowerCase();
 
-  if (profileError) {
-    logError("Auth updated but profile email sync failed", { profileId: profile.id, error: profileError });
-    return {
-      success: false,
-      message: "Данные входа обновились частично. Проверь email позже.",
-    };
+  if (emailChanged && !emailAwaitsConfirmation) {
+    // Под сессией мастера email не редактируется (миграция 202611100001):
+    // по нему определяется админ платформы. Пишем сервисным клиентом.
+    const { error: profileError } = await createSupabaseAdminClient()
+      .from("profiles")
+      .update({ email: confirmedEmail })
+      .eq("id", profile.id);
+
+    if (profileError) {
+      logError("Auth updated but profile email sync failed", { profileId: profile.id, error: profileError });
+      return {
+        success: false,
+        message: "Данные входа обновились частично. Проверь email позже.",
+      };
+    }
   }
 
   revalidatePath("/settings");
@@ -935,9 +946,20 @@ export async function updateAccessAction(
     targetId: profile.id,
     metadata: {
       emailChanged,
+      emailAwaitsConfirmation,
       passwordChanged,
     },
   });
+
+  if (emailAwaitsConfirmation) {
+    return {
+      success: true,
+      message: passwordChanged
+        ? "Пароль обновлён. На новый адрес отправлено письмо — email сменится после перехода по ссылке из него."
+        : "На новый адрес отправлено письмо. Email сменится после перехода по ссылке из него, до этого вход по прежнему адресу.",
+    };
+  }
+
   return { success: true, message: "Данные входа обновлены." };
 }
 

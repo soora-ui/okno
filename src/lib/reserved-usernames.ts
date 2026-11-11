@@ -36,6 +36,8 @@ const RESERVED_USERNAMES = new Set([
   "blog",
   "help",
   "logout",
+  "forgot-password",
+  "reset-password",
   "signup",
   "support",
   "www",

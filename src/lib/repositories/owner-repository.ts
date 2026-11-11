@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { getMasterYooKassaAccount } from "@/lib/payments/yookassa-oauth";
 import { getAutopayState } from "@/lib/payments/subscription-autopay";
+import { logError } from "@/lib/observability/logger";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -170,12 +171,14 @@ function asRows(data: unknown[] | null) {
 
 export async function getOwnerProfileRow() {
   const supabase = await createSupabaseServerClient();
-  let user: { id: string } | null = null;
+  let user: { id: string; email: string | null } | null = null;
   let userError: unknown = null;
 
   try {
     const result = await supabase.auth.getUser();
-    user = result.data.user ? { id: result.data.user.id } : null;
+    user = result.data.user
+      ? { id: result.data.user.id, email: result.data.user.email ?? null }
+      : null;
     userError = result.error;
   } catch (error) {
     if (isNonFatalSupabaseSessionError(error)) {
@@ -232,7 +235,40 @@ export async function getOwnerProfileRow() {
     return null;
   }
 
-  return profileRow as unknown as Row;
+  return syncProfileEmailWithAuth(profileRow as unknown as Row, user.email);
+}
+
+// Email в профиле обязан совпадать с подтверждённым адресом входа: по нему
+// определяется админ платформы (src/lib/admin/access.ts) и на него уходят
+// письма. Смена адреса в настройках меняет его в Supabase Auth только после
+// подтверждения по письму, поэтому профиль догоняет учётную запись здесь, при
+// первой загрузке кабинета после подтверждения. Расхождение в обратную
+// сторону (в профиле оказался адрес, которого нет в Auth) чинится так же.
+async function syncProfileEmailWithAuth(row: Row, authEmail: string | null): Promise<Row> {
+  const confirmedEmail = authEmail?.trim().toLowerCase();
+  const profileEmail = typeof row.email === "string" ? row.email.trim().toLowerCase() : "";
+
+  if (!confirmedEmail || confirmedEmail === profileEmail) {
+    return row;
+  }
+
+  // Под сессией мастера email не редактируется (миграция 202611100001).
+  const { error } = await createSupabaseAdminClient()
+    .from("profiles")
+    .update({ email: confirmedEmail })
+    .eq("id", String(row.id));
+
+  if (error) {
+    // Например, адрес уже занят другим профилем. Кабинет при этом должен
+    // открыться — остаёмся на прежнем адресе и пишем в ленту ошибок.
+    logError("Failed to sync profile email with auth email", {
+      profileId: String(row.id),
+      error,
+    });
+    return row;
+  }
+
+  return { ...row, email: confirmedEmail };
 }
 
 export async function getOwnerProfileMediaRow(input: { profileId: string }) {

@@ -29,9 +29,21 @@ type CityPickerProps = {
   defaultValue?: string | null;
   // Помогает различить тёзок: «Октябрьский» в Башкирии и в Подмосковье.
   timezone?: string | null;
+  // Ошибка поля: красная рамка и текст вместо подсказки.
+  error?: string;
+  // Для форм, которые держат значения в своём состоянии (мастер регистрации).
+  onValueChange?: (value: string) => void;
 };
 
-export function CityPicker({ label, name, hint, defaultValue, timezone }: CityPickerProps) {
+export function CityPicker({
+  label,
+  name,
+  hint,
+  defaultValue,
+  timezone,
+  error,
+  onValueChange,
+}: CityPickerProps) {
   const initial = defaultValue?.trim() || defaultCityLabel;
   const [catalog, setCatalog] = useState<CityCatalog | null>(null);
   const [selected, setSelected] = useState<City | null>(null);
@@ -71,6 +83,9 @@ export function CityPicker({ label, name, hint, defaultValue, timezone }: CityPi
   // Пока справочник грузится, отправится то, что пришло с сервера: сервер
   // понимает и id, и название.
   const submitValue = selected?.value ?? initial;
+  useEffect(() => {
+    onValueChange?.(submitValue);
+  }, [onValueChange, submitValue]);
   const shownLabel = selected?.label ?? (/^\d+$/.test(initial) ? "" : initial);
 
   function choose(city: City) {
@@ -114,7 +129,7 @@ export function CityPicker({ label, name, hint, defaultValue, timezone }: CityPi
   }
 
   return (
-    <div className="flex flex-col gap-2 text-sm">
+    <div className="flex flex-col gap-2 text-sm" data-field-invalid={error ? true : undefined}>
       <label htmlFor={`${listId}-input`} className="font-medium" style={{ color: "var(--color-ink)" }}>
         {label}
       </label>
@@ -145,9 +160,11 @@ export function CityPicker({ label, name, hint, defaultValue, timezone }: CityPi
             setOpen(true);
           }}
           onKeyDown={handleKeyDown}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error || hint ? `${listId}-note` : undefined}
           style={{
-            borderColor: "var(--color-line)",
-            backgroundColor: "var(--ui-field-bg)",
+            borderColor: error ? "var(--color-danger)" : "var(--color-line)",
+            backgroundColor: error ? "var(--color-danger-soft)" : "var(--ui-field-bg)",
             color: "var(--color-ink)",
           }}
           className="min-h-12 w-full rounded-field border pl-4 pr-10 text-sm outline-none transition"
@@ -221,9 +238,14 @@ export function CityPicker({ label, name, hint, defaultValue, timezone }: CityPi
           </ul>
         ) : null}
       </div>
-      {hint ? (
-        <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-          {hint}
+      {error || hint ? (
+        <span
+          id={`${listId}-note`}
+          className="text-xs"
+          role={error ? "alert" : undefined}
+          style={{ color: error ? "var(--color-danger)" : "var(--color-muted)" }}
+        >
+          {error || hint}
         </span>
       ) : null}
     </div>

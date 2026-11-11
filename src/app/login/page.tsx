@@ -27,6 +27,10 @@ function getLoginHint(reason?: string) {
     return "Этот кабинет сейчас отключен администратором. Если доступ нужен снова, его нужно включить в админке студии.";
   }
 
+  if (reason === "confirmed") {
+    return "Почта подтверждена. Войди с паролем, который задал при регистрации.";
+  }
+
   if (reason === "deleted") {
     return "Аккаунт удалён вместе со всеми данными. Если захочешь вернуться — просто зарегистрируйся заново.";
   }
@@ -60,6 +64,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </div>
           ) : null}
           <LoginForm redirectTo={params.next} />
+          <ButtonLink href="/forgot-password" variant="ghost" className="w-full px-0">
+            Забыли пароль?
+          </ButtonLink>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-panel border border-line bg-panel px-4 py-4">
               <div className="flex items-center gap-2 text-ink">
