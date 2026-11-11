@@ -125,6 +125,17 @@ await callTelegram("setMyCommands", { commands: clientCommands });
 // по живым привязкам сразу.
 await applyMasterCommandsToLinkedChats();
 
+// Кнопка слева от поля ввода открывает приложение okno вместо списка команд:
+// клиент попадает в свои визиты и поиск мастеров, мастер — сразу в кабинет.
+// Команды никуда не деваются, они по-прежнему набираются через «/».
+await callTelegram("setChatMenuButton", {
+  menu_button: {
+    type: "web_app",
+    text: "Открыть",
+    web_app: { url: `${appUrl.replace(/\/$/, "")}/tg` },
+  },
+});
+
 await callTelegram("setMyDescription", {
   description:
     "Бот okno: уведомления о новых записях, напоминания о визитах и расписание под рукой.",

@@ -166,6 +166,11 @@ export type BookingPageSettings = {
   socialLinks: SocialLinks;
   /** null — точка не выбрана, блока с картой на странице нет. */
   mapLocation: MapLocation | null;
+  /**
+   * Показывать мастера в поиске мини-аппа в Telegram (вкладка «Поиск»).
+   * По умолчанию включено: выключает сам мастер в настройках страницы записи.
+   */
+  showInCatalog: boolean;
 };
 
 export const defaultBookingPageSettings: BookingPageSettings = {
@@ -180,6 +185,7 @@ export const defaultBookingPageSettings: BookingPageSettings = {
   giftCertificateExpiryDate: null,
   socialLinks: emptySocialLinks,
   mapLocation: null,
+  showInCatalog: true,
 };
 
 const denominationSchema = z.coerce
@@ -194,6 +200,11 @@ export const bookingPageSettingsFormSchema = z.object({
   subheadline: z.string().trim().max(subheadlineMaxLength).default(""),
   commentFieldMode: z.enum(commentFieldModes).default("optional"),
   masterContact: z.string().trim().max(masterContactMaxLength).default(""),
+  // Чекбокс: браузер шлёт «on» или не шлёт поле вовсе.
+  showInCatalog: z
+    .union([z.literal("on"), z.literal("off"), z.boolean()])
+    .transform((value) => value === "on" || value === true)
+    .default(false),
 });
 
 export type BookingPageSettingsFormInput = z.infer<
@@ -256,6 +267,7 @@ const storedSchema = z
     giftCertificateExpiryDate: z.string().nullable().optional(),
     socialLinks: z.record(z.string(), z.unknown()).optional(),
     mapLocation: z.unknown().optional(),
+    showInCatalog: z.boolean().optional(),
   })
   .partial();
 
@@ -306,6 +318,7 @@ export function normalizeBookingPageSettings(raw: unknown): BookingPageSettings 
     giftCertificateExpiryDate: noExpiry ? null : expiryDate,
     socialLinks: normalizeStoredSocialLinks(data.socialLinks),
     mapLocation: data.mapLocation ? parseMapLocation(data.mapLocation) : null,
+    showInCatalog: data.showInCatalog ?? true,
   };
 }
 

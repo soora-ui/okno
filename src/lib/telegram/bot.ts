@@ -108,7 +108,7 @@ const weekDays = 7;
 
 const appOrigin = env.appUrl.replace(/\/$/, "");
 const settingsUrl = `${appOrigin}/settings`;
-const scheduleUrl = `${appOrigin}/schedule`;
+const miniAppUrl = `${appOrigin}/tg`;
 
 // Кнопку-ссылку Telegram принимает только на публичный адрес. В разработке
 // (http://localhost:3000) сообщение уходит без кнопки, а не падает целиком.
@@ -149,7 +149,15 @@ function mainKeyboard(): TelegramInlineKeyboard {
       { text: "Сегодня", callback_data: "today" },
       { text: "Неделя", callback_data: "week" },
     ],
-    ...(supportsLinkButtons ? [[{ text: "Открыть кабинет", url: scheduleUrl }]] : []),
+    // Кабинет открывается мини-аппом, а не ссылкой в браузер: внутри Telegram
+    // мастер входит без пароля (подпись запуска + привязка чата) и остаётся в
+    // приложении. Вторая кнопка — на случай, когда мастер сам чей-то клиент.
+    ...(supportsLinkButtons
+      ? [
+          [{ text: "Открыть кабинет", web_app: { url: miniAppUrl } }],
+          [{ text: "Мои записи как клиента", web_app: { url: `${miniAppUrl}?mode=client` } }],
+        ]
+      : []),
   ];
 }
 
@@ -377,8 +385,6 @@ function formatClientBooking(booking: ClientLinkedBooking) {
     startsAt.setLocale("ru").toFormat("d MMMM, HH:mm"),
   ].join("\n");
 }
-
-const miniAppUrl = `${appOrigin}/tg`;
 
 function clientKeyboard(bookings: ClientLinkedBooking[]): TelegramInlineKeyboard {
   if (!supportsLinkButtons) {

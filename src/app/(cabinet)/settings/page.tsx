@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { PasswordConfirmCard } from "@/components/settings/password-confirm-card";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
+import { isTelegramOriginSession } from "@/lib/auth/session-origin";
 import { isSettingsTabId } from "@/config/settingsTabs";
 import { getSettingsData } from "@/lib/data";
 import { getOwnerRecentSubscriptionPayment } from "@/lib/repositories/owner-repository";
@@ -49,6 +51,10 @@ const yookassaOAuthNotices: Record<string, { text: string; tone: "success" | "wa
     text: "Подключение ЮKassa пока недоступно на платформе.",
     tone: "warning",
   },
+  password_required: {
+    text: "Чтобы подключить ЮKassa, подтверди пароль от кабинета — форма ниже.",
+    tone: "warning",
+  },
 };
 
 export default async function SettingsPage({
@@ -56,7 +62,11 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<{ subscription?: string; yookassa?: string; tab?: string }>;
 }) {
-  const [data, query] = await Promise.all([getSettingsData(), searchParams]);
+  const [data, query, telegramSession] = await Promise.all([
+    getSettingsData(),
+    searchParams,
+    isTelegramOriginSession(),
+  ]);
 
   if (!data) {
     redirect("/login");
@@ -111,7 +121,11 @@ export default async function SettingsPage({
   const yookassaNotice = query.yookassa ? yookassaOAuthNotices[query.yookassa] : undefined;
 
   const notices =
-    failedPayment || showSubscriptionNotice || yookassaNotice || showWorkspaceAdminLink ? (
+    failedPayment ||
+    showSubscriptionNotice ||
+    yookassaNotice ||
+    showWorkspaceAdminLink ||
+    telegramSession ? (
       <div className="space-y-4">
         {failedPayment ? (
           <Card className="bg-warning-soft">
@@ -139,6 +153,8 @@ export default async function SettingsPage({
             <p className="text-sm leading-6 text-ink">{yookassaNotice.text}</p>
           </Card>
         ) : null}
+
+        {telegramSession ? <PasswordConfirmCard /> : null}
 
         {showWorkspaceAdminLink ? (
           <Card className="flex flex-wrap items-center justify-between gap-4 bg-panel">

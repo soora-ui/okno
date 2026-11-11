@@ -1,90 +1,74 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Script from "next/script";
-import { CalendarClock, RefreshCw, Share2 } from "lucide-react";
-import { Certificates, type ClientCertificate } from "@/app/tg/certificates";
-import { ConsultantChat } from "@/app/tg/consultant-chat";
-import { ReviewForm } from "@/app/tg/review-form";
-import { PhoneVerify } from "@/app/tg/phone-verify";
-import { TipForm } from "@/app/tg/tip-form";
-import { Button, ButtonLink } from "@/components/ui/button";
-
-type MiniAppBooking = {
-  bookingId: string;
-  masterName: string;
-  masterUsername: string;
-  masterUrl: string;
-  serviceTitle: string;
-  startsAtIso: string;
-  startsAtLabel: string;
-  cancelUrl: string | null;
-  repeatUrl: string;
-  consultantAvailable: boolean;
-  consultantToken: string | null;
-};
-
-type PendingPaymentBooking = MiniAppBooking & {
-  amountRub: number;
-  confirmationUrl: string;
-};
-
-type MiniAppData = {
-  firstName: string | null;
-  hasIdentity: boolean;
-  bookings: MiniAppBooking[];
-  past: MiniAppBooking[];
-  pendingPayment: PendingPaymentBooking[];
-  certificates: ClientCertificate[];
-  reviews: { bookingId: string; rating: number; comment: string }[];
-};
+import { RefreshCw } from "lucide-react";
+import { HomeTab } from "@/app/tg/home-tab";
+import { ProfileTab } from "@/app/tg/profile-tab";
+import { SearchTab } from "@/app/tg/search-tab";
+import { TabBar } from "@/app/tg/tab-bar";
+import {
+  getWebApp,
+  hapticSelect,
+  isTelegramWeb,
+  openExternal,
+  syncTelegramChrome,
+} from "@/app/tg/telegram";
+import type { MiniAppData, TabId } from "@/app/tg/types";
+import { VisitsTab } from "@/app/tg/visits-tab";
+import { Button } from "@/components/ui/button";
 
 type State =
   | { kind: "loading" }
   | { kind: "outside" }
   | { kind: "error"; message: string }
+  // Мастера при запуске сразу ведём в кабинет — пока идёт вход, показываем
+  // скелетон, а не клиентскую главную, которая мелькнула бы на полсекунды.
+  | { kind: "cabinet" }
   | { kind: "ready"; data: MiniAppData };
 
-// Telegram кладёт свой SDK в window при запуске мини-аппа. Типизируем ровно
-// то, чем пользуемся: описывать весь интерфейс ради четырёх вызовов незачем.
-type TelegramWebApp = {
-  initData: string;
-  ready: () => void;
-  expand: () => void;
-  openLink: (url: string) => void;
-  requestContact?: (callback: (shared: boolean) => void) => void;
-};
+// Запись, перенос и страница мастера открываются в том же вебвью обычной
+// навигацией, и возврат «назад» перезагружает приложение. Вкладку помним в
+// sessionStorage, чтобы человек вернулся туда, откуда ушёл, а не на главную.
+const tabStorageKey = "okno-tg-tab";
+const tabIds: TabId[] = ["home", "search", "visits", "profile"];
 
-// Открыть ссылку наружу, а не внутри вебвью. Нужно оплате: 3-D Secure уводит
-// в банковское приложение, откуда возврата в мини-апп нет. Вне Telegram
-// (отладка в браузере) — обычная новая вкладка.
-function openExternal(url: string) {
-  const webApp = getWebApp();
+// Мастер, который хочет увидеть свои записи как клиент, открывает приложение
+// с ?mode=client (отдельная кнопка в чате с ботом). Режим помним на всё время
+// жизни вебвью: возврат со страницы записи приходит уже без параметра.
+const modeStorageKey = "okno-tg-mode";
 
-  if (webApp?.openLink) {
-    webApp.openLink(url);
-    return;
+function isClientMode() {
+  try {
+    if (new URLSearchParams(window.location.search).get("mode") === "client") {
+      window.sessionStorage.setItem(modeStorageKey, "client");
+      return true;
+    }
+
+    return window.sessionStorage.getItem(modeStorageKey) === "client";
+  } catch {
+    return false;
   }
-
-  window.open(url, "_blank", "noopener");
 }
 
-function getWebApp(): TelegramWebApp | null {
-  const telegram = (window as unknown as { Telegram?: { WebApp?: TelegramWebApp } })
-    .Telegram;
-
-  return telegram?.WebApp ?? null;
+function readStoredTab(): TabId {
+  try {
+    const stored = window.sessionStorage.getItem(tabStorageKey) as TabId | null;
+    return stored && tabIds.includes(stored) ? stored : "home";
+  } catch {
+    return "home";
+  }
 }
 
 export function MiniAppClient() {
   const [state, setState] = useState<State>({ kind: "loading" });
   // Подпись запуска нужна и для повторов: после ошибки, после того как человек
-  // поделился номером, и для формы подтверждения другого номера. Живёт в
-  // состоянии, а не в ref: форма получает её пропсом, то есть значение
-  // участвует в рендере.
+  // поделился номером, и для всех форм внутри вкладок. Живёт в состоянии, а не
+  // в ref: формы получают её пропсом, то есть значение участвует в рендере.
   const [initData, setInitData] = useState("");
-  const [sharing, setSharing] = useState(false);
-  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
+  const [tab, setTab] = useState<TabId>("home");
+  const [cabinetBusy, setCabinetBusy] = useState(false);
+  const [cabinetError, setCabinetError] = useState("");
 
   const load = useCallback(async (initData: string) => {
     try {
@@ -103,22 +87,69 @@ export function MiniAppClient() {
           kind: "error",
           message:
             payload.reason === "expired"
-              ? "Сессия устарела. Закрой и открой окно заново."
-              : "Не получилось подтвердить, что это ты. Открой кабинет из чата с ботом.",
+              ? "Сессия устарела. Закрой и открой приложение заново."
+              : "Не получилось подтвердить, что это ты. Открой приложение из чата с ботом.",
         });
 
-        return;
+        return null;
       }
 
-      setState({ kind: "ready", data: payload });
+      return payload as MiniAppData;
     } catch {
       setState({ kind: "error", message: "Нет связи. Проверь интернет и попробуй ещё раз." });
+      return null;
     }
   }, []);
 
-  // Точка входа — загрузка SDK, а не монтирование компонента. Так эффект не
-  // нужен вовсе: Telegram кладёт initData в window при выполнении скрипта, и
-  // раньше этого момента читать всё равно нечего.
+  // Вход в кабинет мастера: сервер проверяет подпись Telegram, находит
+  // привязанный кабинет и ставит сессию. Пароль не нужен — привязку чата
+  // мастер уже подтверждал из кабинета. true — уходим на страницу кабинета.
+  const enterCabinet = useCallback(async (initData: string) => {
+    try {
+      const response = await fetch("/api/telegram/miniapp/master-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ initData }),
+      });
+      const payload = (await response.json()) as { ok?: boolean; redirectTo?: string };
+
+      if (payload.ok && payload.redirectTo) {
+        window.location.assign(payload.redirectTo);
+        return true;
+      }
+
+      setCabinetError("Не получилось открыть кабинет. Попробуй ещё раз или войди на сайте.");
+    } catch {
+      setCabinetError("Нет связи. Проверь интернет и попробуй ещё раз.");
+    }
+
+    return false;
+  }, []);
+
+  // Первая загрузка: клиенту — его приложение, мастеру — сразу кабинет.
+  const start = useCallback(
+    async (initData: string) => {
+      const data = await load(initData);
+
+      if (!data) {
+        return;
+      }
+
+      if (data.master && !isClientMode() && !isTelegramWeb()) {
+        setState({ kind: "cabinet" });
+
+        if (await enterCabinet(initData)) {
+          return;
+        }
+      }
+
+      setState({ kind: "ready", data });
+    },
+    [enterCabinet, load],
+  );
+
+  // Точка входа — загрузка SDK, а не монтирование компонента: Telegram кладёт
+  // initData в window при выполнении скрипта, и раньше читать всё равно нечего.
   const handleSdkReady = useCallback(() => {
     const webApp = getWebApp();
 
@@ -130,49 +161,93 @@ export function MiniAppClient() {
     }
 
     setInitData(webApp.initData);
+    setTab(readStoredTab());
     webApp.ready();
     webApp.expand();
-    void load(webApp.initData);
-  }, [load]);
+    syncTelegramChrome();
+    void start(webApp.initData);
+  }, [start]);
 
-  // Перечитать кабинет после действия, которое меняет данные: отзыв,
-  // привязанный сертификат, поделившийся контакт.
+  // Перечитать данные после действия, которое их меняет: отзыв, привязанный
+  // сертификат, подтверждённый номер. Экран при этом не сбрасываем в скелетон
+  // — человек остаётся там, где был, и просто видит обновлённые данные.
   const reload = useCallback(() => {
-    setState({ kind: "loading" });
-    void load(initData);
+    void load(initData).then((data) => {
+      if (data) {
+        setState({ kind: "ready", data });
+      }
+    });
   }, [initData, load]);
 
-  // Просим номер прямо из мини-аппа. Метод появился не сразу, поэтому если
-  // его нет — честно отправляем в чат, где есть кнопка под полем ввода.
-  const requestContact = useCallback(() => {
-    const webApp = getWebApp();
+  const retry = useCallback(() => {
+    setState({ kind: "loading" });
+    void start(initData);
+  }, [initData, start]);
 
-    if (!webApp?.requestContact) {
-      setState({
-        kind: "error",
-        message:
-          "Твоя версия Telegram не умеет делиться номером отсюда. Напиши боту в чат — там под полем ввода будет кнопка «Показать все мои записи».",
-      });
+  const changeTab = useCallback((next: TabId) => {
+    hapticSelect();
+    setTab(next);
+    window.scrollTo({ top: 0 });
 
+    try {
+      window.sessionStorage.setItem(tabStorageKey, next);
+    } catch {
+      // Приватный режим: вкладка просто не запомнится.
+    }
+  }, []);
+
+  const openCabinet = useCallback(async () => {
+    // В веб-версии сессию во фрейме не поставить — открываем кабинет вкладкой
+    // браузера, где мастер уже вошёл или войдёт по паролю.
+    if (isTelegramWeb()) {
+      openExternal(`${window.location.origin}/dashboard`);
       return;
     }
 
-    setSharing(true);
+    setCabinetBusy(true);
+    setCabinetError("");
 
-    webApp.requestContact((shared) => {
-      setSharing(false);
+    if (!(await enterCabinet(initData))) {
+      setCabinetBusy(false);
+    }
+  }, [enterCabinet, initData]);
 
-      if (!shared) {
-        return;
-      }
+  // Ссылки внутри приложения — обычные <a>: в мобильном клиенте они
+  // открываются в том же вебвью. В веб-версии перехватываем клик и открываем
+  // новой вкладкой (см. isTelegramWeb).
+  const handleLinkClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isTelegramWeb()) {
+      return;
+    }
 
-      // Контакт уходит боту отдельным сообщением, и личность появляется не
-      // мгновенно. Перечитываем с небольшой задержкой.
-      setTimeout(() => {
-        void load(initData);
-      }, 1200);
-    });
-  }, [initData, load]);
+    const link = (event.target as HTMLElement).closest("a[href]");
+
+    if (link instanceof HTMLAnchorElement) {
+      event.preventDefault();
+      openExternal(link.href);
+    }
+  }, []);
+
+  // Родная кнопка «Назад» Telegram: на любой вкладке, кроме главной, она
+  // возвращает на главную. Это синхронизация с внешней системой (шапкой
+  // клиента), поэтому эффект, а не обработчик.
+  const isReady = state.kind === "ready";
+  useEffect(() => {
+    const backButton = getWebApp()?.BackButton;
+
+    if (!backButton || !isReady || tab === "home") {
+      backButton?.hide();
+      return;
+    }
+
+    const goHome = () => changeTab("home");
+    backButton.onClick(goHome);
+    backButton.show();
+
+    return () => {
+      backButton.offClick(goHome);
+    };
+  }, [changeTab, isReady, tab]);
 
   // Скрипт грузится afterInteractive намеренно. При beforeInteractive Telegram
   // успевает поставить свои CSS-переменные на <html> до гидратации, и React
@@ -189,15 +264,22 @@ export function MiniAppClient() {
     return (
       <>
         {sdk}
-        <p className="py-16 text-center text-sm text-muted">Загружаем твои записи…</p>
+        <LoadingSkeleton />
       </>
     );
   }
 
+  if (state.kind === "cabinet") {
+    return <LoadingSkeleton label="Открываю кабинет…" />;
+  }
+
   if (state.kind === "outside") {
     return (
-      <div className="space-y-3 py-16 text-center">
-        <h1 className="text-xl font-semibold text-ink">Кабинет клиента okno</h1>
+      <div className="space-y-3 py-24 text-center">
+        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">okno</p>
+        <h1 className="text-2xl font-semibold tracking-[-0.025em] text-ink">
+          Приложение для Telegram
+        </h1>
         <p className="text-sm leading-6 text-ink-soft">
           Эта страница открывается внутри Telegram — из чата с ботом okno.
         </p>
@@ -207,13 +289,9 @@ export function MiniAppClient() {
 
   if (state.kind === "error") {
     return (
-      <div className="space-y-4 py-16 text-center">
+      <div className="space-y-4 py-24 text-center">
         <p className="text-sm leading-6 text-ink-soft">{state.message}</p>
-        <Button
-          variant="secondary"
-          onClick={reload}
-          className="gap-2"
-        >
+        <Button variant="secondary" onClick={retry} className="gap-2">
           <RefreshCw size={14} />
           Обновить
         </Button>
@@ -222,227 +300,84 @@ export function MiniAppClient() {
   }
 
   const { data } = state;
+  const preferredCity =
+    data.bookings[0]?.city || data.past[0]?.city || null;
 
   return (
-    <div className="space-y-6 py-6">
-      <div className="space-y-1">
-        <h1 className="text-xl font-semibold text-ink">
-          {data.firstName ? `${data.firstName}, твои визиты` : "Твои визиты"}
-        </h1>
-        <p className="text-sm leading-6 text-muted">
-          {data.hasIdentity
-            ? "Все записи у мастеров okno на твой номер."
-            : "Записи, которые ты подключил к боту."}
-        </p>
+    <>
+      {/* key перезапускает анимацию появления при смене вкладки. */}
+      <div key={tab} className="tg-tab-in pb-28 pt-5" onClick={handleLinkClick}>
+        {cabinetError ? (
+          <p
+            role="alert"
+            className="mb-4 rounded-panel border border-line bg-warning-soft px-4 py-3 text-sm leading-6 text-warning"
+          >
+            {cabinetError}
+          </p>
+        ) : null}
+
+        {tab === "home" ? (
+          <HomeTab
+            data={data}
+            initData={initData}
+            onReload={reload}
+            onNavigate={changeTab}
+            onOpenCabinet={() => void openCabinet()}
+            cabinetBusy={cabinetBusy}
+          />
+        ) : null}
+        {tab === "search" ? (
+          <SearchTab initData={initData} preferredCity={preferredCity} />
+        ) : null}
+        {tab === "visits" ? (
+          <VisitsTab
+            data={data}
+            initData={initData}
+            onReload={reload}
+            onNavigate={changeTab}
+          />
+        ) : null}
+        {tab === "profile" ? (
+          <ProfileTab
+            data={data}
+            initData={initData}
+            onReload={reload}
+            onOpenCabinet={() => void openCabinet()}
+            cabinetBusy={cabinetBusy}
+          />
+        ) : null}
       </div>
 
-      {/* Первым делом — то, что горит: слот под предоплату держится 15 минут,
-          и человек, вернувшийся с полдороги, должен увидеть это сразу. */}
-      {data.pendingPayment.length > 0 ? (
-        <ul className="space-y-3">
-          {data.pendingPayment.map((booking) => (
-            <li
-              key={booking.bookingId}
-              className="rounded-card border p-5"
-              style={{ borderColor: "var(--color-warning)" }}
-            >
-              <p className="text-sm font-medium" style={{ color: "var(--color-warning)" }}>
-                Ждём оплату
-              </p>
-              <p className="mt-2 font-medium text-ink">{booking.serviceTitle}</p>
-              <p className="mt-1 text-sm text-ink-soft">
-                {booking.masterName} · {booking.startsAtLabel}
-              </p>
-              <p className="mt-3 text-sm text-ink-soft">
-                Слот держится, пока не пройдёт предоплата {booking.amountRub} ₽.
-              </p>
-              <Button
-                className="mt-4 w-full"
-                onClick={() => openExternal(booking.confirmationUrl)}
-              >
-                Оплатить {booking.amountRub} ₽
-              </Button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {data.bookings.length === 0 ? (
-        <div className="rounded-card bg-panel p-5 text-sm leading-6 text-ink-soft">
-          Ближайших записей нет.
-        </div>
-      ) : (
-        <ul className="space-y-3">
-          {data.bookings.map((booking) => (
-            <BookingCard
-              key={booking.bookingId}
-              booking={booking}
-              past={false}
-              initData={initData}
-              onReload={reload}
-            />
-          ))}
-        </ul>
-      )}
-
-      {data.past.length > 0 ? (
-        <section className="space-y-3">
-          <h2 className="text-base font-semibold text-ink">Прошедшие визиты</h2>
-          <ul className="space-y-3">
-            {data.past.map((booking) => (
-              <BookingCard
-                key={booking.bookingId}
-                booking={booking}
-                past
-                initData={initData}
-                review={data.reviews.find(
-                  (item) => item.bookingId === booking.bookingId,
-                )}
-                onReload={reload}
-              />
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {data.hasIdentity ? (
-        <Certificates
-          initData={initData}
-          certificates={data.certificates}
-          onClaimed={reload}
-        />
-      ) : null}
-
-      {data.hasIdentity ? null : (
-        <div className="space-y-3 rounded-card border border-line p-5">
-          <p className="text-sm leading-6 text-ink-soft">
-            Поделись номером — и я покажу все твои визиты у любого мастера okno, а не
-            только подключённые вручную.
-          </p>
-          <Button onClick={requestContact} disabled={sharing} className="w-full gap-2">
-            <Share2 size={14} />
-            {sharing ? "Ждём номер…" : "Поделиться номером"}
-          </Button>
-
-          {/* Номер в Telegram и номер, на который человек записывался, — разные
-              вещи. Без этого пути у владельца двух номеров кабинет остаётся
-              пустым, а кнопка контакта ему не поможет. */}
-          {showPhoneVerify ? (
-            <PhoneVerify
-              initData={initData}
-              onVerified={() => {
-                setShowPhoneVerify(false);
-                reload();
-              }}
-            />
-          ) : (
-            <Button
-              variant="ghost"
-              onClick={() => setShowPhoneVerify(true)}
-              className="w-full"
-            >
-              В Telegram другой номер
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
+      <TabBar
+        active={tab}
+        onChange={changeTab}
+        badges={{ visits: data.bookings.length + data.pendingPayment.length }}
+      />
+    </>
   );
 }
 
-type Panel = "consultant" | "tip" | "review" | null;
-
-function BookingCard({
-  booking,
-  past,
-  initData,
-  review,
-  onReload,
-}: {
-  booking: MiniAppBooking;
-  past: boolean;
-  initData: string;
-  review?: { rating: number; comment: string };
-  onReload: () => void;
-}) {
-  // Одна раскрытая панель за раз. Две одновременно на телефоне не помещаются,
-  // а две кнопки «Свернуть» рядом друг с другом неразличимы.
-  const [panel, setPanel] = useState<Panel>(null);
-  const toggle = (next: NonNullable<Panel>) =>
-    setPanel((current) => (current === next ? null : next));
-  // Консультант живёт при прошедшем визите: вопросы про уход возникают после
-  // процедуры, а не до неё.
-  const canAsk = past && booking.consultantAvailable && booking.consultantToken;
-
+// Скелетон повторяет главную: приветствие, крупная карточка визита, лента
+// мастеров. Так загрузка читается как «приложение открывается», а не как
+// пустая страница с надписью.
+function LoadingSkeleton({ label }: { label?: string }) {
   return (
-    <li className="rounded-card bg-panel p-5">
-      <p className="font-medium text-ink">{booking.serviceTitle}</p>
-      <p className="mt-1 text-sm text-ink-soft">{booking.masterName}</p>
-      <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-ink">
-        <CalendarClock size={14} className="shrink-0" />
-        {booking.startsAtLabel}
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {/* Перенос и отмена живут на той же странице, что и в ссылке из
-            записи: слот-пикер там уже есть, а внутри мини-аппа она
-            открывается своим же вебвью. */}
-        {!past && booking.cancelUrl ? (
-          <ButtonLink href={booking.cancelUrl} variant="secondary">
-            Перенести или отменить
-          </ButtonLink>
-        ) : null}
-        {/* Подпись не меняется на «Свернуть»: открытое состояние показывает
-            заливка, а одинаковые подписи у соседних кнопок читать невозможно. */}
-        {canAsk ? (
-          <Button
-            variant={panel === "consultant" ? "primary" : "secondary"}
-            onClick={() => toggle("consultant")}
-          >
-            Спросить про уход
-          </Button>
-        ) : null}
-        {past ? (
-          <Button
-            variant={panel === "tip" ? "primary" : "secondary"}
-            onClick={() => toggle("tip")}
-          >
-            Оставить чаевые
-          </Button>
-        ) : null}
-        {past ? (
-          <Button
-            variant={panel === "review" ? "primary" : "secondary"}
-            onClick={() => toggle("review")}
-          >
-            {review ? `Отзыв: ${review.rating}★` : "Оставить отзыв"}
-          </Button>
-        ) : null}
-        <ButtonLink href={booking.repeatUrl} variant="secondary" documentNavigation>
-          {past ? "Записаться снова" : "Записаться ещё"}
-        </ButtonLink>
+    <div
+      className="space-y-6 pb-28 pt-5"
+      aria-busy
+      aria-label={label ?? "Загружаем приложение"}
+    >
+      {label ? <p className="text-sm font-medium text-ink-soft">{label}</p> : null}
+      <div className="space-y-2">
+        <div className="h-3 w-12 animate-pulse rounded-full bg-panel" />
+        <div className="h-7 w-44 animate-pulse rounded-full bg-panel" />
       </div>
-      {canAsk && panel === "consultant" ? (
-        <ConsultantChat token={booking.consultantToken as string} />
-      ) : null}
-      {past && panel === "review" ? (
-        <ReviewForm
-          initData={initData}
-          bookingId={booking.bookingId}
-          existingRating={review?.rating ?? null}
-          existingComment={review?.comment ?? ""}
-          onSaved={() => {
-            setPanel(null);
-            onReload();
-          }}
-        />
-      ) : null}
-      {past && panel === "tip" ? (
-        <TipForm
-          initData={initData}
-          bookingId={booking.bookingId}
-          onOpenLink={openExternal}
-        />
-      ) : null}
-    </li>
+      <div className="h-56 animate-pulse rounded-card bg-panel" />
+      <div className="flex gap-3 overflow-hidden">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="h-40 w-40 shrink-0 animate-pulse rounded-card bg-panel" />
+        ))}
+      </div>
+    </div>
   );
 }

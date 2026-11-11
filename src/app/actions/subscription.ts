@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isTelegramOriginSession, passwordRequiredMessage } from "@/lib/auth/session-origin";
 import { getCurrentAuthProfile } from "@/lib/data";
 import { env, isSupabaseConfigured, isYooKassaConfigured } from "@/lib/env";
 import { writeAuditLog } from "@/lib/observability/audit";
@@ -59,6 +60,11 @@ export async function startProSubscriptionAction(
   // Автопродление включается только явной галочкой на форме оплаты: молча
   // привязывать карту нельзя. Отсутствие поля = согласия не было.
   const wantsAutopay = formData.get("autopay") === "on";
+
+  // Вход из мини-аппа Telegram паролем не подтверждён — деньги трогать нельзя.
+  if (await isTelegramOriginSession()) {
+    return { success: false, message: passwordRequiredMessage };
+  }
 
   if (!isSupabaseConfigured) {
     return {
@@ -210,6 +216,11 @@ export async function startSeatTopUpAction(
 ): Promise<SubscriptionActionState> {
   void _formData;
 
+  // Вход из мини-аппа Telegram паролем не подтверждён — деньги трогать нельзя.
+  if (await isTelegramOriginSession()) {
+    return { success: false, message: passwordRequiredMessage };
+  }
+
   if (!isSupabaseConfigured) {
     return {
       success: false,
@@ -358,6 +369,11 @@ export async function disableSubscriptionAutopayAction(
   _prevState: SubscriptionActionState,
   formData: FormData,
 ): Promise<SubscriptionActionState> {
+
+  // Вход из мини-аппа Telegram паролем не подтверждён — деньги трогать нельзя.
+  if (await isTelegramOriginSession()) {
+    return { success: false, message: passwordRequiredMessage };
+  }
 
   if (!isSupabaseConfigured) {
     return {

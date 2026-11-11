@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isTelegramOriginSession } from "@/lib/auth/session-origin";
 import { env, isYooKassaOAuthConfigured } from "@/lib/env";
 import { getCurrentAuthProfile } from "@/lib/data";
 import { buildAuthorizeUrl, createOAuthState } from "@/lib/payments/yookassa-oauth";
@@ -18,6 +19,14 @@ export async function GET() {
   const authProfile = await getCurrentAuthProfile();
   if (!authProfile || authProfile.source !== "supabase") {
     return NextResponse.redirect(new URL("/login", env.appUrl));
+  }
+
+  // Вход из мини-аппа Telegram паролем не подтверждён. Подключить магазин —
+  // значит решить, куда пойдут деньги клиентов, поэтому сначала пароль.
+  if (await isTelegramOriginSession()) {
+    return NextResponse.redirect(
+      new URL("/settings?tab=account&yookassa=password_required", env.appUrl),
+    );
   }
 
   // Магазин подключают ради предоплаты — на тарифах без неё подключение

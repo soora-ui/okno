@@ -10,7 +10,7 @@ import { MiniAppClient } from "@/app/tg/miniapp-client";
 // Не индексируется: страница без подписи Telegram всё равно ничего не
 // показывает, а в выдаче выглядела бы сломанной.
 export const metadata: Metadata = {
-  title: "Мои записи — okno",
+  title: "okno",
   robots: { index: false, follow: false },
 };
 

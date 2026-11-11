@@ -76,7 +76,7 @@ export function Certificates({
       {certificates.length > 0 ? (
         <ul className="space-y-3">
           {certificates.map((certificate) => (
-            <li key={certificate.id} className="rounded-card bg-panel p-5">
+            <li key={certificate.id} className="rounded-card border border-line bg-surface p-5">
               <p className="font-medium text-ink">
                 {certificate.serviceTitle ?? `Сертификат на ${certificate.amountRub} ₽`}
               </p>
@@ -114,7 +114,7 @@ export function Certificates({
       ) : null}
 
       {formOpen ? (
-        <div className="space-y-3 rounded-card border border-line p-5">
+        <div className="space-y-3 rounded-card border border-line bg-surface p-5">
           <input
             value={code}
             onChange={(event) => setCode(event.target.value.toUpperCase())}

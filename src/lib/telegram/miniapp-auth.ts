@@ -31,7 +31,12 @@ export type ValidateInitDataResult =
   | { status: "expired" }
   | { status: "unconfigured" };
 
-export function validateMiniAppInitData(initData: string): ValidateInitDataResult {
+// maxAgeSeconds сужает срок для чувствительных вызовов: вход в кабинет
+// мастера принимает только свежую подпись (см. master-session/route.ts).
+export function validateMiniAppInitData(
+  initData: string,
+  options: { maxAgeSeconds?: number } = {},
+): ValidateInitDataResult {
   const botToken = env.telegramBotToken;
 
   if (!botToken) {
@@ -70,7 +75,12 @@ export function validateMiniAppInitData(initData: string): ValidateInitDataResul
     return { status: "invalid" };
   }
 
-  if (Date.now() / 1000 - authDate > initDataMaxAgeSeconds) {
+  const maxAgeSeconds = Math.min(
+    options.maxAgeSeconds ?? initDataMaxAgeSeconds,
+    initDataMaxAgeSeconds,
+  );
+
+  if (Date.now() / 1000 - authDate > maxAgeSeconds) {
     return { status: "expired" };
   }
 

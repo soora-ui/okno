@@ -604,3 +604,37 @@ input[type="number"] {
     user-select: none;
   }
 }
+
+/* Мини-апп в Telegram: смена вкладки. Короткое появление на общей кривой
+   движения; при reduced-motion — без сдвига, сразу на месте. */
+@keyframes tg-tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tg-tab-in {
+  animation: tg-tab-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tg-tab-in {
+    animation: none;
+  }
+}
+
+/* Кабинет, открытый внутри Telegram (метку ставит TelegramChrome): ставить
+   PWA оттуда некуда, а нижняя панель учитывает отступ полноэкранного
+   мини-аппа, где env(safe-area-inset-bottom) равен нулю. */
+html[data-telegram] [data-install-prompt] {
+  display: none;
+}
+
+html[data-telegram] nav[aria-label="Разделы кабинета"] {
+  padding-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-area-inset-bottom, 0px));
+}

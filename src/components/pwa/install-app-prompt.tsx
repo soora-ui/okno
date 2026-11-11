@@ -109,6 +109,7 @@ export function InstallAppPrompt() {
   return (
     <aside
       aria-label="Установка приложения"
+      data-install-prompt=""
       className="relative mb-4 flex items-start gap-3 rounded-[var(--radius-panel)] border border-line bg-surface p-4 md:hidden"
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- статичная иконка 192px, оптимизация не нужна */}

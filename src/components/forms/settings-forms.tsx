@@ -340,6 +340,23 @@ export function BookingPageSettingsForm({ profile }: { profile: Profile }) {
         placeholder="Например: +7 978 123-45-67 или @alina_nails"
         hint="Виден клиенту, когда консультант не нашёл ответа в мануале услуги и отправляет вопрос к тебе. Оставь пустым — консультант просто скажет связаться с мастером."
       />
+      <label className="flex items-start gap-3 rounded-field border border-line bg-surface p-4">
+        <input
+          type="checkbox"
+          name="showInCatalog"
+          defaultChecked={settings.showInCatalog}
+          className="mt-1 size-4 shrink-0 accent-[var(--color-ink)]"
+        />
+        <span className="space-y-1">
+          <span className="block text-sm font-medium text-ink">
+            Показывать меня в поиске okno
+          </span>
+          <span className="block text-sm leading-6 text-muted">
+            Клиенты находят мастеров по городу в приложении okno в Telegram. Сними
+            галочку — и записаться к тебе можно будет только по твоей ссылке.
+          </span>
+        </span>
+      </label>
       <FormMessage message={state.message} success={state.success} />
       <SubmitButton idleLabel="Сохранить" pendingLabel="Сохраняю..." />
     </form>

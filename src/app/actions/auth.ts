@@ -411,3 +411,41 @@ export async function signOutAction() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+// Подтверждение паролем для сессии, открытой из мини-аппа Telegram
+// (src/lib/auth/session-origin.ts). Успешный вход по паролю заменяет сессию
+// на парольную — ограничение на действия с деньгами снимается само.
+export async function confirmPasswordAction(
+  _prevState: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  if (!isSupabaseConfigured) {
+    return { success: false, message: "Для подтверждения нужно подключение к Supabase." };
+  }
+
+  const password = String(formData.get("password") ?? "");
+  if (!password) {
+    return { success: false, message: "Введи пароль от кабинета." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.email) {
+    return { success: false, message: "Сессия истекла. Открой кабинет заново." };
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password,
+  });
+
+  if (error) {
+    return { success: false, message: "Пароль не подошёл. Попробуй ещё раз." };
+  }
+
+  revalidatePath("/settings");
+  return { success: true, message: "Пароль подтверждён — все разделы доступны." };
+}

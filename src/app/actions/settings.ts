@@ -480,6 +480,7 @@ export async function updateBookingPageSettingsAction(
     subheadline: formData.get("subheadline") ?? "",
     commentFieldMode: formData.get("commentFieldMode") ?? "optional",
     masterContact: formData.get("masterContact") ?? "",
+    showInCatalog: formData.get("showInCatalog") ?? "off",
   });
   if (!parsed.success) {
     return {
@@ -494,6 +495,7 @@ export async function updateBookingPageSettingsAction(
     subheadline: parsed.data.subheadline,
     commentFieldMode: parsed.data.commentFieldMode,
     masterContact: parsed.data.masterContact,
+    showInCatalog: parsed.data.showInCatalog,
   };
 
   const supabase = await createSupabaseServerClient();
@@ -531,6 +533,7 @@ export async function updateBookingPageSettingsAction(
     metadata: {
       commentFieldMode: parsed.data.commentFieldMode,
       hasHeadline: parsed.data.headline.length > 0,
+      showInCatalog: parsed.data.showInCatalog,
     },
   });
 

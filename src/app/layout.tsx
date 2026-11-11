@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { BookingThemeStyles } from "@/components/booking/booking-theme-styles";
+import { TelegramChrome } from "@/components/layout/telegram-chrome";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { siteDescription, siteName, siteTitle, siteUrl } from "@/config/site";
 import "./globals.css";
@@ -75,6 +76,7 @@ export default function RootLayout({
       <body className="min-h-full font-sans">
         {children}
         <ServiceWorkerRegistration />
+        <TelegramChrome />
       </body>
     </html>
   );

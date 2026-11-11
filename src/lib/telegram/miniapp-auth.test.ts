@@ -90,4 +90,25 @@ describe("validateMiniAppInitData", () => {
       "invalid",
     );
   });
+
+  it("для входа в кабинет принимает только свежую подпись", () => {
+    const twoHoursAgo = Math.floor(Date.now() / 1000) - 2 * 60 * 60;
+    const initData = buildInitData({ userId: 42, authDate: twoHoursAgo });
+
+    // Обычным запросам мини-аппа такая подпись ещё годится…
+    expect(validateMiniAppInitData(initData).status).toBe("ok");
+    // …а сессию кабинета по ней уже не выдаём.
+    expect(validateMiniAppInitData(initData, { maxAgeSeconds: 60 * 60 }).status).toBe(
+      "expired",
+    );
+  });
+
+  it("не даёт продлить срок подписи дольше суток", () => {
+    const twoDaysAgo = Math.floor(Date.now() / 1000) - 2 * 24 * 60 * 60;
+    const initData = buildInitData({ userId: 42, authDate: twoDaysAgo });
+
+    expect(
+      validateMiniAppInitData(initData, { maxAgeSeconds: 7 * 24 * 60 * 60 }).status,
+    ).toBe("expired");
+  });
 });

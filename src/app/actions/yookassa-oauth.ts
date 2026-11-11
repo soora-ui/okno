@@ -1,5 +1,6 @@
 "use server";
 
+import { isTelegramOriginSession, passwordRequiredMessage } from "@/lib/auth/session-origin";
 import { revalidatePath } from "next/cache";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getCurrentAuthProfile } from "@/lib/data";
@@ -30,6 +31,10 @@ export async function revokeYooKassaAccountAction(
   // useActionState всегда передаёт (prevState, formData); кнопке отключения
   // они не нужны — профиль берётся из текущей сессии.
   void _formData;
+
+  if (await isTelegramOriginSession()) {
+    return { success: false, message: passwordRequiredMessage };
+  }
 
   if (!isSupabaseConfigured) {
     return {
