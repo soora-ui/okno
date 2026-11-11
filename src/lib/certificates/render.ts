@@ -81,11 +81,83 @@ export function substitutePlaceholders(
     .replaceAll("{{qrCodeSvg}}", data.qrCodeSvg);
 }
 
+// satori понимает только PNG/JPEG/GIF/SVG, а логотипы на клиенте сжимаются
+// в WebP (profile-media.ts, imageCompressionMimeType) — на WebP satori пишет
+// "Unsupported image type: unknown" и рисует сертификат без логотипа.
+// Поэтому внешние картинки шаблона скачиваем сами, растр перекодируем через
+// sharp (WebP → PNG) и ужимаем до размеров A5 — оригинал логотипа бывает
+// в несколько мегапикселей, а satori держит data URI целиком в памяти.
+// Подставляем уже в разобранное дерево: прогонять мегабайтный data URI
+// через satori-html заметно медленнее.
+const remoteImageFetchTimeoutMs = 10_000;
+
+type SatoriHtmlNode = {
+  type?: string;
+  props?: { src?: unknown; children?: unknown };
+};
+
+async function fetchImageAsSatoriDataUri(url: string): Promise<string> {
+  const response = await fetch(url, { signal: AbortSignal.timeout(remoteImageFetchTimeoutMs) });
+  if (!response.ok) {
+    throw new Error(`Image fetch failed with status ${response.status}: ${url}`);
+  }
+
+  const data = Buffer.from(await response.arrayBuffer());
+  const mimeType = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+  if (mimeType === "image/svg+xml") {
+    return `data:${mimeType};base64,${data.toString("base64")}`;
+  }
+
+  const { default: sharp } = await import("sharp");
+  const resized = sharp(data).resize({
+    width: certificateDimensions.widthPx150dpi,
+    height: certificateDimensions.heightPx150dpi,
+    fit: "inside",
+    withoutEnlargement: true,
+  });
+  const outputIsJpeg = mimeType === "image/jpeg";
+  const output = await (outputIsJpeg ? resized.jpeg() : resized.png()).toBuffer();
+  return `data:image/${outputIsJpeg ? "jpeg" : "png"};base64,${output.toString("base64")}`;
+}
+
+function collectRemoteImageNodes(node: unknown, found: SatoriHtmlNode[]) {
+  if (Array.isArray(node)) {
+    node.forEach((child) => collectRemoteImageNodes(child, found));
+    return;
+  }
+  if (!node || typeof node !== "object") {
+    return;
+  }
+
+  const element = node as SatoriHtmlNode;
+  if (element.type === "img" && typeof element.props?.src === "string" && /^https?:\/\//i.test(element.props.src)) {
+    found.push(element);
+  }
+  collectRemoteImageNodes(element.props?.children, found);
+}
+
+async function inlineRemoteImages(tree: unknown): Promise<void> {
+  const nodes: SatoriHtmlNode[] = [];
+  collectRemoteImageNodes(tree, nodes);
+  const urls = [...new Set(nodes.map((node) => node.props!.src as string))];
+  if (urls.length === 0) {
+    return;
+  }
+
+  const dataUris = new Map(
+    await Promise.all(urls.map(async (url) => [url, await fetchImageAsSatoriDataUri(url)] as const)),
+  );
+  for (const node of nodes) {
+    node.props!.src = dataUris.get(node.props!.src as string);
+  }
+}
+
 // Может бросить исключение, если html вне satori-совместимого подмножества
 // (например, position/grid) — вызывающий код (генерация шаблона) должен
 // поймать это как сигнал "шаблон невалиден", а не как внутреннюю ошибку.
 export async function renderCertificateToSvg(html: string): Promise<string> {
   const tree = parseHtml(html);
+  await inlineRemoteImages(tree);
   // satori-html возвращает свой VNode, не React.ReactNode — структурно
   // это ровно то, что satori ожидает на входе (тот же паттерн, что в
   // официальных примерах satori-html), но типы двух пакетов не совпадают.
