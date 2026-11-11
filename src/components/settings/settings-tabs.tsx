@@ -52,6 +52,7 @@ import {
   SubscriptionSettingsForm,
 } from "@/components/forms/settings-forms";
 import { ReferralSettings } from "@/components/settings/referral-settings";
+import { DeleteAccountSection } from "@/components/settings/delete-account-section";
 import { TelegramConnectSection } from "@/components/settings/telegram-connect-section";
 import { YooKassaConnectSection } from "@/components/settings/yookassa-connect-section";
 import {
@@ -822,12 +823,7 @@ export function SettingsTabs({
                   title="Удалить аккаунт"
                   description="Все данные, записи и клиенты будут удалены без возможности восстановления."
                 >
-                  <button
-                    type="button"
-                    className="inline-flex min-h-11 items-center justify-center self-start rounded-full border border-[var(--color-danger-border)] px-5 py-3 text-sm font-medium text-[var(--color-danger)] transition duration-300 hover:bg-[var(--color-danger-soft)]"
-                  >
-                    Удалить аккаунт
-                  </button>
+                  <DeleteAccountSection profile={profile} />
                 </SettingsSection>
               </>
             ) : null}
