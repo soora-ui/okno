@@ -298,10 +298,12 @@ export async function POST(request: Request) {
     Object.assign(trace, {
       authenticated: canEscalate,
       stopReason: response.stop_reason,
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
-      cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
-      cacheWriteTokens: response.usage.cache_creation_input_tokens ?? 0,
+      // Имена без слова «token»: санитайзер логов (observability/sanitize.ts)
+      // вырезает такие ключи как секреты, и счётчики приходили «[redacted]».
+      usageInput: response.usage.input_tokens,
+      usageOutput: response.usage.output_tokens,
+      usageCacheRead: response.usage.cache_read_input_tokens ?? 0,
+      usageCacheWrite: response.usage.cache_creation_input_tokens ?? 0,
     });
 
     if (response.stop_reason === "refusal") {
