@@ -137,7 +137,7 @@ export function buildAuthEmail(message: AuthEmailMessage, appUrl: string): Email
   @media (max-width: 620px) {
     .card { border-radius: 20px !important; }
     .pad { padding-left: 24px !important; padding-right: 24px !important; }
-    .title { font-size: 26px !important; line-height: 32px !important; }
+    .title { font-size: 32px !important; line-height: 38px !important; }
     .button a { display: block !important; }
   }
   @media (prefers-color-scheme: dark) {
@@ -177,7 +177,7 @@ export function buildAuthEmail(message: AuthEmailMessage, appUrl: string): Email
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="vertical-align:middle;"><img src="${markUrl}" width="32" height="32" alt="" style="display:block; border:0; width:32px; height:32px;"></td>
-                  <td class="ink" style="vertical-align:middle; padding-left:10px; font-family:${font}; font-size:22px; line-height:28px; font-weight:700; letter-spacing:-0.4px; color:${colors.ink};">okno</td>
+                  <td class="ink" style="vertical-align:middle; padding-left:10px; font-family:${font}; font-size:26px; line-height:32px; font-weight:700; letter-spacing:-0.4px; color:${colors.ink};">okno</td>
                 </tr>
               </table>
             </a>
@@ -187,17 +187,17 @@ export function buildAuthEmail(message: AuthEmailMessage, appUrl: string): Email
           <td class="card" style="background-color:${colors.surface}; border:1px solid ${colors.line}; border-radius:28px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td class="pad label" style="padding:40px 40px 0 40px; font-family:${font}; font-size:11px; line-height:14px; letter-spacing:2px; text-transform:uppercase; color:${colors.sageDeep}; font-weight:600;">
+                <td class="pad label" style="padding:40px 40px 0 40px; font-family:${font}; font-size:15px; line-height:18px; letter-spacing:2px; text-transform:uppercase; color:${colors.sageDeep}; font-weight:600;">
                   ${copy.label}
                 </td>
               </tr>
               <tr>
-                <td class="pad title ink" style="padding:12px 40px 0 40px; font-family:${font}; font-size:30px; line-height:36px; letter-spacing:-0.6px; color:${colors.ink}; font-weight:600;">
+                <td class="pad title ink" style="padding:12px 40px 0 40px; font-family:${font}; font-size:36px; line-height:42px; letter-spacing:-0.7px; color:${colors.ink}; font-weight:600;">
                   ${title}
                 </td>
               </tr>
               <tr>
-                <td class="pad soft" style="padding:16px 40px 0 40px; font-family:${font}; font-size:16px; line-height:26px; color:${colors.inkSoft};">
+                <td class="pad soft" style="padding:16px 40px 0 40px; font-family:${font}; font-size:20px; line-height:31px; color:${colors.inkSoft};">
                   ${copy.lead}
                 </td>
               </tr>
@@ -206,7 +206,7 @@ export function buildAuthEmail(message: AuthEmailMessage, appUrl: string): Email
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                     <tr>
                       <td class="btn" align="center" style="border-radius:999px; background-color:${colors.ink};">
-                        <a href="${link}" style="display:inline-block; padding:17px 36px; font-family:${font}; font-size:16px; line-height:20px; color:#ffffff; text-decoration:none; font-weight:600; border-radius:999px;">${copy.button}&nbsp;&nbsp;&rarr;</a>
+                        <a href="${link}" style="display:inline-block; padding:18px 38px; font-family:${font}; font-size:20px; line-height:24px; color:#ffffff; text-decoration:none; font-weight:600; border-radius:999px;">${copy.button}&nbsp;&nbsp;&rarr;</a>
                       </td>
                     </tr>
                   </table>
@@ -216,7 +216,7 @@ export function buildAuthEmail(message: AuthEmailMessage, appUrl: string): Email
                 <td class="pad" style="padding:32px 40px 0 40px;">
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                     <tr>
-                      <td class="hint" style="background-color:${colors.sageSoft}; border-radius:16px; padding:16px 20px; font-family:${font}; font-size:14px; line-height:22px; color:${colors.sageDeep};">
+                      <td class="hint" style="background-color:${colors.sageSoft}; border-radius:16px; padding:16px 20px; font-family:${font}; font-size:18px; line-height:27px; color:${colors.sageDeep};">
                         ${copy.hint}
                       </td>
                     </tr>
@@ -224,7 +224,7 @@ export function buildAuthEmail(message: AuthEmailMessage, appUrl: string): Email
                 </td>
               </tr>
               <tr>
-                <td class="pad muted" style="padding:24px 40px 0 40px; font-family:${font}; font-size:13px; line-height:20px; color:${colors.muted};">
+                <td class="pad muted" style="padding:24px 40px 0 40px; font-family:${font}; font-size:17px; line-height:25px; color:${colors.muted};">
                   Кнопка не нажимается? Скопируйте ссылку в браузер:<br>
                   <a class="link" href="${link}" style="color:${colors.inkSoft}; word-break:break-all;">${link}</a>
                 </td>
@@ -234,7 +234,7 @@ export function buildAuthEmail(message: AuthEmailMessage, appUrl: string): Email
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                     <tr><td class="rule" style="height:1px; background-color:${colors.line}; font-size:0; line-height:0;">&nbsp;</td></tr>
                     <tr>
-                      <td class="muted" style="padding-top:20px; font-family:${font}; font-size:13px; line-height:20px; color:${colors.muted};">
+                      <td class="muted" style="padding-top:20px; font-family:${font}; font-size:17px; line-height:25px; color:${colors.muted};">
                         ${copy.note}
                       </td>
                     </tr>
@@ -245,7 +245,7 @@ export function buildAuthEmail(message: AuthEmailMessage, appUrl: string): Email
           </td>
         </tr>
         <tr>
-          <td class="muted" style="padding:24px 8px 0 8px; font-family:${font}; font-size:12px; line-height:19px; color:${colors.muted};">
+          <td class="muted" style="padding:24px 8px 0 8px; font-family:${font}; font-size:16px; line-height:24px; color:${colors.muted};">
             okno — онлайн-запись для мастеров и студий.<br>
             ${legalEntity.name} · <a href="${offerUrl}" style="color:${colors.muted};">Публичная оферта</a><br>
             Вопросы — <a href="mailto:${supportEmail}" style="color:${colors.muted};">${supportEmail}</a>
